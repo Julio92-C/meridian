@@ -1,0 +1,57 @@
+study:
+  id: chicken_batch1
+  name: "Chicken batch 1 — Dulse supplementation (Gallus caecum)"
+  description: >
+    Long-reads metagenomics comparing Control, Reference diet, Soyabean meal,
+    and Dulse dietary treatments in the chicken caecal bacteriome.
+    Corresponds to the Frontiers paper submitted November 2024.
+
+project_root: "C:/Users/julio/OneDrive/Desktop/PC_JC_2024-11-29_Julio_Gallus"
+
+inputs:
+  abricate_summary: "Reports/Abricate/summary_reportClean.csv"
+  kraken2_report:   "Reports/Kraken2/kraken2_db1_combined_reports.txt"
+  bracken_report:   "Reports/Kraken2/kraken2_db2-bracken_combined_reports.csv"
+  recentrifuge_csv: "Reports/Re-centrifuge/*.rcf.data.csv"
+  diversity_csv:    "Datasets/wf-metagenomics-diversity.csv"
+
+metadata:
+  file: "Datasets/chicken_metadata.csv"
+  sample_id_col: "sample"
+  group_cols:
+    - Treatment
+  random_effect: "block"
+  fixed_effects: [Treatment, Weight]
+  controls: [CTRL1, CTRL2]
+
+taxid_fixes_file: "Metadata/taxid_fixes.csv"
+
+filters:
+  min_count_per_sample:   17
+  min_count_for_species:  2000
+  min_prevalence_aldex:   2
+
+stages:
+  clean_data:             true
+  normalisation:          true
+  taxonomy:               true
+  relative_abundance:     true
+  alpha_diversity:        true
+  beta_diversity:         true
+  differential_abundance: true
+  resistome:              true
+  virulome:               true
+  mobilome:               true
+  network:                true
+  report:                 true
+
+stats:
+  permanova_permutations: 9999
+  aldex_mc_samples:       128
+  alpha: 0.05
+
+outputs:
+  datasets_dir: "Datasets"
+  figures_dir:  "Figures"
+  report_html:  "Reports/pipeline_report.html"
+  log_file:     "Reports/pipeline.log"

@@ -1,0 +1,96 @@
+---
+title: "Metagenomics pipeline report"
+format:
+  html:
+    toc: true
+    toc-depth: 3
+    theme: cosmo
+    code-fold: true
+    embed-resources: true
+params:
+  config: "projects/chicken_batch1/config.yaml"
+execute:
+  echo: false
+  warning: false
+  message: false
+---
+
+```{r setup, include=FALSE}
+repo_root <- rprojroot::find_root(rprojroot::has_file("run_pipeline.R"))
+`%||%` <- function(a,b) if (is.null(a)) b else a
+invisible(lapply(sort(list.files(file.path(repo_root, "R"),
+                                 pattern = "^\\d+_.*\\.R$",
+                                 full.names = TRUE)), source))
+cfg <- load_config(params$config)
+```
+
+# Study: `r cfg$study$name`
+
+`r cfg$study$description`
+
+- **Project root:** `` `r cfg$project_root` ``
+- **Metadata:** `` `r cfg$metadata$file` ``
+- **Primary grouping variable:** `` `r cfg$metadata$group_cols[[1]]` ``
+
+# Methodology
+
+This report reproduces the Chicken batch 1 methodology:
+
+- Host-read removal: Samtools v1.17.
+- Taxonomic classification: Kraken2 v2.1.2 (PlusPF-8) + Bracken v2.7.0.
+- AMR / VF / MGE detection: ABRicate v1.0.1 (CARD, VFDB, PlasmidFinder).
+- Contaminant removal: Re-centrifuge.
+- Normalisation: TPM per gene element.
+- Alpha diversity: richness + Shannon, Kruskal–Wallis.
+- Beta diversity: Bray–Curtis → PCoA + PERMANOVA (`adonis2`, 9999 permutations).
+- Differential abundance: ALDEx2 (128 MC Dirichlet instances, prevalence ≥ 2).
+- Network: tripartite treatment × taxa × GE, topology via igraph/Gephi.
+
+# Figures
+
+Pre-computed figures are embedded from the study's `Figures/` directory.
+
+## Relative abundance
+
+![](`r file.path(cfg$project_root, cfg$outputs$figures_dir, "relative_abundance", "relative_abundance.png")`)
+
+## Alpha diversity
+
+![](`r file.path(cfg$project_root, cfg$outputs$figures_dir, "alpha_diversity", "shannon_violin.png")`)
+
+## Beta diversity (PCoA)
+
+![](`r file.path(cfg$project_root, cfg$outputs$figures_dir, "beta_diversity", "pcoa.png")`)
+
+## Resistome
+
+![](`r file.path(cfg$project_root, cfg$outputs$figures_dir, "resistome", "pcoa.png")`)
+
+## Virulome
+
+![](`r file.path(cfg$project_root, cfg$outputs$figures_dir, "virulome", "pcoa.png")`)
+
+## Mobilome
+
+![](`r file.path(cfg$project_root, cfg$outputs$figures_dir, "mobilome", "pcoa.png")`)
+
+# Statistics
+
+```{r alpha-stats, results='asis'}
+afile <- file.path(cfg$project_root, cfg$outputs$figures_dir,
+                   "alpha_diversity", "alpha_stats.txt")
+if (file.exists(afile)) cat("```\n", readLines(afile), "\n```\n", sep = "\n")
+```
+
+```{r permanova-stats, results='asis'}
+pfile <- file.path(cfg$project_root, cfg$outputs$figures_dir,
+                   "beta_diversity", "permanova.txt")
+if (file.exists(pfile)) cat("```\n", readLines(pfile), "\n```\n", sep = "\n")
+```
+
+# Run log
+
+```{r log, results='asis'}
+lfile <- file.path(cfg$project_root, cfg$outputs$log_file)
+if (file.exists(lfile)) cat("```\n", readLines(lfile), "\n```\n", sep = "\n")
+```

@@ -1,0 +1,60 @@
+study:
+  id: lung_microbiome
+  name: "Lung microbiome — EBSP / UCLH"
+  description: >
+    Exhaled breath and sputum samples from immunocompromised patients seen
+    at the Royal Free Hospital. PhD thesis chapter; paper in preparation.
+
+project_root: "C:/Users/julio/OneDrive/Desktop/Lung_microbiome"
+
+inputs:
+  abricate_summary: "Abricate/summary_reportClean.csv"
+  kraken2_report:   "Kraken2/kraken2_combined_reports.txt"
+  bracken_report:   "Kraken2/kraken2-bracken_combined_reports.csv"
+  recentrifuge_csv: "Re-centrifuge/*.rcf.data.csv"
+  diversity_csv:    "Datasets/wf-metagenomics-diversity.csv"
+
+metadata:
+  file: "Metadata/patient_metadata.csv"
+  sample_id_col: "sample"          # adjust once the sample column is confirmed
+  group_cols:
+    - "Immunodeficiency diagnosis"
+    - Treatment
+    - Sex
+  random_effect: null              # subject-level cohort, no block design
+  fixed_effects:
+    - "Immunodeficiency diagnosis"
+    - Treatment
+  controls: [CTRL1, CTRL2]
+
+taxid_fixes_file: "Metadata/taxid_fixes.csv"
+
+filters:
+  min_count_per_sample:   17
+  min_count_for_species:  2000
+  min_prevalence_aldex:   2
+
+stages:
+  clean_data:             true
+  normalisation:          true
+  taxonomy:               true
+  relative_abundance:     true
+  alpha_diversity:        true
+  beta_diversity:         true
+  differential_abundance: true
+  resistome:              true
+  virulome:               true
+  mobilome:               true
+  network:                true
+  report:                 true
+
+stats:
+  permanova_permutations: 9999
+  aldex_mc_samples:       128
+  alpha: 0.05
+
+outputs:
+  datasets_dir: "Datasets"
+  figures_dir:  "Figures"
+  report_html:  "Reports/pipeline_report.html"
+  log_file:     "Reports/pipeline.log"

@@ -1,0 +1,5 @@
+Metagenomics Projects paths
+Chicken gun microbiome first batch: C:\Users\julio\OneDrive\Desktop\PC_JC_2024-11-29_Julio_Gallus
+Chicken gun microbiome second batch: C:\Users\julio\OneDrive\Desktop\JC_FL_2025_05_20_CK_microbiome
+Hospital microbiome: C:\Users\julio\OneDrive\Desktop\Hospital_microbiome
+Lung microbiome: C:\Users\julio\OneDrive\Desktop\Lung_microbiome

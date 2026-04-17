@@ -1,0 +1,100 @@
+# --------------------------------------------------------------------------- #
+# Metagenomics pipeline configuration — template                              #
+# Copy this file to projects/<study>/config.yaml and fill in the study-       #
+# specific values. Everything that changes between studies lives here.        #
+# --------------------------------------------------------------------------- #
+
+study:
+  id: chicken_batch1              # short slug used in output filenames
+  name: "Chicken batch 1 — Dulse supplementation"
+  description: >
+    Long-reads metagenomics of chicken caecal bacteriome comparing
+    Control, Reference diet, Soyabean meal, and Dulse treatments.
+
+# Absolute path to the study's working directory on disk (the folder that
+# contains Datasets/, Metadata/, Reports/, Figures/, R_scripts/). All other
+# paths below are resolved relative to this root.
+project_root: "C:/Users/julio/OneDrive/Desktop/PC_JC_2024-11-29_Julio_Gallus"
+
+# --------------------------------------------------------------------------- #
+# Input report locations (relative to project_root)                           #
+# --------------------------------------------------------------------------- #
+inputs:
+  abricate_summary: "Reports/Abricate/summary_reportClean.csv"
+  kraken2_report:   "Reports/Kraken2/kraken2_db1_combined_reports.txt"
+  bracken_report:   "Reports/Kraken2/kraken2_db2-bracken_combined_reports.csv"
+  recentrifuge_csv: "Reports/Re-centrifuge/*.rcf.data.csv"   # glob allowed
+  diversity_csv:    "Datasets/wf-metagenomics-diversity.csv" # optional
+
+# --------------------------------------------------------------------------- #
+# Metadata                                                                    #
+# --------------------------------------------------------------------------- #
+metadata:
+  file: "Datasets/chicken_metadata.csv"
+  sample_id_col: "sample"           # column holding the sample barcode/id
+  # Grouping variables to use across plots / stats. The first entry is the
+  # primary grouping (used for colour/x-axis in violin/bar plots).
+  group_cols:
+    - Treatment
+  # Optional random effect (set to null if not applicable).
+  random_effect: "block"
+  # Fixed effects to explore (used in ANOVA / ALDEx2 / alpha-diversity models).
+  fixed_effects:
+    - Treatment
+    - Weight
+  # Samples to treat as negative controls (will be subtracted from contaminant
+  # counts via Re-centrifuge logic).
+  controls:
+    - CTRL1
+    - CTRL2
+
+# --------------------------------------------------------------------------- #
+# Manual taxid / name fixes                                                   #
+# Replaces the ad-hoc `noncontaminants_list[26, 4] <- ...` row edits that     #
+# were scattered through relativeAbundance.R. Keep this as a small CSV so     #
+# fixes are reviewable and versioned.                                         #
+# Columns: taxid,name                                                         #
+# --------------------------------------------------------------------------- #
+taxid_fixes_file: "Metadata/taxid_fixes.csv"
+
+# --------------------------------------------------------------------------- #
+# Filter thresholds                                                           #
+# --------------------------------------------------------------------------- #
+filters:
+  min_count_per_sample:   17      # matches original cleanData.R
+  min_count_for_species:  2000    # used by species count bar chart
+  min_prevalence_aldex:   2       # ALDEx2 low-prevalence filter
+
+# --------------------------------------------------------------------------- #
+# Which analyses to run (false skips the stage)                               #
+# --------------------------------------------------------------------------- #
+stages:
+  clean_data:             true
+  normalisation:          true
+  taxonomy:               true
+  relative_abundance:     true
+  alpha_diversity:        true
+  beta_diversity:         true
+  differential_abundance: true
+  resistome:              true
+  virulome:               true
+  mobilome:               true
+  network:                true
+  report:                 true
+
+# --------------------------------------------------------------------------- #
+# Statistical parameters (methods match Chicken batch 1 manuscript)           #
+# --------------------------------------------------------------------------- #
+stats:
+  permanova_permutations: 9999
+  aldex_mc_samples:       128
+  alpha: 0.05
+
+# --------------------------------------------------------------------------- #
+# Output paths (relative to project_root)                                     #
+# --------------------------------------------------------------------------- #
+outputs:
+  datasets_dir: "Datasets"
+  figures_dir:  "Figures"
+  report_html:  "Reports/pipeline_report.html"
+  log_file:     "Reports/pipeline.log"

@@ -1,0 +1,38 @@
+# R
+.Rhistory
+.RData
+.Ruserdata
+*.Rproj.user/
+
+# renv
+renv/library/
+renv/local/
+renv/cellar/
+renv/python/
+renv/staging/
+
+# Quarto
+/_site/
+/_freeze/
+.quarto/
+
+# Output / data (too large, regenerable from configs)
+*.rcf.data.csv
+*.bam
+*.fastq.gz
+*.fasta
+# Do NOT commit raw study data — only configs, code, and small reference files.
+/projects/*/Datasets/
+/projects/*/Figures/
+/projects/*/Reports/
+
+# OS / editor
+.DS_Store
+Thumbs.db
+*~
+*.swp
+.idea/
+.vscode/
+
+# Claude Code local
+.claude/
