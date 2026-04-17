@@ -105,25 +105,24 @@ docs/conversation_log.md
 ## 2026-04-17 — User preferences captured
 
 - **GitHub visibility:** Private.
-- **GitHub remote:** *Deferred.* Keep everything local for now; user will
-  create the remote themselves later.
-- **Planned repo name (when created):** `longread-metagenomics-pipeline`.
 - **HTML reporting:** Quarto — user will install from quarto.org.
   `run_pipeline.R` already detects Quarto on PATH and skips the report
   stage gracefully if it's missing.
+
+## 2026-04-17 — Remote pushed
+
+- Remote: <https://github.com/Julio92-C/Metagenomics_pipeline_automation.git>
+  (name kept as `Metagenomics_pipeline_automation`, matching the local dir).
+- User created an empty repo with an auto-generated README and LICENSE.
+  Local history was rebased onto `origin/main`; the README conflict was
+  resolved by keeping the detailed local README. The GitHub-supplied
+  LICENSE is now in the repo.
+- Branch `main` tracks `origin/main`; initial scaffold pushed successfully.
 
 ## Open items
 
 - User to install Quarto, then the report stage will run automatically on
   the next `Rscript run_pipeline.R projects/chicken_batch1/config.yaml`.
-- When ready to push, create repo `longread-metagenomics-pipeline` (Private)
-  on GitHub and run:
-
-  ```bash
-  git remote add origin https://github.com/<username>/longread-metagenomics-pipeline.git
-  git push -u origin main
-  ```
-
 - First validation run against Chicken batch 1 — compare regenerated figures
   against the published figures in `Figures/` before declaring parity.
 - Populate `Metadata/taxid_fixes.csv` for Chicken batch 1 by extracting the
