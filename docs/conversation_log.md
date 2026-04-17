@@ -119,13 +119,27 @@ docs/conversation_log.md
   LICENSE is now in the repo.
 - Branch `main` tracks `origin/main`; initial scaffold pushed successfully.
 
+## 2026-04-17 — Quarto + renv
+
+- Quarto confirmed installed at
+  `C:\Users\julio\AppData\Local\Programs\Quarto\bin\quarto.cmd` (user
+  install). The HTML report stage in `run_pipeline.R` will pick it up via
+  `Sys.which()` when R is launched from a fresh shell.
+- `renv` initialised with `renv::init(bare = TRUE)`; then `renv::hydrate()`
+  pulled the already-installed packages from the user library into the
+  project library and `renv::snapshot(type = "all")` wrote `renv.lock`.
+- Lockfile records **R 4.5.0** and **180 packages** from CRAN +
+  Bioconductor 3.22 (ALDEx2 1.42.0, vegan 2.6-10, ape, igraph 2.1.4,
+  pheatmap 1.0.12, VennDiagram, plotly 4.10.4, etc.).
+- `.Rprofile` sources `renv/activate.R` so future R sessions in the repo
+  auto-activate the project library. `renv/library/`, `renv/staging/`,
+  etc. are ignored via `renv/.gitignore`; only `renv.lock` and
+  `renv/activate.R` are versioned.
+- Missing-before-init: `ape` (installed from CRAN during hydrate).
+
 ## Open items
 
-- User to install Quarto, then the report stage will run automatically on
-  the next `Rscript run_pipeline.R projects/chicken_batch1/config.yaml`.
 - First validation run against Chicken batch 1 — compare regenerated figures
   against the published figures in `Figures/` before declaring parity.
 - Populate `Metadata/taxid_fixes.csv` for Chicken batch 1 by extracting the
   hardcoded fixes from the original `relativeAbundance.R`.
-- Install R packages `{yaml, vegan, ape, igraph, pheatmap, VennDiagram,
-  paletteer, ALDEx2, plotly, htmlwidgets, rprojroot}` via `renv`.

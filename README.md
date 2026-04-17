@@ -79,22 +79,20 @@ decontamination to the final HTML report.
 - [Quarto](https://quarto.org/docs/get-started/) ≥ 1.4
 - Git
 
-**Clone and install R dependencies**
+**Clone and restore the pinned R environment with `renv`**
 
 ```bash
 git clone https://github.com/Julio92-C/Metagenomics_pipeline_automation.git
 cd Metagenomics_pipeline_automation
 
-Rscript -e 'install.packages(c(
-  "yaml", "readr", "dplyr", "tidyr", "purrr", "stringr",
-  "ggplot2", "ggpubr", "paletteer", "plotly", "htmlwidgets",
-  "vegan", "ape", "igraph", "pheatmap", "VennDiagram",
-  "tibble", "rprojroot"
-))'
-
-# ALDEx2 is on Bioconductor
-Rscript -e 'if (!require("BiocManager")) install.packages("BiocManager"); BiocManager::install("ALDEx2")'
+# Launch R in the project and restore the locked package versions.
+# renv::restore() reads renv.lock and installs the exact versions used
+# to develop the pipeline (including ALDEx2 from Bioconductor 3.22).
+Rscript -e 'if (!requireNamespace("renv", quietly = TRUE)) install.packages("renv", repos = "https://cloud.r-project.org"); renv::restore(prompt = FALSE)'
 ```
+
+The lockfile records R 4.5.0 + 180 packages (CRAN + Bioconductor). To bump
+a package later: install the new version, then run `renv::snapshot()`.
 
 ---
 
