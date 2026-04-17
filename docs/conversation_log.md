@@ -102,13 +102,28 @@ docs/conversation_log.md
 
 ---
 
+## 2026-04-17 — User preferences captured
+
+- **GitHub visibility:** Private.
+- **GitHub remote:** *Deferred.* Keep everything local for now; user will
+  create the remote themselves later.
+- **Planned repo name (when created):** `longread-metagenomics-pipeline`.
+- **HTML reporting:** Quarto — user will install from quarto.org.
+  `run_pipeline.R` already detects Quarto on PATH and skips the report
+  stage gracefully if it's missing.
+
 ## Open items
 
-- Install `gh` CLI (not currently on PATH) to create the GitHub remote, or
-  create the repo in the GitHub UI and add the remote locally.
-- Install Quarto (not currently on PATH) for the HTML report step; until it
-  is installed, `run_pipeline.R` logs "Quarto not found — skipping HTML"
-  and everything else still runs.
+- User to install Quarto, then the report stage will run automatically on
+  the next `Rscript run_pipeline.R projects/chicken_batch1/config.yaml`.
+- When ready to push, create repo `longread-metagenomics-pipeline` (Private)
+  on GitHub and run:
+
+  ```bash
+  git remote add origin https://github.com/<username>/longread-metagenomics-pipeline.git
+  git push -u origin main
+  ```
+
 - First validation run against Chicken batch 1 — compare regenerated figures
   against the published figures in `Figures/` before declaring parity.
 - Populate `Metadata/taxid_fixes.csv` for Chicken batch 1 by extracting the
