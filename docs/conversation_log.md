@@ -137,9 +137,57 @@ docs/conversation_log.md
   `renv/activate.R` are versioned.
 - Missing-before-init: `ape` (installed from CRAN during hydrate).
 
+## 2026-05-01 → 2026-05-04 — First smoke test against real chicken_batch1 data
+
+Set up `projects/test_real_data/config.yaml` as a non-clobbering test config
+(outputs redirected under `test_run/`). Ran the pipeline end-to-end three
+times. Never produced clean outputs; instead surfaced that the scaffold has
+never been validated against real data shapes.
+
+**Code bugs fixed in this session:**
+
+- `run_pipeline.R` could not run under `Rscript` — `sys.frame(1)$ofile` threw
+  before the `%||%` fallback (which was also defined later in the file).
+  Reordered + wrapped in `tryCatch`; added a `--file=` arg path.
+- `R/02_clean_data.R` `left_join` failed with character-vs-double `taxid`
+  type mismatch. Coerced both keys to character before the join.
+
+**Feature added:** per-stage progress reporter in `run_pipeline.R` — each
+enabled stage logs `[i/n  pct%] stage_name — start / done in Xs` to both
+stdout and the run log, so a long-running stage can be distinguished from a
+hung one.
+
+**Open issues surfaced (not fixed) — see [pipeline_rework_scoping.md]
+(pipeline_rework_scoping.md) for the full inventory:**
+
+- `R/02_clean_data.R` Re-centrifuge slicing assumes a fixed-triplet column
+  layout; real CSV repeats triplets across 8 taxonomic ranks plus trailing
+  `Rank`/`Name` columns. Slicing produces a 350-column mess.
+- `tidyr::separate(SEQUENCE, ..., sep = "_")` on line 14 emits 412
+  `additional-pieces-discarded` warnings — silent data-correctness bug for
+  any SEQUENCE value with >1 underscore.
+- `chicken_batch1/config.yaml` carries placeholder values from the template:
+  `controls: [CTRL1, CTRL2]` (no controls exist), `random_effect: block` (no
+  `block` column), `fixed_effects: [Treatment, Weight]` (no `Weight` column),
+  bracken path is stale, metadata file has every-other-row blank
+  (`chicken_metadata1.csv` is the clean version).
+
+**Decision (user, 2026-05-04):** stop patching, treat this run as scoping.
+Next session reverse-engineers each module against the 46 hand-edited scripts
+in the project's `R_scripts/` folder, validating outputs against the
+"known-good" files already in the data `Datasets/` folder.
+
+**Design principle captured:** pipeline modules must adapt to per-project
+input shape. Each study has its own metadata layout, treatment counts,
+control presence, and column structure. Hardcoded slicing/index assumptions
+are the failure mode to avoid.
+
 ## Open items
 
 - First validation run against Chicken batch 1 — compare regenerated figures
   against the published figures in `Figures/` before declaring parity.
 - Populate `Metadata/taxid_fixes.csv` for Chicken batch 1 by extracting the
   hardcoded fixes from the original `relativeAbundance.R`.
+- **Pipeline rework** — see `docs/pipeline_rework_scoping.md`. Reverse-engineer
+  each `R/NN_*.R` module from the corresponding hand-edited script in the
+  Chicken batch 1 `R_scripts/` folder. Start with `R/02_clean_data.R`.
