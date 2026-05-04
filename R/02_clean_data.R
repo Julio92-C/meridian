@@ -1,26 +1,45 @@
 # 02_clean_data.R — merge Abricate + Kraken2 + Re-centrifuge; apply taxid fixes;
-# subtract negative-control counts; produce the "LR-GEs contigs" table used by
-# downstream modules. Mirrors cleanData.R from the reference studies but
-# parameterised by config (no hardcoded sample IDs or paths).
+# optionally subtract negative-control counts; produce the "LR-GEs contigs"
+# table used by downstream modules. Mirrors cleanData.R from the reference
+# studies but parameterised by config (no hardcoded sample IDs or paths).
+# Studies without negative controls leave cfg$metadata$controls empty/null
+# and the control-baseline subtraction is skipped.
 
 clean_data <- function(inputs, cfg) {
   pipeline_log(cfg, "Cleaning + decontaminating")
 
   # --- Abricate summary: normalise sample and taxid columns ----------------
+  # SEQUENCE values look like "<contig_id>_kraken:taxid|<taxid>", with an
+  # optional contig-variant suffix between the UUID and "_kraken" (e.g.
+  # "uuid_1_kraken:taxid|543"). Splitting on "_" loses the variant suffix
+  # AND the actual taxid for those rows, so extract via regex on the stable
+  # "_kraken:taxid|<digits>" tail instead.
   summary_df <- as.data.frame(inputs$abricate)
   names(summary_df)[names(summary_df) == "#FILE"] <- "sample"
   summary_df$sample <- sub("_.*", "", gsub(".fasta", "", summary_df$sample))
   summary_df <- summary_df |>
-    tidyr::separate(SEQUENCE, into = c("sequence", "taxid"), sep = "_") |>
-    dplyr::mutate(taxid = sub(".*\\|", "", taxid)) |>
+    dplyr::mutate(
+      sequence = sub("_kraken:taxid\\|\\d+$", "", SEQUENCE),
+      taxid    = sub(".*\\|", "", SEQUENCE)
+    ) |>
+    dplyr::select(-SEQUENCE) |>
     dplyr::distinct()
 
   # --- Kraken2 taxid → name lookup ----------------------------------------
   taxid_name <- dplyr::select(inputs$kraken2, taxid, name)
 
   # --- Re-centrifuge contaminant counts -----------------------------------
+  # NOTE: the by-3 column slicing below is the original cleanData.R logic
+  # and is known to be too coarse for the real Re-centrifuge layout (mixes
+  # ranks, can include trailing Rank/Name columns). Full rewrite is queued
+  # in docs/pipeline_rework_scoping.md. Until then we drop the obvious
+  # trailing character columns so as.numeric() doesn't warn on them.
   rcf <- inputs$recentrifuge
   rcf <- rcf[-c(1, 2), ]
+  # Drop trailing Rank/Name columns. Their row-1 header is "Details" (so
+  # read_csv auto-disambiguates them as "Details", "Details...N") but their
+  # actual values are taxonomic-rank labels and taxon names, not counts.
+  rcf <- rcf[, !grepl("^Details(\\.\\.\\..*)?$", colnames(rcf))]
   # Keep only columns that are read counts (every 3rd column after the
   # Samples/taxid column) — matches the original cleanData.R indexing.
   keep_cols <- c(1, 2, seq(5, ncol(rcf), by = 3))
@@ -33,6 +52,8 @@ clean_data <- function(inputs, cfg) {
   })
 
   # --- Apply taxid fixes (replaces noncontaminants_list[NN, 4] <- "...") ---
+  rcf$taxid        <- as.character(rcf$taxid)
+  taxid_name$taxid <- as.character(taxid_name$taxid)
   rcf_named <- dplyr::left_join(rcf, taxid_name, by = "taxid")
   if (!is.null(inputs$taxid_fixes)) {
     fix_lookup <- setNames(inputs$taxid_fixes$name, inputs$taxid_fixes$taxid)
@@ -40,20 +61,44 @@ clean_data <- function(inputs, cfg) {
   }
 
   # --- Split contaminant vs non-contaminant counts -------------------------
-  controls <- cfg$metadata$controls
+  # Negative controls are optional. If declared, validate they exist in the
+  # Re-centrifuge data; if absent, skip the control-baseline subtraction.
+  declared <- cfg$metadata$controls
+  if (is.null(declared)) declared <- character(0)
+  missing_ctrls <- setdiff(declared, colnames(rcf_named))
+  if (length(missing_ctrls) > 0) {
+    stop(sprintf(
+      "Negative controls declared in config but not found in Re-centrifuge data: %s",
+      paste(missing_ctrls, collapse = ", ")
+    ))
+  }
+  controls <- declared
+  has_controls <- length(controls) > 0
+
+  if (!has_controls) {
+    pipeline_log(cfg, "No negative controls declared — skipping control-baseline subtraction")
+  }
+
   sample_cols <- setdiff(colnames(rcf_named),
                          c("taxid", "name", "Classifier", controls))
 
   pivoted <- rcf_named |>
     tidyr::pivot_longer(cols = dplyr::all_of(sample_cols),
                         names_to = "sample", values_to = "count") |>
-    dplyr::mutate(
-      count = as.numeric(count),
+    dplyr::mutate(count = as.numeric(count))
+
+  if (has_controls) {
+    pivoted <- dplyr::mutate(
+      pivoted,
       dplyr::across(dplyr::all_of(controls), as.numeric)
     )
-
-  # Use mean of control columns as contaminant baseline.
-  pivoted$control_max <- apply(pivoted[, controls, drop = FALSE], 1, max, na.rm = TRUE)
+    pivoted$control_max <- apply(
+      pivoted[, controls, drop = FALSE], 1, max, na.rm = TRUE
+    )
+  } else {
+    # No controls → no baseline to subtract; count > -Inf is always TRUE.
+    pivoted$control_max <- -Inf
+  }
 
   noncontaminants <- pivoted |>
     dplyr::filter(count > control_max) |>

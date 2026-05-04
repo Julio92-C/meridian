@@ -1,0 +1,60 @@
+study:
+  id: test_real_data
+  name: "Smoke test against real chicken_batch1 data"
+  description: >
+    Test config for verifying the pipeline against the real Gallus caecum
+    dataset. Reads inputs from the original project_root but writes every
+    output under test_run/ so existing analysis files are never overwritten.
+
+project_root: "C:/Users/julio/OneDrive/Desktop/PC_JC_2024-11-29_Julio_Gallus"
+
+inputs:
+  abricate_summary: "Reports/Abricate/summary_reportClean.csv"
+  kraken2_report:   "Reports/Kraken2/kraken2_db1_combined_reports.txt"
+  bracken_report:   "Reports/Kraken2/bracken_arranged.csv"
+  recentrifuge_csv: "Reports/Re-centrifuge/*.rcf.data.csv"
+  diversity_csv:    "Datasets/wf-metagenomics-diversity.csv"
+
+metadata:
+  file: "Datasets/chicken_metadata1.csv"   # clean version (no blank rows)
+  sample_id_col: "sample"
+  group_cols:
+    - Treatment
+  # chicken_batch1 has no random effect / Weight column; leaving these
+  # placeholders here for now — downstream stages may need similar
+  # optional handling once they are reworked.
+  random_effect: ~
+  fixed_effects: [Treatment]
+  controls: []                              # no negative controls in this study
+
+taxid_fixes_file: "Metadata/taxid_fixes.csv"
+
+filters:
+  min_count_per_sample:   17
+  min_count_for_species:  2000
+  min_prevalence_aldex:   2
+
+stages:
+  clean_data:             true
+  normalisation:          false
+  taxonomy:               false
+  relative_abundance:     false
+  alpha_diversity:        false
+  beta_diversity:         false
+  differential_abundance: false
+  resistome:              false
+  virulome:               false
+  mobilome:               false
+  network:                false
+  report:                 false
+
+stats:
+  permanova_permutations: 9999
+  aldex_mc_samples:       128
+  alpha: 0.05
+
+outputs:
+  datasets_dir: "test_run/Datasets"
+  figures_dir:  "test_run/Figures"
+  report_html:  "test_run/Reports/pipeline_report.html"
+  log_file:     "test_run/Reports/pipeline.log"

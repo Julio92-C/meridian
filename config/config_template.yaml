@@ -42,11 +42,16 @@ metadata:
   fixed_effects:
     - Treatment
     - Weight
-  # Samples to treat as negative controls (will be subtracted from contaminant
-  # counts via Re-centrifuge logic).
-  controls:
-    - CTRL1
-    - CTRL2
+  # Optional. Sample IDs to treat as negative controls — their per-taxon
+  # counts are used as the contaminant baseline and subtracted from real
+  # samples in the Re-centrifuge step. Leave empty (`controls: []`) or omit
+  # entirely for studies that don't have controls; the baseline subtraction
+  # is skipped and a note is written to the run log. Declared controls that
+  # don't appear as columns in the Re-centrifuge CSV cause a hard error,
+  # because that's almost always a config typo.
+  controls: []
+  #   - CTRL1
+  #   - CTRL2
 
 # --------------------------------------------------------------------------- #
 # Manual taxid / name fixes                                                   #
