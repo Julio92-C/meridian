@@ -36,7 +36,7 @@ filters:
 
 stages:
   clean_data:             true
-  normalisation:          false
+  normalisation:          true
   taxonomy:               false
   relative_abundance:     false
   alpha_diversity:        false

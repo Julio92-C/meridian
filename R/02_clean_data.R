@@ -111,11 +111,79 @@ clean_data <- function(inputs, cfg) {
   abri_kraken2 <- dplyr::inner_join(summary_df, noncontaminants,
                                     by = c("taxid", "sample"))
 
+  # Drop duplicate hits (same contig, same coordinates) — mirrors the
+  # `distinct(sequence, START, END, .keep_all = T)` step in normData.R.
+  abri_kraken2 <- dplyr::distinct(abri_kraken2, sequence, START, END,
+                                  .keep_all = TRUE)
+
+  # --- Optional: Bracken merge + metadata join ----------------------------
+  # Produces the abri_kraken2Bracken_merged table consumed by R/03 and other
+  # downstream stages. Sample columns in the Bracken file are detected from
+  # the metadata's sample_id column (no positional slicing); studies without
+  # a Bracken report leave `merged` NULL.
+  merged <- NULL
+  if (!is.null(inputs$bracken)) {
+    bracken    <- inputs$bracken
+    sid_col    <- cfg$metadata$sample_id_col
+    meta_ids   <- as.character(inputs$metadata[[sid_col]])
+    brk_smp    <- intersect(meta_ids, colnames(bracken))
+    if (length(brk_smp) == 0) {
+      stop("No metadata sample IDs match Bracken column headers")
+    }
+
+    bracken_long <- bracken |>
+      tidyr::pivot_longer(
+        cols      = dplyr::all_of(brk_smp),
+        names_to  = "sample",
+        values_to = "sampleCount"
+      ) |>
+      dplyr::mutate(
+        sampleCount = as.numeric(sampleCount),
+        taxid       = as.character(taxid)
+      ) |>
+      dplyr::filter(!grepl(
+        "root|Homo sapiens|cellular organisms|unclassified|Bacteria|environmental samples",
+        name
+      ))
+
+    rename_map <- c(TotalBCount = "tot_all", PercB = "#perc")
+    rename_map <- rename_map[rename_map %in% colnames(bracken_long)]
+    if (length(rename_map) > 0) {
+      bracken_long <- dplyr::rename(bracken_long, !!!rename_map)
+    }
+    keep <- intersect(
+      c("sample", "taxid", "name", "sampleCount", "PercB", "TotalBCount"),
+      colnames(bracken_long)
+    )
+    bracken_long <- bracken_long[, keep, drop = FALSE]
+
+    abri_kraken2$taxid <- as.character(abri_kraken2$taxid)
+    merged <- dplyr::inner_join(abri_kraken2, bracken_long,
+                                by = c("sample", "taxid", "name"))
+
+    # Attach metadata columns declared in cfg (fixed_effects, random_effect).
+    meta_attach <- unique(c(cfg$metadata$fixed_effects,
+                            cfg$metadata$random_effect))
+    meta_attach <- intersect(meta_attach, colnames(inputs$metadata))
+    if (length(meta_attach) > 0) {
+      md <- inputs$metadata[, c(sid_col, meta_attach), drop = FALSE]
+      names(md)[names(md) == sid_col] <- "sample"
+      md$sample      <- as.character(md$sample)
+      merged$sample  <- as.character(merged$sample)
+      merged <- dplyr::left_join(merged, md, by = "sample")
+    }
+  }
+
   # --- Persist cleaned outputs --------------------------------------------
   out_dir <- file.path(cfg$project_root, cfg$outputs$datasets_dir)
   dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
   readr::write_csv(noncontaminants, file.path(out_dir, "noncontaminants_list.csv"))
   readr::write_csv(abri_kraken2,    file.path(out_dir, "abri_kraken2_cleaned.csv"))
+  if (!is.null(merged)) {
+    readr::write_csv(merged, file.path(out_dir, "abri_kraken2Bracken_merged.csv"))
+  }
 
-  list(noncontaminants = noncontaminants, abri_kraken2 = abri_kraken2)
+  list(noncontaminants = noncontaminants,
+       abri_kraken2    = abri_kraken2,
+       merged          = merged)
 }
