@@ -36,10 +36,10 @@ clean_data <- function(inputs, cfg) {
   # trailing character columns so as.numeric() doesn't warn on them.
   rcf <- inputs$recentrifuge
   rcf <- rcf[-c(1, 2), ]
-  # Drop trailing Rank/Name columns. Their row-1 header is "Details" (so
-  # read_csv auto-disambiguates them as "Details", "Details...N") but their
-  # actual values are taxonomic-rank labels and taxon names, not counts.
-  rcf <- rcf[, !grepl("^Details(\\.\\.\\..*)?$", colnames(rcf))]
+  # Drop trailing Rank/Name columns. Their row-1 header is "Details" (so the
+  # CSV reader auto-disambiguates them as "Details", "Details.1" via fread,
+  # or "Details", "Details...2" via readr). Match both styles.
+  rcf <- rcf[, !grepl("^Details($|\\.)", colnames(rcf))]
   # Keep only columns that are read counts (every 3rd column after the
   # Samples/taxid column) — matches the original cleanData.R indexing.
   keep_cols <- c(1, 2, seq(5, ncol(rcf), by = 3))

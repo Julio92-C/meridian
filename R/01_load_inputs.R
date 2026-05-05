@@ -27,7 +27,17 @@ load_inputs <- function(cfg) {
   rcf_pattern <- file.path(cfg$project_root, cfg$inputs$recentrifuge_csv)
   rcf_files   <- Sys.glob(rcf_pattern)
   stopifnot("No Re-centrifuge csv matched the glob" = length(rcf_files) >= 1)
-  recentrifuge <- readr::read_csv(rcf_files[[1]], show_col_types = FALSE)
+  # Re-centrifuge CSVs are wide (~350 cols) with mixed-type preamble rows
+  # (cnt/una/sco labels, ID rows) before the numeric counts begin. readr's
+  # vroom backend has segfaulted on this shape — use data.table::fread with
+  # everything coerced to character (R/02 casts back to numeric after the
+  # rank-aware column slicing).
+  recentrifuge <- data.table::fread(
+    rcf_files[[1]],
+    header     = TRUE,
+    colClasses = "character",
+    data.table = FALSE
+  )
 
   metadata <- readr::read_csv(
     file.path(cfg$project_root, cfg$metadata$file),
