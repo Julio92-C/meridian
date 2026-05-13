@@ -1,0 +1,60 @@
+%% Figure 1 — Metagenomics Pipeline Automation: workflow schematic
+%% Render to SVG/PNG with: mmdc -i figure1_pipeline_schematic.mmd -o figure1.svg
+flowchart TD
+    classDef input fill:#eef6ff,stroke:#4a78b8,color:#1b3a66
+    classDef cfg   fill:#fff7e6,stroke:#c08a00,color:#5a3d00
+    classDef stage fill:#f5f5f5,stroke:#666,color:#222
+    classDef comm  fill:#e8f5e9,stroke:#3c8a47,color:#1f4a26
+    classDef func  fill:#fdecea,stroke:#b54343,color:#5a1f1f
+    classDef net   fill:#ede7f6,stroke:#5e35b1,color:#2c1a5e
+    classDef out   fill:#fffde7,stroke:#9c8d1c,color:#3f3a0a
+
+    subgraph INP["Upstream outputs (run prior to pipeline)"]
+        K["Kraken2 / Bracken<br/>tables"]:::input
+        A["ABRicate calls<br/>CARD · VFDB · PlasmidFinder"]:::input
+        R["Re-centrifuge<br/>contamination tags"]:::input
+        M["Sample metadata"]:::input
+    end
+
+    CFG["config.yaml<br/>(one per study)"]:::cfg
+
+    subgraph PIPE["R workflow — R/00 to R/12"]
+        S0["R/00 setup<br/>library load · config validation"]:::stage
+        S1["R/01 load inputs"]:::stage
+        S2["R/02 clean<br/>decontaminate · taxid fix · link ABRicate to taxa"]:::stage
+        S3["R/03 TPM normalisation"]:::stage
+
+        subgraph COMM["Community analyses"]
+            S4["R/04 taxonomy<br/>Venn · heatmaps"]:::comm
+            S5["R/05 relative abundance<br/>stacked bar · plotly"]:::comm
+            S6["R/06 alpha diversity<br/>Shannon · Simpson · richness"]:::comm
+            S7["R/07 beta diversity<br/>PCoA (vegan)"]:::comm
+            S8["R/08 differential abundance<br/>ALDEx2 (overall + pairwise)"]:::comm
+        end
+
+        subgraph FUNC["Functional profiling"]
+            S9["R/09 resistome<br/>CARD / ResFinder"]:::func
+            S10["R/10 virulome<br/>VFDB"]:::func
+            S11["R/11 mobilome<br/>PlasmidFinder"]:::func
+        end
+
+        S12["R/12 network<br/>tripartite taxa &times; ARGs &times; MGEs"]:::net
+    end
+
+    QR["Quarto HTML report<br/>(single deliverable per study)"]:::out
+
+    CFG --> S0
+    K --> S1
+    A --> S1
+    R --> S1
+    M --> S1
+    S0 --> S1
+    S1 --> S2
+    S2 --> S3
+    S3 --> COMM
+    S3 --> FUNC
+    COMM --> S12
+    FUNC --> S12
+    COMM --> QR
+    FUNC --> QR
+    S12 --> QR
