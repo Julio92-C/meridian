@@ -31,13 +31,13 @@ taxid_fixes_file: "Metadata/taxid_fixes.csv"
 
 filters:
   min_count_per_sample:   17
-  min_count_for_species:  2000
+  min_count_for_species:  500
   min_prevalence_aldex:   2
 
 stages:
   clean_data:             true
   normalisation:          true
-  taxonomy:               false
+  taxonomy:               true
   relative_abundance:     false
   alpha_diversity:        false
   beta_diversity:         false

@@ -14,11 +14,16 @@ file_arg <- sub("^--file=", "", grep("^--file=", commandArgs(), value = TRUE))
 script   <- ofile %||% (if (length(file_arg)) file_arg[[1]] else NULL)
 repo_root <- if (!is.null(script)) dirname(normalizePath(script)) else getwd()
 
-# Source every R/NN_*.R module in order.
+# Source every R/NN_*.R stage module in order, plus any R/utils_*.R helpers.
+# Stage files sort numerically; helpers are sourced afterwards so they can
+# rely on anything defined in 00_setup.R.
 mods <- sort(list.files(file.path(repo_root, "R"),
                         pattern = "^\\d+_.*\\.R$",
                         full.names = TRUE))
-invisible(lapply(mods, source))
+utils <- sort(list.files(file.path(repo_root, "R"),
+                         pattern = "^utils_.*\\.R$",
+                         full.names = TRUE))
+invisible(lapply(c(mods, utils), source))
 
 cfg <- load_config(cfg_path)
 pipeline_log(cfg, sprintf("Starting pipeline for study '%s'", cfg$study$id))

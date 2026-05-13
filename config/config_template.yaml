@@ -71,6 +71,45 @@ filters:
   min_prevalence_aldex:   2       # ALDEx2 low-prevalence filter
 
 # --------------------------------------------------------------------------- #
+# Taxa-name display options                                                   #
+# Applied by clean_taxa_names() in R/utils_taxa.R before any plotting stage.  #
+# All keys are optional; commented values show the built-in defaults.         #
+# --------------------------------------------------------------------------- #
+taxa_display:
+  species_only:       true    # drop non-binomial (kingdom/phylum/...) rows
+  abbreviate_genus:   true    # "Escherichia coli" -> "E. coli"
+  max_name_len:       30      # truncate names beyond this many characters
+  truncate_to_words:  2       # words to keep when truncating
+  # drop_patterns: list of regex applied before any name cleanup. Defaults
+  # baked into clean_taxa_names() drop two kinds of noise:
+  #   (1) NCBI clade rollups above species rank (Terrabacteria group,
+  #       FCB group, Bacteroidota/Chlorobiota group, Plasmodium, etc.)
+  #   (2) non-species placeholder labels that pass the binomial word-count
+  #       filter (uncultured, "X bacterium", "X archaeon", environmental,
+  #       metagenome, unidentified).
+  # Setting this key here REPLACES the defaults — copy the full list if
+  # you only want to extend it.
+  # drop_patterns:
+  #   - "Terrabacteria group"
+  #   - "FCB group"
+  #   - "\\buncultured\\b"
+  #   - "\\bbacterium\\b"
+  #   - "MyProjectSpecificNoise"
+
+# --------------------------------------------------------------------------- #
+# Per-stage display options                                                   #
+# --------------------------------------------------------------------------- #
+taxonomy:
+  top_n: 50                  # heatmap row count (taxa ranked by mean %)
+  min_count_per_sample: 5    # drop (taxon, sample) pairs below this read count
+  # Optional fixed colour map for the primary group_cols[[1]] variable.
+  # If omitted, the stage falls back to a paletteer palette.
+  # treatment_colors:
+  #   "Reference diet": "#1f77b4"
+  #   "Soyabean meal":  "#ff7f0e"
+  #   "Dulce":          "#2ca02c"
+
+# --------------------------------------------------------------------------- #
 # Which analyses to run (false skips the stage)                               #
 # --------------------------------------------------------------------------- #
 stages:
