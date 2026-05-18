@@ -1,58 +1,255 @@
-# 06_alpha_diversity.R — richness + Shannon; Kruskal-Wallis across groups,
-# optionally using block as a random effect (lme4) for chicken studies.
+# 06_alpha_diversity.R — alpha diversity per sample, tested across groups with
+# Kruskal-Wallis and visualised as violin (+ inner boxplot) and an optional
+# per-sample bar plot faceted by group. Mirrors alpha_diversity_violinPlot.R
+# from the reference chicken_batch1 scripts but parameterised by config — no
+# hardcoded sample IDs, treatments, palettes, or metric names.
+#
+# Data source priority:
+#   1. cfg$inputs$diversity_csv — pre-computed indices (e.g. Oxford Nanopore
+#      wf-metagenomics output). Each row is a metric, each non-Indices column
+#      is a sample, optionally a trailing summary column ("total") that's
+#      dropped before joining metadata.
+#   2. Fallback: compute richness/shannon/simpson on the fly from
+#      cleaned$noncontaminants using vegan.
+#
+# Selection is forced via cfg$alpha_diversity$source ("auto"|"precomputed"|"computed").
+
+`%||%` <- function(a, b) if (is.null(a)) b else a
+
+# Build a named palette for the group levels. Mirrors group_palette() in R/04
+# but lives here to avoid coupling stages. Falls back to ggsci::default_nejm.
+alpha_palette <- function(levels, cfg) {
+  user_map <- cfg$alpha_diversity$group_colors %||%
+              cfg$taxonomy$treatment_colors
+  if (!is.null(user_map)) {
+    pal <- unlist(user_map[levels])
+    if (length(pal) == length(levels) && all(!is.na(pal))) {
+      names(pal) <- levels
+      return(pal)
+    }
+  }
+  name <- cfg$alpha_diversity$palette %||% "ggsci::default_nejm"
+  pal <- tryCatch(
+    as.character(paletteer::paletteer_d(name)),
+    error = function(e) NULL
+  )
+  if (is.null(pal) || length(pal) == 0) {
+    pal <- grDevices::hcl.colors(length(levels), palette = "Dark 3")
+  }
+  pal <- rep_len(pal, length(levels))
+  names(pal) <- levels
+  pal
+}
+
+# Reshape the precomputed diversity table into a wide per-sample tibble.
+# Input shape: first column "Indices" (metric names), remaining columns one
+# per sample (+ optional "total" trailing column). Returns NULL if the file
+# is missing or the metric column isn't recognisable.
+load_precomputed_diversity <- function(cfg) {
+  src <- cfg$inputs$diversity_csv
+  if (is.null(src)) return(NULL)
+  path <- file.path(cfg$project_root, src)
+  if (!file.exists(path)) return(NULL)
+
+  raw <- readr::read_csv(path, show_col_types = FALSE)
+  idx_col <- intersect(c("Indices", "Index", "Metric"), colnames(raw))
+  if (length(idx_col) == 0) return(NULL)
+  idx_col <- idx_col[[1]]
+
+  # Drop trailing summary columns (e.g. "total") — not real samples.
+  drop_cols <- intersect(c("total", "Total", "TOTAL"), colnames(raw))
+  if (length(drop_cols) > 0) raw <- raw[, setdiff(colnames(raw), drop_cols)]
+
+  long <- raw |>
+    tidyr::pivot_longer(cols = -dplyr::all_of(idx_col),
+                        names_to = "sample", values_to = "value") |>
+    dplyr::mutate(value = suppressWarnings(as.numeric(value)))
+  wide <- tidyr::pivot_wider(long, names_from = dplyr::all_of(idx_col),
+                             values_from = value)
+  wide
+}
+
+# Compute richness/shannon/simpson from a long-form count table.
+compute_diversity_from_counts <- function(df) {
+  counts <- df |>
+    dplyr::filter(!is.na(name)) |>
+    dplyr::group_by(sample, name) |>
+    dplyr::summarise(count = sum(count, na.rm = TRUE), .groups = "drop") |>
+    tidyr::pivot_wider(names_from = name, values_from = count, values_fill = 0)
+  mat <- as.matrix(counts[, -1])
+  rownames(mat) <- counts$sample
+  data.frame(
+    sample   = rownames(mat),
+    richness = rowSums(mat > 0),
+    shannon  = vegan::diversity(mat, index = "shannon"),
+    simpson  = vegan::diversity(mat, index = "simpson")
+  )
+}
+
+# Convert "Shannon diversity index" -> "shannon_diversity_index" so metric
+# names survive as ggplot2 column refs without quoting.
+slugify_metric <- function(x) {
+  s <- tolower(trimws(x))
+  s <- gsub("[^a-z0-9]+", "_", s)
+  s <- gsub("^_|_$", "", s)
+  s
+}
 
 run_alpha_diversity <- function(cleaned, cfg) {
   pipeline_log(cfg, "Alpha diversity")
   fig_dir <- file.path(cfg$project_root, cfg$outputs$figures_dir, "alpha_diversity")
+  out_dir <- file.path(cfg$project_root, cfg$outputs$datasets_dir)
   dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
+  dir.create(out_dir, recursive = TRUE, showWarnings = FALSE)
 
+  ad_cfg <- cfg$alpha_diversity %||% list()
+  source <- ad_cfg$source %||% "auto"
+  sid    <- cfg$metadata$sample_id_col
+  group  <- cfg$metadata$group_cols[[1]]
+
+  # ---- Pick the data source ----------------------------------------------
+  div_wide <- NULL
+  if (source %in% c("auto", "precomputed")) {
+    div_wide <- load_precomputed_diversity(cfg)
+    if (!is.null(div_wide)) {
+      pipeline_log(cfg, sprintf(
+        "Alpha diversity: using precomputed table (%d samples x %d metrics)",
+        nrow(div_wide), ncol(div_wide) - 1
+      ))
+    } else if (source == "precomputed") {
+      pipeline_log(cfg, "Alpha diversity: precomputed forced but unavailable — skipping")
+      return(invisible(NULL))
+    }
+  }
+  if (is.null(div_wide)) {
+    pipeline_log(cfg, "Alpha diversity: computing richness/shannon/simpson via vegan")
+    div_wide <- compute_diversity_from_counts(cleaned$noncontaminants)
+  }
+
+  # ---- Slugify metric column names for safe ggplot2 referencing ----------
+  raw_metric_cols <- setdiff(colnames(div_wide), "sample")
+  metric_lookup   <- setNames(slugify_metric(raw_metric_cols), raw_metric_cols)
+  colnames(div_wide)[match(raw_metric_cols, colnames(div_wide))] <-
+    unname(metric_lookup)
+  pretty_labels <- setNames(raw_metric_cols, unname(metric_lookup))
+
+  # ---- Choose which metrics to plot --------------------------------------
+  available <- setdiff(colnames(div_wide), "sample")
+  requested <- ad_cfg$metrics
+  if (!is.null(requested)) {
+    # Match against either the slug or the pretty label.
+    keep <- unique(c(
+      intersect(requested, available),
+      unname(metric_lookup[intersect(requested, names(metric_lookup))])
+    ))
+    if (length(keep) == 0) {
+      pipeline_log(cfg, sprintf(
+        "Alpha diversity: none of cfg$alpha_diversity$metrics matched (%s) — using all available",
+        paste(requested, collapse = ", ")
+      ))
+      keep <- available
+    }
+    metrics <- keep
+  } else {
+    metrics <- available
+  }
+
+  # ---- Join metadata -----------------------------------------------------
   meta <- readr::read_csv(
     file.path(cfg$project_root, cfg$metadata$file), show_col_types = FALSE
   )
-  sid <- cfg$metadata$sample_id_col
-  group <- cfg$metadata$group_cols[[1]]
-
-  counts <- cleaned$noncontaminants |>
-    dplyr::group_by(sample, name) |>
-    dplyr::summarise(count = sum(count, na.rm = TRUE), .groups = "drop") |>
-    tidyr::pivot_wider(names_from = name, values_from = count, values_fill = 0)
-
-  mat <- as.matrix(counts[, -1])
-  rownames(mat) <- counts$sample
-
-  div <- data.frame(
-    sample    = rownames(mat),
-    richness  = rowSums(mat > 0),
-    shannon   = vegan::diversity(mat, index = "shannon"),
-    simpson   = vegan::diversity(mat, index = "simpson")
-  )
-  div <- dplyr::inner_join(div, meta, by = c("sample" = sid))
-
-  readr::write_csv(div, file.path(cfg$project_root, cfg$outputs$datasets_dir,
-                                  "alpha_diversity.csv"))
-
-  kw_richness <- kruskal.test(reformulate(group, "richness"), data = div)
-  kw_shannon  <- kruskal.test(reformulate(group, "shannon"),  data = div)
-
-  stats_lines <- c(
-    sprintf("Kruskal-Wallis richness ~ %s: p = %.4g", group, kw_richness$p.value),
-    sprintf("Kruskal-Wallis shannon  ~ %s: p = %.4g", group, kw_shannon$p.value)
-  )
-  writeLines(stats_lines, file.path(fig_dir, "alpha_stats.txt"))
-  pipeline_log(cfg, stats_lines[[1]])
-  pipeline_log(cfg, stats_lines[[2]])
-
-  for (metric in c("richness", "shannon", "simpson")) {
-    p <- ggplot2::ggplot(div, ggplot2::aes(.data[[group]], .data[[metric]],
-                                           fill = .data[[group]])) +
-      ggplot2::geom_violin(trim = FALSE, alpha = 0.6) +
-      ggplot2::geom_jitter(width = 0.1, size = 1.5) +
-      ggpubr::stat_compare_means(method = "kruskal.test") +
-      ggplot2::theme_classic() +
-      ggplot2::labs(title = paste(metric, "by", group))
-    ggplot2::ggsave(file.path(fig_dir, paste0(metric, "_violin.png")),
-                    p, width = 6, height = 5, dpi = 300)
+  div_wide$sample <- as.character(div_wide$sample)
+  meta[[sid]]     <- as.character(meta[[sid]])
+  div <- dplyr::inner_join(div_wide, meta, by = c("sample" = sid))
+  if (!group %in% colnames(div)) {
+    stop(sprintf("Alpha diversity: group column '%s' not in metadata", group))
+  }
+  if (nrow(div) == 0) {
+    pipeline_log(cfg, "Alpha diversity: no samples after metadata join — skipping")
+    return(invisible(NULL))
   }
 
+  readr::write_csv(div, file.path(out_dir, "alpha_diversity.csv"))
+
+  # ---- Kruskal-Wallis + plots per metric ---------------------------------
+  group_levels <- sort(unique(as.character(div[[group]])))
+  pal          <- alpha_palette(group_levels, cfg)
+  show_bar     <- ad_cfg$bar_plot %||% TRUE
+  stats_lines  <- character()
+
+  for (m in metrics) {
+    label <- pretty_labels[[m]] %||% m
+    sub   <- div[!is.na(div[[m]]), , drop = FALSE]
+    if (nrow(sub) < 2 || dplyr::n_distinct(sub[[group]]) < 2) {
+      pipeline_log(cfg, sprintf("Alpha diversity: %s — not enough data for KW", label))
+      next
+    }
+    kw <- tryCatch(
+      kruskal.test(reformulate(group, m), data = sub),
+      error = function(e) NULL
+    )
+    p_val <- if (is.null(kw)) NA_real_ else kw$p.value
+    label_kw <- sprintf("Kruskal-Wallis p = %s",
+                        if (is.na(p_val)) "NA" else format(p_val, digits = 3))
+    line <- sprintf("%s ~ %s: p = %s", label, group,
+                    if (is.na(p_val)) "NA" else format(p_val, digits = 4))
+    stats_lines <- c(stats_lines, line)
+    pipeline_log(cfg, paste("Alpha diversity:", line))
+
+    # Violin + inner boxplot
+    y_max <- max(sub[[m]], na.rm = TRUE)
+    y_pad <- 0.08 * (y_max - min(sub[[m]], na.rm = TRUE) + 1e-9)
+    p_violin <- ggplot2::ggplot(sub,
+        ggplot2::aes(x = .data[[group]], y = .data[[m]], fill = .data[[group]])) +
+      ggplot2::geom_violin(trim = FALSE, scale = "width", alpha = 0.6) +
+      ggplot2::geom_boxplot(width = 0.12, outlier.shape = NA,
+                            position = ggplot2::position_dodge(0.9)) +
+      ggplot2::geom_jitter(width = 0.08, size = 1.4, alpha = 0.8) +
+      ggplot2::scale_fill_manual(values = pal) +
+      ggplot2::annotate("text", x = (length(group_levels) + 1) / 2,
+                        y = y_max + y_pad, label = label_kw,
+                        size = 4.5, colour = "black") +
+      ggplot2::labs(x = group, y = label, title = paste(label, "by", group)) +
+      ggplot2::theme_classic() +
+      ggplot2::theme(legend.position = "top",
+                     plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
+                     text       = ggplot2::element_text(size = 13))
+
+    ggplot2::ggsave(file.path(fig_dir, paste0(m, "_violin.png")),
+                    p_violin, width = 7, height = 5, dpi = 300)
+
+    # Per-sample bar plot, faceted by group, with overall mean line
+    if (isTRUE(show_bar)) {
+      mean_val <- mean(sub[[m]], na.rm = TRUE)
+      p_bar <- ggplot2::ggplot(sub,
+          ggplot2::aes(x = sample, y = .data[[m]], fill = .data[[group]])) +
+        ggplot2::geom_bar(stat = "identity") +
+        ggplot2::geom_hline(yintercept = mean_val,
+                            linetype = "dashed", colour = "red") +
+        ggplot2::geom_text(
+          ggplot2::aes(label = round(.data[[m]], 2)),
+          vjust = -0.5, size = 3
+        ) +
+        ggplot2::scale_fill_manual(values = pal) +
+        ggplot2::labs(
+          title = sprintf("%s by %s (%s)", label, group, label_kw),
+          x = "Sample", y = label
+        ) +
+        ggplot2::theme_classic() +
+        ggplot2::theme(
+          legend.position = "none",
+          plot.title      = ggplot2::element_text(hjust = 0.5, face = "bold"),
+          axis.text.x     = ggplot2::element_text(angle = 45, hjust = 1),
+          text            = ggplot2::element_text(size = 13)
+        ) +
+        ggplot2::facet_wrap(stats::as.formula(paste("~", group)),
+                            scales = "free_x", nrow = 1)
+      bw <- max(8, 0.5 * nrow(sub) + 3)
+      ggplot2::ggsave(file.path(fig_dir, paste0(m, "_bar.png")),
+                      p_bar, width = bw, height = 5, dpi = 300)
+    }
+  }
+
+  writeLines(stats_lines, file.path(fig_dir, "alpha_stats.txt"))
   invisible(div)
 }

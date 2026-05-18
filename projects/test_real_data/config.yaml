@@ -39,7 +39,7 @@ stages:
   normalisation:          true
   taxonomy:               true
   relative_abundance:     true
-  alpha_diversity:        false
+  alpha_diversity:        true
   beta_diversity:         false
   differential_abundance: false
   resistome:              false
