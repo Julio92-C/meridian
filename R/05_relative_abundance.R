@@ -164,10 +164,15 @@ run_relative_abundance <- function(cleaned, cfg) {
 
   if (requireNamespace("plotly", quietly = TRUE) &&
       requireNamespace("htmlwidgets", quietly = TRUE)) {
-    htmlwidgets::saveWidget(
-      plotly::ggplotly(p),
-      file = file.path(fig_dir, "stacked_bar.html"),
-      selfcontained = TRUE
+    # selfcontained=TRUE still extracts plotly assets into <name>_files/ during
+    # render; on re-run dir.create() warns that the libdir already exists.
+    # Warnings are benign housekeeping — suppress to keep the log clean.
+    suppressWarnings(
+      htmlwidgets::saveWidget(
+        plotly::ggplotly(p),
+        file = file.path(fig_dir, "stacked_bar.html"),
+        selfcontained = TRUE
+      )
     )
   }
 

@@ -40,7 +40,7 @@ stages:
   taxonomy:               true
   relative_abundance:     true
   alpha_diversity:        true
-  beta_diversity:         false
+  beta_diversity:         true
   differential_abundance: false
   resistome:              false
   virulome:               false

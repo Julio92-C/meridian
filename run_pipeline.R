@@ -26,6 +26,21 @@ utils <- sort(list.files(file.path(repo_root, "R"),
 invisible(lapply(c(mods, utils), source))
 
 cfg <- load_config(cfg_path)
+
+# Format a duration in seconds as a human-readable string.
+# < 60s  -> "12.3s"
+# < 1h   -> "3m 12s"
+# >= 1h  -> "1h 23m 12s"
+fmt_duration <- function(secs) {
+  if (is.na(secs) || secs < 0) return(NA_character_)
+  if (secs < 60) return(sprintf("%.1fs", secs))
+  h <- as.integer(secs %/% 3600)
+  m <- as.integer((secs %% 3600) %/% 60)
+  s <- as.integer(round(secs %% 60))
+  if (h > 0) sprintf("%dh %dm %ds", h, m, s) else sprintf("%dm %ds", m, s)
+}
+
+pipeline_start <- Sys.time()
 pipeline_log(cfg, sprintf("Starting pipeline for study '%s'", cfg$study$id))
 
 # Build the ordered list of stages that will actually run, so we can show
@@ -47,6 +62,8 @@ enabled_names <- c(
 )
 total_stages <- length(enabled_names)
 stage_idx    <- 0L
+# Accumulator for the per-stage breakdown printed at the end of the run.
+stage_times  <- list()
 pipeline_log(cfg, sprintf("Plan: %d stage(s) — %s",
                           total_stages, paste(enabled_names, collapse = ", ")))
 
@@ -59,8 +76,10 @@ run_stage <- function(name, fn) {
   t0 <- Sys.time()
   result <- fn()
   elapsed <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
-  pipeline_log(cfg, sprintf("[%d/%d %3d%%] %s — done in %.1fs",
-                            stage_idx, total_stages, pct, name, elapsed))
+  stage_times[[name]] <<- elapsed
+  pipeline_log(cfg, sprintf("[%d/%d %3d%%] %s — done in %s",
+                            stage_idx, total_stages, pct, name,
+                            fmt_duration(elapsed)))
   result
 }
 
@@ -96,5 +115,25 @@ run_stage("report", function() {
   }
 })
 
-pipeline_log(cfg, sprintf("Pipeline finished — %d/%d stages complete",
-                          stage_idx, total_stages))
+total_elapsed <- as.numeric(difftime(Sys.time(), pipeline_start, units = "secs"))
+pipeline_log(cfg, sprintf("Pipeline finished — %d/%d stages complete in %s",
+                          stage_idx, total_stages, fmt_duration(total_elapsed)))
+
+# Per-stage breakdown, sorted slowest -> fastest, with a Total footer.
+# Helps spot bottlenecks without scrolling the run log line by line.
+if (length(stage_times) > 0) {
+  st_secs <- unlist(stage_times)
+  ord     <- order(st_secs, decreasing = TRUE)
+  pct     <- 100 * st_secs / total_elapsed
+  width   <- max(nchar(c(names(st_secs), "Total")))
+  lines   <- sprintf("  %-*s  %8s  %5.1f%%",
+                     width, names(st_secs)[ord],
+                     vapply(st_secs[ord], fmt_duration, character(1)),
+                     pct[ord])
+  divider <- paste0("  ", strrep("-", width + 2 + 8 + 2 + 6))
+  total   <- sprintf("  %-*s  %8s  %5.1f%%",
+                     width, "Total",
+                     fmt_duration(total_elapsed), 100.0)
+  pipeline_log(cfg, paste0("Stage breakdown (slowest first):\n",
+                           paste(c(lines, divider, total), collapse = "\n")))
+}

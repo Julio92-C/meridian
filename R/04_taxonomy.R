@@ -105,16 +105,18 @@ run_taxonomy <- function(cleaned, cfg) {
     })
     names(sets) <- colnames(presence_mat)
 
-    # Inspection aid: print the per-treatment species list to the pipeline
-    # log so the user can sanity-check the Venn sets without extra outputs.
-    species_lines <- unlist(lapply(names(sets), function(g) {
-      c(sprintf("  %s (%d species):", g, length(sets[[g]])),
-        paste0("    - ", sets[[g]]))
-    }))
-    pipeline_log(cfg, sprintf(
-      "Taxonomy Venn sets:\n%s",
-      paste(species_lines, collapse = "\n")
-    ))
+    # Optional inspection aid: dump the per-group species list to the log.
+    # Off by default — set cfg$taxonomy$log_venn_sets: true to re-enable.
+    if (isTRUE(cfg$taxonomy$log_venn_sets)) {
+      species_lines <- unlist(lapply(names(sets), function(g) {
+        c(sprintf("  %s (%d species):", g, length(sets[[g]])),
+          paste0("    - ", sets[[g]]))
+      }))
+      pipeline_log(cfg, sprintf(
+        "Taxonomy Venn sets:\n%s",
+        paste(species_lines, collapse = "\n")
+      ))
+    }
 
     fill_pal <- group_palette(names(sets), cfg)
     venn_path <- file.path(fig_dir, "taxa_venn.png")
