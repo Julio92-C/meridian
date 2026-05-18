@@ -38,7 +38,7 @@ stages:
   clean_data:             true
   normalisation:          true
   taxonomy:               true
-  relative_abundance:     false
+  relative_abundance:     true
   alpha_diversity:        false
   beta_diversity:         false
   differential_abundance: false
