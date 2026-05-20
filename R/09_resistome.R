@@ -617,7 +617,7 @@ classify_resistance <- function(res_string) {
                           position = ggplot2::position_dodge(0.9)) +
     ggplot2::geom_jitter(width = 0.08, size = 0.7, alpha = 0.35) +
     ggplot2::scale_fill_manual(values = pal_group) +
-    ggplot2::labs(x = group, y = "log(TPM + 1)",
+    ggplot2::labs(x = group, y = "log(TPM)",
                   title = "ARG abundance per Treatment group") +
     ggplot2::theme_classic() +
     ggplot2::theme(legend.position = "none",
