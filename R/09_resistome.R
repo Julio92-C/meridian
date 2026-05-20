@@ -10,13 +10,15 @@
 #   venn_drug_classes.png         Drug classes shared across groups
 #   alpha_<metric>_violin.png     Violin + boxplot + KW annotation
 #   alpha_<metric>_bar.png        Per-sample bar plot faceted by group
+#   pcoa.png                      ARG-profile PCoA, ellipses, PERMANOVA/PERMDISP
 #   pheatmap_genes.png            Gene × sample, min-max scaled, DRUG sidebar
 #   pheatmap_drug_classes.png     Drug-class × sample, min-max scaled
 #   drug_relative_abundance.png   Stacked drug-class % per sample
 #   drug_total_count.png          Total TPM per drug class (log10, hbar)
 #
 # Datasets (under <project>/<datasets_dir>/resistome/):
-#   alpha_diversity.csv, drug_total_TPM.csv, kw_<metric>.txt
+#   alpha_diversity.csv, drug_total_TPM.csv, kw_<metric>.txt,
+#   beta_permanova.txt, beta_permdisp.txt, beta_pcoa_scores.csv
 
 `%||%` <- function(a, b) if (is.null(a)) b else a
 
@@ -95,6 +97,11 @@ run_resistome <- function(cleaned, cfg) {
 
   # ---- (2) Venn of drug classes per group ------------------------------
   .resistome_plot_drug_venn(card_drug, group, pal_group, fig_dir, cfg)
+
+  # ---- (2b) Beta diversity on the gene-level TPM matrix ----------------
+  if (isTRUE(rcfg$beta %||% TRUE)) {
+    .resistome_plot_beta(card, group, pal_group, rcfg, fig_dir, ds_dir, cfg)
+  }
 
   # ---- (3) Gene-level pheatmap with DRUG row annotation ----------------
   if (requireNamespace("pheatmap", quietly = TRUE)) {
@@ -387,18 +394,31 @@ classify_resistance <- function(res_string) {
       futile.logger::FATAL, name = "VennDiagramLogger"
     ))
   }
-  VennDiagram::venn.diagram(
-    x         = sets,
-    filename  = file.path(fig_dir, "venn_drug_classes.png"),
-    imagetype = "png",
-    height = 2000, width = 2000, resolution = 300,
-    fill = fill_pal, alpha = 0.6,
-    cat.cex = 1.4, cat.fontface = "bold",
-    cex = 1.6,
-    main = sprintf("Drug classes shared across %s groups", group),
-    main.cex = 1.3, margin = 0.08,
-    disable.logging = TRUE
+  # Push category labels off the circles so long strings ("Reference diet",
+  # "Soyabean meal") don't collide with the diagram or get clipped at the
+  # canvas edge; also widen the canvas + bump the margin a bit.
+  cat_args <- switch(as.character(n_grp),
+    "2" = list(cat.pos = c(-20, 20),      cat.dist = c(0.05, 0.05)),
+    "3" = list(cat.pos = c(-25, 25, 180), cat.dist = c(0.08, 0.08, 0.04)),
+    "4" = list(cat.pos = c(-15, 15, 0, 0), cat.dist = c(0.22, 0.22, 0.12, 0.12)),
+    "5" = list(),
+    list()
   )
+  do.call(VennDiagram::venn.diagram, c(
+    list(
+      x         = sets,
+      filename  = file.path(fig_dir, "venn_drug_classes.png"),
+      imagetype = "png",
+      height = 2800, width = 2800, resolution = 300,
+      fill = fill_pal, alpha = 0.6,
+      cat.cex = 1.25, cat.fontface = "bold",
+      cex = 1.5,
+      main = sprintf("Drug classes shared across %s groups", group),
+      main.cex = 1.3, margin = 0.18,
+      disable.logging = TRUE
+    ),
+    cat_args
+  ))
 }
 
 # Min-max scale each column independently. Mirrors the GT pheatmap recipe so
@@ -555,6 +575,111 @@ classify_resistance <- function(res_string) {
     dplyr::arrange(dplyr::desc(.data$Total_TPM))
   readr::write_csv(drug_totals, file.path(ds_dir, "drug_total_TPM.csv"))
   drug_totals
+}
+
+# Gene-level PCoA + PERMANOVA + PERMDISP on the ARG TPM profile. Mirrors
+# R/07's recipe (Hellinger transform -> Bray-Curtis -> cmdscale + adonis2 +
+# betadisper) but on resistome features instead of taxa, so the question is
+# "do treatment groups have distinct ARG community structure?".
+.resistome_plot_beta <- function(card, group, pal_group, rcfg,
+                                  fig_dir, ds_dir, cfg) {
+  wide <- card |>
+    dplyr::group_by(.data$sample, .data$GENE) |>
+    dplyr::summarise(TPM = sum(.data$TPM, na.rm = TRUE), .groups = "drop") |>
+    tidyr::pivot_wider(names_from = "GENE", values_from = "TPM",
+                       values_fill = 0)
+  mat <- as.matrix(wide[, -1, drop = FALSE])
+  rownames(mat) <- wide$sample
+  mat <- mat[rowSums(mat) > 0, , drop = FALSE]
+  if (nrow(mat) < 3) {
+    pipeline_log(cfg, sprintf(
+      "Resistome beta: only %d samples with ARG hits — need >= 3, skipping",
+      nrow(mat)
+    ))
+    return(invisible(NULL))
+  }
+
+  transform <- rcfg$beta_transform %||% "hellinger"
+  distance  <- rcfg$beta_distance  %||% "bray"
+  mat_t <- switch(transform,
+    none      = mat,
+    log       = log1p(mat),
+    hellinger = vegan::decostand(mat, method = "hellinger"),
+    stop(sprintf("Resistome beta: unknown transform '%s'", transform))
+  )
+  d <- vegan::vegdist(mat_t, method = distance)
+
+  meta <- card |>
+    dplyr::distinct(.data$sample, .keep_all = TRUE) |>
+    dplyr::select("sample", dplyr::all_of(group))
+  meta <- meta[match(rownames(mat_t), meta$sample), , drop = FALSE]
+
+  perms <- cfg$stats$permanova_permutations %||% 9999
+  permanova <- vegan::adonis2(
+    stats::reformulate(group, "d"),
+    data = meta, permutations = perms
+  )
+  utils::capture.output(permanova,
+                        file = file.path(ds_dir, "beta_permanova.txt"))
+  r2 <- permanova$R2[1]
+  pv <- permanova$`Pr(>F)`[1]
+  pipeline_log(cfg, sprintf("Resistome PERMANOVA %s: R2 = %.3f, p = %.4g",
+                            group, r2, pv))
+
+  bd_test <- tryCatch({
+    bd <- vegan::betadisper(d, factor(meta[[group]]))
+    vegan::permutest(bd, permutations = perms)
+  }, error = function(e) NULL)
+  permdisp_p <- NA_real_
+  if (!is.null(bd_test)) {
+    utils::capture.output(bd_test,
+                          file = file.path(ds_dir, "beta_permdisp.txt"))
+    permdisp_p <- bd_test$tab$`Pr(>F)`[1]
+    pipeline_log(cfg, sprintf("Resistome PERMDISP %s: p = %.4g",
+                              group, permdisp_p))
+  }
+
+  pcoa <- stats::cmdscale(d, eig = TRUE, k = 2)
+  var_expl <- pcoa$eig / sum(pcoa$eig[pcoa$eig > 0]) * 100
+  scores <- data.frame(
+    sample = rownames(mat_t),
+    PC1    = pcoa$points[, 1],
+    PC2    = pcoa$points[, 2]
+  )
+  scores <- dplyr::left_join(scores, meta, by = "sample")
+  readr::write_csv(scores, file.path(ds_dir, "beta_pcoa_scores.csv"))
+
+  annot <- sprintf("PERMANOVA R² = %.3f, p = %.4g\nPERMDISP p = %.4g",
+                   r2, pv, permdisp_p)
+  ellipse_type <- rcfg$ellipse_type     %||% "norm"
+  ellipse_line <- rcfg$ellipse_linetype %||% "dashed"
+
+  p <- ggplot2::ggplot(scores,
+        ggplot2::aes(x = PC1, y = PC2, colour = .data[[group]])) +
+    ggplot2::geom_point(size = 3) +
+    ggplot2::stat_ellipse(type = ellipse_type, linewidth = 0.8,
+                          linetype = ellipse_line) +
+    ggplot2::scale_color_manual(values = pal_group) +
+    ggplot2::labs(
+      title = sprintf("ARG profile PCoA (%s, %s-transformed) — by %s",
+                      distance, transform, group),
+      colour = group,
+      x = sprintf("PC1 (%.1f%%)", var_expl[1]),
+      y = sprintf("PC2 (%.1f%%)", var_expl[2])
+    ) +
+    ggplot2::annotate("text", x = Inf, y = Inf, label = annot,
+                      hjust = 1.05, vjust = 1.5,
+                      size = 4, colour = "black") +
+    ggplot2::theme_classic() +
+    ggplot2::theme(
+      text = ggplot2::element_text(size = 13),
+      plot.title = ggplot2::element_text(size = 12, hjust = 0.5)
+    )
+  ggplot2::ggsave(file.path(fig_dir, "pcoa.png"), p,
+                  width = 7, height = 5.5, dpi = 300)
+
+  invisible(list(scores = scores, permanova = permanova,
+                 permdisp = bd_test, var_explained = var_expl[1:2]))
 }
 
 .resistome_plot_drug_total_bar <- function(drug_totals, pal_drug, fig_dir) {
