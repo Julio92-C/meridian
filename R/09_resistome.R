@@ -10,6 +10,7 @@
 #   venn_drug_classes.png         Drug classes shared across groups
 #   alpha_<metric>_violin.png     Violin + boxplot + KW annotation
 #   alpha_<metric>_bar.png        Per-sample bar plot faceted by group
+#   arg_abundance_violin.png      Per-(sample,gene) log(TPM+1) by group + KW
 #   pcoa.png                      ARG-profile PCoA, ellipses, PERMANOVA/PERMDISP
 #   pheatmap_genes.png            Gene × sample, min-max scaled, DRUG sidebar
 #   pheatmap_drug_classes.png     Drug-class × sample, min-max scaled
@@ -94,6 +95,9 @@ run_resistome <- function(cleaned, cfg) {
                                pal_group, fig_dir)
   .resistome_plot_alpha_bar   (alpha, group, alpha_metric, kw,
                                pal_group, fig_dir)
+
+  # ---- (1b) ARG abundance per Treatment (log TPM violin) ---------------
+  .resistome_plot_abundance_violin(card, group, pal_group, fig_dir, cfg)
 
   # ---- (2) Venn of drug classes per group ------------------------------
   .resistome_plot_drug_venn(card_drug, group, pal_group, fig_dir, cfg)
@@ -575,6 +579,63 @@ classify_resistance <- function(res_string) {
     dplyr::arrange(dplyr::desc(.data$Total_TPM))
   readr::write_csv(drug_totals, file.path(ds_dir, "drug_total_TPM.csv"))
   drug_totals
+}
+
+# Per-(sample, gene) log(TPM+1) violin + box across Treatment groups, with
+# Kruskal-Wallis annotation. Shows whether one group has systematically
+# higher / lower ARG abundance values, complementing the richness-based KW.
+.resistome_plot_abundance_violin <- function(card, group, pal_group,
+                                              fig_dir, cfg) {
+  if (!"TPM" %in% colnames(card) || nrow(card) == 0) return(invisible(NULL))
+  df <- data.frame(
+    sample  = card$sample,
+    group   = card[[group]],
+    log_TPM = log(card$TPM + 1)
+  )
+  df <- df[is.finite(df$log_TPM), , drop = FALSE]
+  if (dplyr::n_distinct(df$group) < 2 || nrow(df) < 3) {
+    pipeline_log(cfg,
+                 "Resistome abundance: insufficient data for KW — skipping")
+    return(invisible(NULL))
+  }
+  names(df)[names(df) == "group"] <- group
+  kw <- tryCatch(
+    kruskal.test(reformulate(group, "log_TPM"), data = df),
+    error = function(e) NULL
+  )
+  if (!is.null(kw)) {
+    pipeline_log(cfg,
+                 sprintf("Resistome log(TPM+1) ~ %s KW p = %.4g",
+                         group, kw$p.value))
+  }
+  y_max <- max(df$log_TPM, na.rm = TRUE)
+  p <- ggplot2::ggplot(df,
+        ggplot2::aes(x = .data[[group]], y = .data$log_TPM,
+                     fill = .data[[group]])) +
+    ggplot2::geom_violin(trim = FALSE, scale = "width", alpha = 0.6) +
+    ggplot2::geom_boxplot(width = 0.12, outlier.shape = NA,
+                          position = ggplot2::position_dodge(0.9)) +
+    ggplot2::geom_jitter(width = 0.08, size = 0.7, alpha = 0.35) +
+    ggplot2::scale_fill_manual(values = pal_group) +
+    ggplot2::labs(x = group, y = "log(TPM + 1)",
+                  title = "ARG abundance per Treatment group") +
+    ggplot2::theme_classic() +
+    ggplot2::theme(legend.position = "none",
+                   plot.title = ggplot2::element_text(hjust = 0.5,
+                                                       face = "bold",
+                                                       size = 13),
+                   text = ggplot2::element_text(size = 13))
+  if (!is.null(kw)) {
+    p <- p + ggplot2::annotate(
+      "text",
+      x = (dplyr::n_distinct(df[[group]]) + 1) / 2,
+      y = y_max * 1.05,
+      label = sprintf("Kruskal-Wallis p = %.2g", kw$p.value),
+      size = 4.5
+    )
+  }
+  ggplot2::ggsave(file.path(fig_dir, "arg_abundance_violin.png"),
+                  p, width = 7, height = 5.5, dpi = 300)
 }
 
 # Gene-level PCoA + PERMANOVA + PERMDISP on the ARG TPM profile. Mirrors
