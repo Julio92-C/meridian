@@ -118,8 +118,32 @@ run_virulome <- function(cleaned, cfg) {
       vfdb_fun, group, pal_function, fig_dir, ds_dir
     )
     .virulome_plot_function_total_bar(vf_totals, pal_function, fig_dir)
+    save_count_prevalence(
+      vfdb_fun,
+      file.path(fig_dir, "vf_count_prevalence.png"),
+      category_col   = "Functions",
+      value_col      = "TPM",
+      palette        = pal_function,
+      value_label    = "Total TPM",
+      category_label = "VF function",
+      width = 12, height = 6
+    )
   } else {
     pipeline_log(cfg, "Virulome: no rows with a function — RA/total skipped")
+  }
+
+  # ---- (6) Gene-level paired count + prevalence ------------------------
+  if ("TPM" %in% colnames(vfdb) && nrow(vfdb) > 0) {
+    gh <- max(6, 0.18 * dplyr::n_distinct(vfdb$GENE) + 2)
+    save_count_prevalence(
+      vfdb,
+      file.path(fig_dir, "gene_count_prevalence.png"),
+      category_col   = "GENE",
+      value_col      = "TPM",
+      value_label    = "Total TPM",
+      category_label = "VF gene",
+      width = 13, height = gh
+    )
   }
 
   invisible(list(alpha = alpha, vf_totals = vf_totals))

@@ -114,6 +114,16 @@ run_mobilome <- function(cleaned, cfg) {
     pfdb, group, pal_gene, fig_dir, ds_dir
   )
   .mobilome_plot_gene_total_bar(gene_totals, pal_gene, fig_dir)
+  save_count_prevalence(
+    pfdb,
+    file.path(fig_dir, "mge_count_prevalence.png"),
+    category_col   = "GENE",
+    value_col      = "TPM",
+    palette        = pal_gene,
+    value_label    = "Total TPM",
+    category_label = "Plasmid replicon",
+    width = 13, height = 7
+  )
 
   family_totals <- NULL
   if (nrow(pfdb_fam) > 0) {
@@ -121,6 +131,16 @@ run_mobilome <- function(cleaned, cfg) {
       pfdb_fam, group, pal_family, fig_dir, ds_dir
     )
     .mobilome_plot_family_total_bar(family_totals, pal_family, fig_dir)
+    save_count_prevalence(
+      pfdb_fam,
+      file.path(fig_dir, "mge_family_count_prevalence.png"),
+      category_col   = "Replicon_Family",
+      value_col      = "TPM",
+      palette        = pal_family,
+      value_label    = "Total TPM",
+      category_label = "Replicon family",
+      width = 11, height = 4
+    )
   } else {
     pipeline_log(cfg, "Mobilome: no family-classified rows — family RA skipped")
   }

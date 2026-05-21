@@ -127,8 +127,32 @@ run_resistome <- function(cleaned, cfg) {
       card_drug, group, pal_drug, fig_dir, ds_dir
     )
     .resistome_plot_drug_total_bar(drug_totals, pal_drug, fig_dir)
+    save_count_prevalence(
+      card_drug,
+      file.path(fig_dir, "drug_count_prevalence.png"),
+      category_col   = "DRUG",
+      value_col      = "TPM",
+      palette        = pal_drug,
+      value_label    = "Total TPM",
+      category_label = "Drug class",
+      width = 12, height = 6
+    )
   } else {
     pipeline_log(cfg, "Resistome: no rows with a drug class — RA/total skipped")
+  }
+
+  # ---- (6) Gene-level paired count + prevalence ------------------------
+  if ("TPM" %in% colnames(card) && nrow(card) > 0) {
+    gh <- max(6, 0.20 * dplyr::n_distinct(card$GENE) + 2)
+    save_count_prevalence(
+      card,
+      file.path(fig_dir, "gene_count_prevalence.png"),
+      category_col   = "GENE",
+      value_col      = "TPM",
+      value_label    = "Total TPM",
+      category_label = "ARG",
+      width = 13, height = gh
+    )
   }
 
   invisible(list(alpha = alpha, drug_totals = drug_totals))

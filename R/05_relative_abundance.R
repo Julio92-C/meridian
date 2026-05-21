@@ -215,6 +215,20 @@ run_relative_abundance <- function(cleaned, cfg) {
     sph <- max(5, 0.25 * nrow(df_species) + 2)
     ggplot2::ggsave(file.path(fig_dir, "species_count.png"), sp,
                     width = 9, height = sph, dpi = 300)
+
+    # ---- Paired count + prevalence (total | sample prevalence) ---------
+    df_long_species <- df_pct |>
+      dplyr::filter(name %in% as.character(df_species$name))
+    save_count_prevalence(
+      df_long_species,
+      file.path(fig_dir, "species_count_prevalence.png"),
+      category_col   = "name",
+      value_col      = "count",
+      palette        = name_colors,
+      value_label    = "Total count",
+      category_label = "Taxon",
+      width = 13, height = sph
+    )
   } else {
     pipeline_log(cfg, sprintf(
       "Relative abundance: no taxa with total count >= %d — species_count.png skipped",
