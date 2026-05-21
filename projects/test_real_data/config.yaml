@@ -44,7 +44,7 @@ stages:
   differential_abundance: true
   resistome:              true
   virulome:               true
-  mobilome:               false
+  mobilome:               true
   network:                false
   report:                 false
 
