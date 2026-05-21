@@ -43,7 +43,7 @@ stages:
   beta_diversity:         true
   differential_abundance: true
   resistome:              true
-  virulome:               false
+  virulome:               true
   mobilome:               false
   network:                false
   report:                 false
