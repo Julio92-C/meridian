@@ -45,7 +45,7 @@ stages:
   resistome:              true
   virulome:               true
   mobilome:               true
-  network:                false
+  network:                true
   report:                 false
 
 stats:
