@@ -1,14 +1,17 @@
-# 12_network.R — Tripartite (sample × taxon × gene) network + chord diagrams.
-# Mirrors the GT scripts tripartiteNetwork.R, chordDiagram_v1.2.1.R, and
-# chordDiagramNorm_v1.2.1.R, but drives everything from cfg — no hand-tuned
-# row-index cell edits, no hardcoded treatments / sample IDs / palettes.
-# Uses clean_taxa_names() from R/utils_taxa.R and classify_resistance() from
-# R/09_resistome.R.
+# 12_network.R — Tripartite (sample × taxon × gene) network + chord + sankey.
+# Mirrors the GT scripts tripartiteNetwork.R, chordDiagram_v1.2.1.R,
+# chordDiagramNorm_v1.2.1.R, and VFsProfile_sankeyDiagram.R, but drives
+# everything from cfg — no hand-tuned row-index cell edits, no hardcoded
+# treatments / sample IDs / palettes. Uses clean_taxa_names() from
+# R/utils_taxa.R, classify_resistance() from R/09_resistome.R, and
+# extract_vf_function() from R/10_virulome.R.
 #
 # Outputs (under <project>/<figures_dir>/network/):
 #   network.png             ggraph FR-layout tripartite network
 #   chord_overall.png       Chord of sample → taxon → gene → drug class (all)
 #   chord_<group>.png       One chord per group level (toggleable)
+#   sankey_overall.html     4-tier sankey sample→taxon→gene→category (all)
+#   sankey_<group>.html     One sankey per group level (toggleable)
 #
 # Datasets (under <project>/<datasets_dir>/network/):
 #   gephi_edges.csv         Source / Target / Weight rows for Gephi import
@@ -16,6 +19,8 @@
 #                           Function_group / distance_cluster
 #   topology.csv            node / kind / degree / betweenness / module
 #   sample_clusters.csv     sample → Bray-Curtis hierarchical cluster id
+#   chord_long.csv          (sample, name, GENE, RESISTANCE_class, <group>)
+#   sankey_long.csv         (sample, name, GENE, category, <group>)
 
 `%||%` <- function(a, b) if (is.null(a)) b else a
 
@@ -56,6 +61,12 @@ run_network <- function(cleaned, cfg) {
     .network_build_chord(df_all, group, chord_cfg, fig_dir, ds_dir, cfg)
   }
 
+  # --- Sankey diagrams --------------------------------------------------
+  sankey_cfg <- ncfg$sankey %||% list()
+  if (!isFALSE(sankey_cfg$enabled %||% TRUE)) {
+    .network_build_sankey(df_all, group, sankey_cfg, fig_dir, ds_dir, cfg)
+  }
+
   invisible(NULL)
 }
 
@@ -78,8 +89,11 @@ run_network <- function(cleaned, cfg) {
     ))
     return(NULL)
   }
-  src <- clean_taxa_names(src, cfg)
 
+  # Gene-label renames are safe for every downstream view, but taxa-name
+  # cleaning (species-only filter + genus abbreviation) is intentionally
+  # applied *inside* the tripartite and chord builds — the sankey defaults
+  # to GT's permissive view that keeps higher-rank taxa rows.
   renames <- c(
     .default_network_gene_renames(),
     as.list(cfg$network$gene_renames %||% list())
@@ -142,6 +156,11 @@ run_network <- function(cleaned, cfg) {
 # ============================================================================
 
 .network_build_tripartite <- function(df, group, ncfg, fig_dir, ds_dir, cfg) {
+  df <- clean_taxa_names(df, cfg)
+  if (nrow(df) == 0) {
+    pipeline_log(cfg, "Network: no rows after clean_taxa_names — tripartite skipped")
+    return(invisible(NULL))
+  }
   # Edge list: sample → taxa (weighted by Σ sampleCount), taxa → gene (binary)
   e_st <- df |>
     dplyr::transmute(from = .data$sample, to = .data$name,
@@ -344,6 +363,11 @@ run_network <- function(cleaned, cfg) {
     ))
     return(invisible(NULL))
   }
+  df <- clean_taxa_names(df, cfg)
+  if (nrow(df) == 0) {
+    pipeline_log(cfg, "Network chord: no rows after clean_taxa_names — skipping")
+    return(invisible(NULL))
+  }
 
   min_count  <- chord_cfg$min_sample_count %||% 50
   mls_rollup <- isTRUE(chord_cfg$mls_rollup %||% TRUE)
@@ -470,4 +494,206 @@ run_network <- function(cleaned, cfg) {
   }
   if (length(base) >= n) return(base[seq_len(n)])
   grDevices::colorRampPalette(base)(n)
+}
+
+# ============================================================================
+# Sankey diagrams (4 tiers: sample → taxon → gene → category)
+# ============================================================================
+
+.network_build_sankey <- function(df_all, group, scfg, fig_dir, ds_dir, cfg) {
+  if (!requireNamespace("networkD3", quietly = TRUE) ||
+      !requireNamespace("htmlwidgets", quietly = TRUE)) {
+    pipeline_log(cfg, "Network sankey: networkD3/htmlwidgets not available — skipping")
+    return(invisible(NULL))
+  }
+
+  database <- tolower(scfg$database %||% "vfdb")
+  df <- dplyr::filter(df_all, tolower(.data$DATABASE) %in% database)
+  if (nrow(df) == 0) {
+    pipeline_log(cfg, sprintf(
+      "Network sankey: no rows in DATABASE == '%s' — skipping",
+      paste(database, collapse = "/")
+    ))
+    return(invisible(NULL))
+  }
+
+  if (isTRUE(scfg$clean_taxa %||% FALSE)) {
+    df <- clean_taxa_names(df, cfg)
+    if (nrow(df) == 0) {
+      pipeline_log(cfg, "Network sankey: no rows after clean_taxa_names — skipping")
+      return(invisible(NULL))
+    }
+  }
+
+  category_src <- scfg$category %||% "auto"
+  df <- .network_sankey_assign_category(df, database, category_src, scfg)
+  if (is.null(df) || nrow(df) == 0) {
+    pipeline_log(cfg, "Network sankey: no rows after category assignment — skipping")
+    return(invisible(NULL))
+  }
+
+  min_count <- scfg$min_sample_count %||% 0
+  if (min_count > 0) {
+    df <- dplyr::filter(df, .data$sampleCount > min_count)
+  }
+  df <- df |>
+    dplyr::filter(!is.na(.data$category), nzchar(.data$category)) |>
+    dplyr::distinct(.data$sample, .data$name, .data$GENE, .data$category,
+                    !!rlang::sym(group))
+  if (nrow(df) == 0) {
+    pipeline_log(cfg, sprintf(
+      "Network sankey: no rows after filters (sampleCount > %g) — skipping",
+      min_count
+    ))
+    return(invisible(NULL))
+  }
+
+  pipeline_log(cfg, sprintf(
+    "Network sankey: %d rows, %d samples, %d taxa, %d genes, %d categories",
+    nrow(df), dplyr::n_distinct(df$sample), dplyr::n_distinct(df$name),
+    dplyr::n_distinct(df$GENE), dplyr::n_distinct(df$category)
+  ))
+  readr::write_csv(df, file.path(ds_dir, "sankey_long.csv"))
+
+  .network_render_sankey(df, file.path(fig_dir, "sankey_overall.html"), scfg)
+
+  if (!isFALSE(scfg$per_group %||% TRUE) && !is.null(group) &&
+      group %in% colnames(df)) {
+    for (lvl in sort(unique(df[[group]]))) {
+      sub <- dplyr::filter(df, .data[[group]] == lvl)
+      if (nrow(sub) == 0) next
+      safe <- gsub("[^A-Za-z0-9_-]+", "_", lvl)
+      .network_render_sankey(
+        sub, file.path(fig_dir, sprintf("sankey_%s.html", safe)), scfg
+      )
+    }
+  }
+}
+
+# Resolve the GENE → category mapping for a given database. "auto" picks
+# VF-function for vfdb, drug-class for card, and the GENE itself otherwise
+# (so the sankey degenerates into sample → taxon → gene → gene). Explicit
+# values: "vf_function", "drug_class", "gene".
+.network_sankey_assign_category <- function(df, database, category_src, scfg) {
+  src <- category_src
+  if (src == "auto") {
+    src <- dplyr::case_when(
+      "vfdb" %in% database ~ "vf_function",
+      "card" %in% database ~ "drug_class",
+      TRUE                  ~ "gene"
+    )
+  }
+
+  if (src == "vf_function") {
+    if (!"PRODUCT" %in% colnames(df)) return(NULL)
+    df$category <- vapply(df$PRODUCT, extract_vf_function,
+                          FUN.VALUE = character(1))
+    renames <- as.list(scfg$category_renames %||% list())
+    if (length(renames) > 0) {
+      df$category <- .apply_literal_renames(df$category, renames)
+    }
+  } else if (src == "drug_class") {
+    if (!"RESISTANCE" %in% colnames(df)) return(NULL)
+    if (isTRUE(scfg$mls_rollup %||% TRUE)) {
+      df$RESISTANCE <- stringr::str_replace_all(
+        df$RESISTANCE,
+        stringr::fixed(
+          "lincosamide;macrolide;streptogramin;streptogramin_A;streptogramin_B"
+        ),
+        "MLS"
+      )
+    }
+    df$category <- vapply(df$RESISTANCE, classify_resistance,
+                          FUN.VALUE = character(1))
+    df$category <- ifelse(df$category %in% c("Mls", "mls"), "MLS", df$category)
+  } else {
+    df$category <- df$GENE
+  }
+  df
+}
+
+# Best-effort literal-substring rename (mirrors R/10's .apply_literal_renames
+# but local — keep R/12 self-contained).
+.apply_literal_renames <- function(x, renames) {
+  if (length(renames) == 0) return(x)
+  x <- as.character(x)
+  for (k in names(renames)) {
+    x <- ifelse(grepl(k, x, fixed = TRUE), renames[[k]], x)
+  }
+  x
+}
+
+.network_render_sankey <- function(df, html_path, scfg) {
+  node_cols <- modifyList(
+    list(sample = "#175709", taxon = "#825cdb",
+         gene   = "#fc3503", class = "#b5b5b5"),
+    as.list(scfg$node_colors %||% list())
+  )
+  link_cols <- modifyList(
+    list(sample_taxon = "#98ed85", taxon_gene = "#4fc1e3",
+         gene_class   = "#d1d0c24D"),
+    as.list(scfg$link_colors %||% list())
+  )
+
+  # ---- Build node table -----------------------------------------------
+  samples <- sort(unique(df$sample))
+  taxa    <- sort(unique(df$name))
+  genes   <- sort(unique(df$GENE))
+  cats    <- sort(unique(df$category))
+
+  nodes <- dplyr::bind_rows(
+    data.frame(name = samples, tier = "sample", color = node_cols$sample,
+               stringsAsFactors = FALSE),
+    data.frame(name = taxa,    tier = "taxon",  color = node_cols$taxon,
+               stringsAsFactors = FALSE),
+    data.frame(name = genes,   tier = "gene",   color = node_cols$gene,
+               stringsAsFactors = FALSE),
+    data.frame(name = cats,    tier = "class",  color = node_cols$class,
+               stringsAsFactors = FALSE)
+  )
+  nodes$id <- seq_len(nrow(nodes)) - 1L  # networkD3 is 0-indexed
+
+  idx <- setNames(nodes$id, nodes$name)
+
+  # ---- Build link table (three tiers of edges) ------------------------
+  l0 <- df |>
+    dplyr::distinct(.data$sample, .data$name) |>
+    dplyr::transmute(source = idx[.data$sample], target = idx[.data$name],
+                     color = link_cols$sample_taxon)
+  l1 <- df |>
+    dplyr::distinct(.data$name, .data$GENE) |>
+    dplyr::transmute(source = idx[.data$name], target = idx[.data$GENE],
+                     color = link_cols$taxon_gene)
+  l2 <- df |>
+    dplyr::distinct(.data$GENE, .data$category) |>
+    dplyr::transmute(source = idx[.data$GENE], target = idx[.data$category],
+                     color = link_cols$gene_class)
+  links <- dplyr::bind_rows(l0, l1, l2) |>
+    dplyr::distinct(.data$source, .data$target, .keep_all = TRUE)
+  links$value <- 1
+
+  # ---- Render and save -------------------------------------------------
+  width     <- scfg$width      %||% 1500
+  height    <- scfg$height     %||% 750
+  font_size <- scfg$font_size  %||% 14
+  font_fam  <- scfg$font_family %||% "arial"
+
+  sk <- networkD3::sankeyNetwork(
+    Links = as.data.frame(links), Nodes = as.data.frame(nodes),
+    Source = "source", Target = "target", Value = "value", NodeID = "name",
+    NodeGroup = "tier", LinkGroup = "color",
+    fontSize = font_size, fontFamily = font_fam,
+    width = width, height = height, sinksRight = TRUE,
+    margin = list(top = 10, right = 10, bottom = 10, left = 10)
+  )
+
+  selfcontained <- isTRUE(scfg$selfcontained %||% TRUE)
+  # As with R/05 / R/07: saveWidget(selfcontained=TRUE) still leaves a
+  # benign <name>_files/ directory after rendering; suppressWarnings keeps
+  # the run log clean on re-runs. Falls through if pandoc is missing.
+  suppressWarnings(
+    htmlwidgets::saveWidget(sk, normalizePath(html_path, mustWork = FALSE),
+                            selfcontained = selfcontained)
+  )
+  invisible(NULL)
 }
