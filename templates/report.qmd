@@ -1,96 +1,634 @@
 ---
 title: "Metagenomics pipeline report"
 format:
-  html:
-    toc: true
-    toc-depth: 3
+  dashboard:
+    orientation: rows
+    scrolling: false
     theme: cosmo
-    code-fold: true
     embed-resources: true
+    nav-buttons: []
 params:
-  config: "projects/chicken_batch1/config.yaml"
+  config: "projects/test_real_data/config.yaml"
 execute:
   echo: false
   warning: false
   message: false
 ---
 
-```{r setup, include=FALSE}
+```{r setup}
+#| include: false
+suppressPackageStartupMessages({
+  library(dplyr); library(tidyr); library(readr)
+  library(plotly); library(reactable); library(htmltools)
+})
+
 repo_root <- rprojroot::find_root(rprojroot::has_file("run_pipeline.R"))
-`%||%` <- function(a,b) if (is.null(a)) b else a
+`%||%` <- function(a, b) if (is.null(a)) b else a
+
 invisible(lapply(sort(list.files(file.path(repo_root, "R"),
                                  pattern = "^\\d+_.*\\.R$",
                                  full.names = TRUE)), source))
-cfg <- load_config(params$config)
+cfg_path <- params$config
+if (!file.exists(cfg_path)) cfg_path <- file.path(repo_root, cfg_path)
+cfg <- load_config(cfg_path)
+
+rcfg <- modifyList(
+  list(
+    top_n_taxa              = 25,
+    top_n_genes             = 30,
+    rank_taxa_by            = "prevalence_x_abundance",
+    other_bucket            = TRUE,
+    daa_extra               = "significant",
+    network_top_nodes       = 50,
+    network_edge_min_weight = 0.3,
+    show_per_group_chord    = TRUE,
+    show_per_group_sankey   = TRUE,
+    embed_sankey_widgets    = TRUE
+  ),
+  cfg$report %||% list()
+)
+
+ds_root  <- file.path(cfg$project_root, cfg$outputs$datasets_dir)
+fig_root <- file.path(cfg$project_root, cfg$outputs$figures_dir)
+group    <- cfg$metadata$group_cols[[1]]
+sid      <- cfg$metadata$sample_id_col
+
+# ---- small utilities --------------------------------------------------------
+
+read_csv_safe <- function(p) {
+  if (!file.exists(p)) return(NULL)
+  tryCatch(readr::read_csv(p, show_col_types = FALSE),
+           error = function(e) NULL)
+}
+read_tsv_safe <- function(p) {
+  if (!file.exists(p)) return(NULL)
+  tryCatch(readr::read_tsv(p, show_col_types = FALSE),
+           error = function(e) NULL)
+}
+read_text_safe <- function(p) {
+  if (!file.exists(p)) return(NULL)
+  paste(readLines(p, warn = FALSE), collapse = "\n")
+}
+empty_card <- function(msg) htmltools::div(
+  style = "padding:1rem;color:#666;font-style:italic;", msg
+)
+rt <- function(df, ...) {
+  if (is.null(df) || !nrow(df)) return(empty_card("No data."))
+  reactable::reactable(
+    df, searchable = TRUE, filterable = TRUE, sortable = TRUE,
+    pagination = TRUE, defaultPageSize = 12,
+    bordered = TRUE, highlight = TRUE, striped = TRUE,
+    ...
+  )
+}
+
+# Generic top-N selector — returns the top features by the configured ranking
+# applied to a (sample, feature, value) long tibble.
+top_features <- function(long, n, by = rcfg$rank_taxa_by,
+                          feature_col = "feature", value_col = "value") {
+  if (is.null(long) || !nrow(long)) return(character())
+  s <- long |>
+    dplyr::group_by(.data[[feature_col]]) |>
+    dplyr::summarise(
+      mean_abundance = mean(.data[[value_col]], na.rm = TRUE),
+      max_abundance  = max(.data[[value_col]],  na.rm = TRUE),
+      prevalence     = mean(.data[[value_col]] > 0, na.rm = TRUE),
+      .groups = "drop"
+    ) |>
+    dplyr::mutate(prevalence_x_abundance = prevalence * mean_abundance)
+  s <- s[order(-s[[by]]), ]
+  head(s[[feature_col]], n)
+}
+
+apply_top_n <- function(long, n, feature_col = "feature",
+                         value_col = "value", with_other = TRUE) {
+  if (is.null(long) || !nrow(long)) return(long)
+  keep <- top_features(long, n, feature_col = feature_col, value_col = value_col)
+  if (!with_other) return(dplyr::filter(long, .data[[feature_col]] %in% keep))
+  long[[feature_col]] <- ifelse(long[[feature_col]] %in% keep,
+                                long[[feature_col]], "Others")
+  grp_cols <- setdiff(colnames(long), value_col)
+  long |>
+    dplyr::group_by(dplyr::across(dplyr::all_of(grp_cols))) |>
+    dplyr::summarise(!!value_col := sum(.data[[value_col]], na.rm = TRUE),
+                     .groups = "drop")
+}
+
+# ---- load artifacts ---------------------------------------------------------
+
+art <- list(
+  composition = read_csv_safe(file.path(ds_root, "relative_abundance",
+                                        "composition_long.csv")),
+  alpha       = read_csv_safe(file.path(ds_root, "alpha_diversity.csv")),
+  beta        = read_csv_safe(file.path(ds_root, "beta_diversity_pcoa.csv")),
+  permanova   = read_text_safe(file.path(fig_root, "beta_diversity", "permanova.txt")),
+  permdisp    = read_text_safe(file.path(fig_root, "beta_diversity", "permdisp.txt")),
+
+  daa_taxa = list(
+    merged     = read_tsv_safe(file.path(ds_root, "aldex2", "taxa",
+                                          "merged_pairwise_with_overall.tsv")),
+    pair_files = list.files(file.path(ds_root, "aldex2", "taxa"),
+                            pattern = "^[^.]+_vs_[^.]+\\.tsv$", full.names = TRUE),
+    candidates = list.files(file.path(ds_root, "aldex2", "taxa"),
+                            pattern = "^candidates_.*\\.csv$", full.names = TRUE)
+  ),
+  daa_gene = list(
+    merged     = read_tsv_safe(file.path(ds_root, "aldex2", "gene",
+                                          "merged_pairwise_with_overall.tsv")),
+    pair_files = list.files(file.path(ds_root, "aldex2", "gene"),
+                            pattern = "^[^.]+_vs_[^.]+\\.tsv$", full.names = TRUE),
+    candidates = list.files(file.path(ds_root, "aldex2", "gene"),
+                            pattern = "^candidates_.*\\.csv$", full.names = TRUE)
+  ),
+
+  resistome = list(
+    alpha = read_csv_safe(file.path(ds_root, "resistome", "alpha_diversity.csv")),
+    drug  = read_csv_safe(file.path(ds_root, "resistome", "drug_total_TPM.csv")),
+    pcoa  = read_csv_safe(file.path(ds_root, "resistome", "beta_pcoa_scores.csv"))
+  ),
+  virulome = list(
+    alpha = read_csv_safe(file.path(ds_root, "virulome", "alpha_diversity.csv")),
+    drug  = read_csv_safe(file.path(ds_root, "virulome", "vf_total_TPM.csv")),
+    pcoa  = read_csv_safe(file.path(ds_root, "virulome", "beta_pcoa_scores.csv"))
+  ),
+  mobilome = list(
+    alpha = read_csv_safe(file.path(ds_root, "mobilome", "alpha_diversity.csv")),
+    drug  = read_csv_safe(file.path(ds_root, "mobilome", "mge_total_TPM.csv")),
+    pcoa  = read_csv_safe(file.path(ds_root, "mobilome", "beta_pcoa_scores.csv"))
+  ),
+
+  network = list(
+    nodes    = read_csv_safe(file.path(ds_root, "network", "gephi_nodes.csv")),
+    edges    = read_csv_safe(file.path(ds_root, "network", "gephi_edges.csv")),
+    topology = read_csv_safe(file.path(ds_root, "network", "topology.csv")),
+    chord_overall = file.path(fig_root, "network", "chord_overall.png"),
+    # list.files() uses POSIX ERE (no lookaround, no `perl =` arg) — list
+    # every chord_*.png then drop the overall one in R.
+    chord_groups  = {
+      f <- list.files(file.path(fig_root, "network"),
+                      pattern = "^chord_.+\\.png$", full.names = TRUE)
+      f[basename(f) != "chord_overall.png"]
+    },
+    sankey_overall = file.path(fig_root, "network", "sankey_overall.html"),
+    sankey_groups  = {
+      f <- list.files(file.path(fig_root, "network"),
+                      pattern = "^sankey_.+\\.html$", full.names = TRUE)
+      f[basename(f) != "sankey_overall.html"]
+    }
+  ),
+
+  log = read_text_safe(file.path(cfg$project_root, cfg$outputs$log_file))
+)
+
+n_samples <- if (!is.null(art$composition))
+  dplyr::n_distinct(art$composition$sample) else NA_integer_
+n_taxa <- if (!is.null(art$composition))
+  dplyr::n_distinct(art$composition$name) else NA_integer_
+n_genes_daa <- if (!is.null(art$daa_gene$merged))
+  nrow(art$daa_gene$merged) else NA_integer_
 ```
 
-# Study: `r cfg$study$name`
+#  {.sidebar width=240}
 
-`r cfg$study$description`
-
-- **Project root:** `` `r cfg$project_root` ``
-- **Metadata:** `` `r cfg$metadata$file` ``
-- **Primary grouping variable:** `` `r cfg$metadata$group_cols[[1]]` ``
-
-# Methodology
-
-This report reproduces the Chicken batch 1 methodology:
-
-- Host-read removal: Samtools v1.17.
-- Taxonomic classification: Kraken2 v2.1.2 (PlusPF-8) + Bracken v2.7.0.
-- AMR / VF / MGE detection: ABRicate v1.0.1 (CARD, VFDB, PlasmidFinder).
-- Contaminant removal: Re-centrifuge.
-- Normalisation: TPM per gene element.
-- Alpha diversity: richness + Shannon, Kruskal–Wallis.
-- Beta diversity: Bray–Curtis → PCoA + PERMANOVA (`adonis2`, 9999 permutations).
-- Differential abundance: ALDEx2 (128 MC Dirichlet instances, prevalence ≥ 2).
-- Network: tripartite treatment × taxa × GE, topology via igraph/Gephi.
-
-# Figures
-
-Pre-computed figures are embedded from the study's `Figures/` directory.
-
-## Relative abundance
-
-![](`r file.path(cfg$project_root, cfg$outputs$figures_dir, "relative_abundance", "relative_abundance.png")`)
-
-## Alpha diversity
-
-![](`r file.path(cfg$project_root, cfg$outputs$figures_dir, "alpha_diversity", "shannon_violin.png")`)
-
-## Beta diversity (PCoA)
-
-![](`r file.path(cfg$project_root, cfg$outputs$figures_dir, "beta_diversity", "pcoa.png")`)
-
-## Resistome
-
-![](`r file.path(cfg$project_root, cfg$outputs$figures_dir, "resistome", "pcoa.png")`)
-
-## Virulome
-
-![](`r file.path(cfg$project_root, cfg$outputs$figures_dir, "virulome", "pcoa.png")`)
-
-## Mobilome
-
-![](`r file.path(cfg$project_root, cfg$outputs$figures_dir, "mobilome", "pcoa.png")`)
-
-# Statistics
-
-```{r alpha-stats, results='asis'}
-afile <- file.path(cfg$project_root, cfg$outputs$figures_dir,
-                   "alpha_diversity", "alpha_stats.txt")
-if (file.exists(afile)) cat("```\n", readLines(afile), "\n```\n", sep = "\n")
+```{r}
+#| title: Run
+htmltools::tagList(
+  htmltools::h4(cfg$study$name),
+  htmltools::p(htmltools::strong("ID: "), cfg$study$id),
+  htmltools::p(htmltools::strong("Primary group: "), group),
+  htmltools::p(htmltools::strong("Project root: ")),
+  htmltools::pre(cfg$project_root, style = "white-space:pre-wrap;font-size:11px;"),
+  htmltools::hr(),
+  htmltools::p(htmltools::em("Display caps (stats unaffected):")),
+  htmltools::tags$ul(
+    htmltools::tags$li(sprintf("Top-N taxa: %d",  rcfg$top_n_taxa)),
+    htmltools::tags$li(sprintf("Top-N genes: %d", rcfg$top_n_genes)),
+    htmltools::tags$li(sprintf("Rank by: %s",     rcfg$rank_taxa_by)),
+    htmltools::tags$li(sprintf("Network top nodes: %d", rcfg$network_top_nodes))
+  )
+)
 ```
 
-```{r permanova-stats, results='asis'}
-pfile <- file.path(cfg$project_root, cfg$outputs$figures_dir,
-                   "beta_diversity", "permanova.txt")
-if (file.exists(pfile)) cat("```\n", readLines(pfile), "\n```\n", sep = "\n")
+# Overview
+
+## Row {height=22%}
+
+```{r}
+#| content: valuebox
+#| title: "Samples"
+list(value = format(n_samples %||% "—"), icon = "people-fill", color = "primary")
 ```
+
+```{r}
+#| content: valuebox
+#| title: "Taxa (post-filter)"
+list(value = format(n_taxa %||% "—"), icon = "bug", color = "success")
+```
+
+```{r}
+#| content: valuebox
+#| title: "Genes tested (DAA)"
+list(value = format(n_genes_daa %||% "—"), icon = "diagram-3", color = "info")
+```
+
+```{r}
+#| content: valuebox
+#| title: "Primary grouping"
+list(value = group %||% "—", icon = "tag", color = "secondary")
+```
+
+## Row {height=78%}
+
+```{r}
+#| title: Methodology
+htmltools::div(
+  htmltools::p(cfg$study$description),
+  htmltools::hr(),
+  htmltools::tags$ul(
+    htmltools::tags$li("Host-read removal: Samtools v1.17."),
+    htmltools::tags$li("Taxonomic classification: Kraken2 + Bracken."),
+    htmltools::tags$li("AMR / VF / MGE detection: ABRicate (CARD, VFDB, PlasmidFinder)."),
+    htmltools::tags$li("Contaminant removal: Re-centrifuge."),
+    htmltools::tags$li("Normalisation: TPM per gene element."),
+    htmltools::tags$li("Alpha diversity: Kruskal-Wallis."),
+    htmltools::tags$li(sprintf(
+      "Beta diversity: Bray-Curtis → PCoA + PERMANOVA (%d permutations).",
+      cfg$stats$permanova_permutations %||% 9999
+    )),
+    htmltools::tags$li(sprintf(
+      "Differential abundance: ALDEx2 (%d MC, prevalence ≥ %d).",
+      cfg$stats$aldex_mc_samples %||% 128,
+      cfg$filters$min_prevalence_aldex %||% 2
+    )),
+    htmltools::tags$li("Network: tripartite sample × taxa × gene + chord + sankey.")
+  )
+)
+```
+
+# Composition
+
+```{r}
+#| output: asis
+comp <- art$composition
+if (is.null(comp) || !nrow(comp)) {
+  cat("::: {.card title='Composition'}\nNo composition data — was R/05 run?\n:::\n")
+} else {
+  long <- comp |>
+    dplyr::select(sample, feature = name, value = percentage,
+                  dplyr::any_of(group))
+  long_top <- apply_top_n(long, rcfg$top_n_taxa,
+                          with_other = isTRUE(rcfg$other_bucket))
+}
+```
+
+## Row {.tabset}
+
+```{r}
+#| title: Stacked bar
+if (exists("long_top")) {
+  plot_ly(long_top, x = ~sample, y = ~value, color = ~feature, type = "bar",
+          hovertemplate = paste0("%{x}<br>%{fullData.name}: %{y:.2f}%<extra></extra>")) |>
+    layout(barmode = "stack",
+           xaxis = list(title = "", tickangle = -45),
+           yaxis = list(title = "Relative abundance (%)"),
+           legend = list(orientation = "v"))
+} else empty_card("Composition unavailable.")
+```
+
+```{r}
+#| title: Heatmap
+if (exists("long_top")) {
+  wide <- tidyr::pivot_wider(long_top, id_cols = feature,
+                             names_from = sample, values_from = value,
+                             values_fill = 0, values_fn = sum)
+  m <- as.matrix(wide[, -1]); rownames(m) <- wide$feature
+  plot_ly(z = m, x = colnames(m), y = rownames(m), type = "heatmap",
+          colorbar = list(title = "% abundance")) |>
+    layout(xaxis = list(tickangle = -45))
+} else empty_card("Composition unavailable.")
+```
+
+```{r}
+#| title: Table
+if (exists("long_top")) {
+  long_top |>
+    dplyr::group_by(feature) |>
+    dplyr::summarise(mean_pct = round(mean(value), 2),
+                     max_pct  = round(max(value), 2),
+                     prevalence = round(mean(value > 0), 3),
+                     .groups = "drop") |>
+    dplyr::arrange(dplyr::desc(mean_pct)) |>
+    rt()
+} else empty_card("Composition unavailable.")
+```
+
+# Alpha diversity
+
+```{r}
+#| include: false
+alpha <- art$alpha
+metric_cols <- if (!is.null(alpha)) setdiff(
+  colnames(alpha),
+  c(sid, group, "sample", cfg$metadata$fixed_effects, cfg$metadata$random_effect)
+) else character()
+metric_cols <- intersect(metric_cols, colnames(alpha %||% data.frame()))
+metric_cols <- metric_cols[vapply(alpha[metric_cols], is.numeric, logical(1))]
+```
+
+## Row {.tabset}
+
+```{r}
+#| output: asis
+if (!length(metric_cols)) {
+  cat("::: {.card title='Alpha'}\nNo alpha-diversity metrics found.\n:::\n")
+} else {
+  for (m in metric_cols) {
+    cat(sprintf("\n\n### %s\n\n", m))
+    p <- plot_ly(alpha, x = ~.data[[group]], y = ~.data[[m]],
+                 color = ~.data[[group]], type = "box", boxpoints = "all",
+                 jitter = 0.3, pointpos = 0) |>
+      layout(xaxis = list(title = ""), yaxis = list(title = m),
+             showlegend = FALSE)
+    print(htmltools::tagList(p))
+  }
+  cat("\n\n### Table\n\n")
+  print(htmltools::tagList(rt(alpha)))
+}
+```
+
+# Beta diversity
+
+## Row {height=70%}
+
+```{r}
+#| title: PCoA (PC1 vs PC2)
+if (!is.null(art$beta)) {
+  plot_ly(art$beta, x = ~PC1, y = ~PC2, color = ~.data[[group]],
+          text = ~sample, type = "scatter", mode = "markers",
+          marker = list(size = 10)) |>
+    layout(xaxis = list(title = "PC1"),
+           yaxis = list(title = "PC2"))
+} else empty_card("Beta diversity unavailable — was R/07 run?")
+```
+
+## Row {height=30%}
+
+```{r}
+#| title: PERMANOVA
+htmltools::pre(art$permanova %||% "permanova.txt not found")
+```
+
+```{r}
+#| title: PERMDISP
+htmltools::pre(art$permdisp %||% "permdisp.txt not found")
+```
+
+# Differential abundance
+
+## Row {.tabset}
+
+```{r}
+#| output: asis
+
+render_daa_level <- function(level_label, bundle) {
+  if (is.null(bundle$pair_files) || !length(bundle$pair_files)) {
+    cat(sprintf("\n### %s\n\nNo ALDEx2 outputs found for %s.\n",
+                level_label, level_label))
+    return(invisible(NULL))
+  }
+  cat(sprintf("\n### %s\n\n", level_label))
+  cat("::: {.panel-tabset}\n\n")
+  for (pf in bundle$pair_files) {
+    cn <- tools::file_path_sans_ext(basename(pf))
+    df <- read_tsv_safe(pf)
+    if (is.null(df) || !nrow(df)) next
+    feat_col <- intersect(c("taxon", "GENE"), colnames(df))[1] %||% colnames(df)[1]
+    qcol <- intersect(c("wi.eBH", "we.eBH"), colnames(df))[1]
+    cat(sprintf("\n#### %s\n\n", cn))
+    cat("::: {.panel-tabset}\n\n")
+
+    # Volcano
+    cat("\n##### Volcano\n\n")
+    if (!is.na(qcol) && "effect" %in% colnames(df)) {
+      df$neglogq <- -log10(pmax(df[[qcol]], 1e-300))
+      df$sig     <- df[[qcol]] < (cfg$stats$alpha %||% 0.05)
+      p <- plot_ly(df, x = ~effect, y = ~neglogq, color = ~sig,
+                   text = df[[feat_col]], type = "scatter", mode = "markers") |>
+        layout(xaxis = list(title = "ALDEx2 effect (CLR diff)"),
+               yaxis = list(title = sprintf("-log10(%s)", qcol)))
+      print(htmltools::tagList(p))
+    } else {
+      cat("Volcano unavailable — missing effect / eBH columns.\n")
+    }
+
+    # Candidates table (already top-N from the stage)
+    cat("\n\n##### Candidates\n\n")
+    cf <- file.path(dirname(pf), paste0("candidates_", cn, ".csv"))
+    cdf <- read_csv_safe(cf)
+    if (!is.null(cdf)) print(htmltools::tagList(rt(cdf)))
+    else cat("No candidates CSV for this comparison.\n")
+
+    cat("\n\n##### Full table\n\n")
+    print(htmltools::tagList(rt(df)))
+    cat("\n\n:::\n\n")
+  }
+  cat("\n:::\n")
+}
+
+render_daa_level("Taxa", art$daa_taxa)
+render_daa_level("Genes", art$daa_gene)
+```
+
+# Resistome / Virulome / Mobilome
+
+## Row {.tabset}
+
+```{r}
+#| output: asis
+
+# intersect(...)[1] returns NA (not NULL) when nothing matches, so the
+# `%||%` fallback alone doesn't save us. first_match returns the first
+# real hit, or `fallback` if none — and treats `fallback = NA` as "skip".
+first_match <- function(candidates, available, fallback = NA_character_) {
+  hit <- intersect(candidates, available)
+  if (length(hit)) hit[[1]] else fallback
+}
+
+render_ge_panel <- function(label, bundle) {
+  cat(sprintf("\n\n### %s\n\n", label))
+  cat("::: {.panel-tabset}\n\n")
+
+  cat("\n#### PCoA\n\n")
+  if (!is.null(bundle$pcoa)) {
+    grp  <- first_match(c(group, "group"), colnames(bundle$pcoa), group)
+    xcol <- first_match(c("PC1", "Axis.1"), colnames(bundle$pcoa))
+    ycol <- first_match(c("PC2", "Axis.2"), colnames(bundle$pcoa))
+    if (!is.na(xcol) && !is.na(ycol)) {
+      p <- plot_ly(bundle$pcoa, x = bundle$pcoa[[xcol]], y = bundle$pcoa[[ycol]],
+                   color = if (!is.na(grp) && grp %in% colnames(bundle$pcoa))
+                             bundle$pcoa[[grp]] else NULL,
+                   text = bundle$pcoa$sample, type = "scatter", mode = "markers",
+                   marker = list(size = 10)) |>
+        layout(xaxis = list(title = xcol), yaxis = list(title = ycol))
+      print(htmltools::tagList(p))
+    } else {
+      print(htmltools::tagList(rt(bundle$pcoa)))
+    }
+  } else cat("No PCoA scores.\n")
+
+  cat("\n\n#### Alpha\n\n")
+  if (!is.null(bundle$alpha)) print(htmltools::tagList(rt(bundle$alpha)))
+  else cat("No alpha CSV.\n")
+
+  cat("\n\n#### Categories (top-N)\n\n")
+  if (!is.null(bundle$drug) && nrow(bundle$drug) > 0) {
+    cn <- colnames(bundle$drug)
+    cat_col <- first_match(
+      c("DRUG", "VF_Category", "Function_group", "MGE_Category",
+        "category", "class"),
+      cn, cn[[1]])
+    val_col <- first_match(
+      c("Total_TPM", "total_TPM", "totalTPM", "totCount", "value"),
+      cn, if (length(cn) >= 2) cn[[2]] else NA_character_)
+    if (!is.na(cat_col) && !is.na(val_col)) {
+      df <- bundle$drug
+      df <- df[order(-df[[val_col]]), ]
+      df <- head(df, rcfg$top_n_genes)
+      p <- plot_ly(df, x = df[[cat_col]], y = df[[val_col]], type = "bar") |>
+        layout(xaxis = list(title = cat_col, tickangle = -45),
+               yaxis = list(title = val_col))
+      print(htmltools::tagList(p))
+      print(htmltools::tagList(rt(bundle$drug)))
+    } else {
+      cat(sprintf("Unrecognised columns in %s table: %s\n",
+                  label, paste(cn, collapse = ", ")))
+    }
+  } else cat("No category-level TPM table.\n")
+
+  cat("\n\n:::\n")
+}
+
+render_ge_panel("Resistome (AMR)", art$resistome)
+render_ge_panel("Virulome (VF)",   art$virulome)
+render_ge_panel("Mobilome (MGE)",  art$mobilome)
+```
+
+# Networks
+
+## Row {.tabset}
+
+### Chord
+
+::: {.panel-tabset}
+
+#### Overall
+
+```{r}
+if (file.exists(art$network$chord_overall)) {
+  htmltools::img(src = art$network$chord_overall, style = "max-width:100%;")
+} else empty_card("chord_overall.png not found — was R/12 run?")
+```
+
+#### Per group
+
+```{r}
+#| output: asis
+if (isTRUE(rcfg$show_per_group_chord) && length(art$network$chord_groups)) {
+  for (p in art$network$chord_groups) {
+    lvl <- sub("^chord_", "", tools::file_path_sans_ext(basename(p)))
+    cat(sprintf("\n**%s**\n\n", lvl))
+    print(htmltools::img(src = p, style = "max-width:100%;"))
+  }
+} else cat("No per-group chord diagrams.\n")
+```
+
+:::
+
+### Sankey
+
+::: {.panel-tabset}
+
+#### Overall
+
+```{r}
+if (isTRUE(rcfg$embed_sankey_widgets) && file.exists(art$network$sankey_overall)) {
+  htmltools::tags$iframe(
+    src = art$network$sankey_overall,
+    style = "width:100%;height:700px;border:none;"
+  )
+} else empty_card("sankey_overall.html not found.")
+```
+
+#### Per group
+
+```{r}
+#| output: asis
+if (isTRUE(rcfg$show_per_group_sankey) && length(art$network$sankey_groups)) {
+  for (p in art$network$sankey_groups) {
+    lvl <- sub("^sankey_", "", tools::file_path_sans_ext(basename(p)))
+    cat(sprintf("\n**%s**\n\n", lvl))
+    print(htmltools::tags$iframe(
+      src = p, style = "width:100%;height:600px;border:none;"
+    ))
+  }
+} else cat("No per-group sankey widgets.\n")
+```
+
+:::
+
+### Gephi tables
+
+::: {.panel-tabset}
+
+#### Nodes
+
+```{r}
+rt(art$network$nodes)
+```
+
+#### Edges
+
+```{r}
+if (!is.null(art$network$edges)) {
+  e <- art$network$edges
+  if ("Weight" %in% colnames(e)) {
+    e <- dplyr::filter(e, Weight >= rcfg$network_edge_min_weight)
+  }
+  rt(e)
+} else empty_card("gephi_edges.csv not found.")
+```
+
+#### Top hubs
+
+```{r}
+if (!is.null(art$network$topology)) {
+  topo <- art$network$topology |>
+    dplyr::arrange(dplyr::desc(degree)) |>
+    head(rcfg$network_top_nodes)
+  rt(topo)
+} else empty_card("topology.csv not found.")
+```
+
+#### Degree distribution
+
+```{r}
+if (!is.null(art$network$topology)) {
+  topo <- art$network$topology |>
+    dplyr::arrange(dplyr::desc(degree)) |>
+    head(rcfg$network_top_nodes)
+  plot_ly(topo, x = ~stats::reorder(node, -degree), y = ~degree,
+          color = ~kind, type = "bar") |>
+    layout(xaxis = list(title = "", tickangle = -45),
+           yaxis = list(title = "Degree"))
+} else empty_card("topology.csv not found.")
+```
+
+:::
 
 # Run log
 
-```{r log, results='asis'}
-lfile <- file.path(cfg$project_root, cfg$outputs$log_file)
-if (file.exists(lfile)) cat("```\n", readLines(lfile), "\n```\n", sep = "\n")
+```{r}
+#| title: pipeline.log
+htmltools::pre(art$log %||% "log file not found",
+               style = "max-height:600px;overflow:auto;font-size:11px;")
 ```

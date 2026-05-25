@@ -104,12 +104,23 @@ run_stage("report", function() {
   report_out <- file.path(cfg$project_root, cfg$outputs$report_html)
   if (file.exists(report_src) && nzchar(Sys.which("quarto"))) {
     pipeline_log(cfg, "Rendering Quarto HTML report")
+    cfg_abs <- normalizePath(cfg_path, winslash = "/", mustWork = TRUE)
+    dir.create(dirname(report_out), recursive = TRUE, showWarnings = FALSE)
+    # Render in place — passing --output-dir / --output on Windows breaks
+    # Quarto's lookup of its own report_files/ support dir during embed.
+    # Format (`dashboard`) is set in the .qmd YAML; don't pass --to here.
     system2("quarto", c("render", report_src,
-                        "--to", "html",
-                        "-P", paste0("config=", cfg_path),
-                        "--output", basename(report_out)))
-    out_tmp <- file.path(dirname(report_src), basename(report_out))
-    if (file.exists(out_tmp)) file.rename(out_tmp, report_out)
+                        "-P", paste0("config=", cfg_abs)))
+    stem      <- tools::file_path_sans_ext(basename(report_src))
+    default_h <- file.path(dirname(report_src), paste0(stem, ".html"))
+    files_dir <- file.path(dirname(report_src), paste0(stem, "_files"))
+    if (file.exists(default_h)) {
+      file.copy(default_h, report_out, overwrite = TRUE)
+      file.remove(default_h)
+    }
+    # embed-resources inlines everything; the staging _files/ dir is not
+    # needed once the HTML is copied to its destination.
+    if (dir.exists(files_dir)) unlink(files_dir, recursive = TRUE, force = TRUE)
   } else {
     pipeline_log(cfg, "Quarto not found or report.qmd missing — skipping HTML")
   }

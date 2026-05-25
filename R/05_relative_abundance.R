@@ -44,7 +44,9 @@ relab_palette <- function(n, cfg) {
 run_relative_abundance <- function(cleaned, cfg) {
   pipeline_log(cfg, "Relative abundance")
   fig_dir <- file.path(cfg$project_root, cfg$outputs$figures_dir, "relative_abundance")
+  ds_dir  <- file.path(cfg$project_root, cfg$outputs$datasets_dir,  "relative_abundance")
   dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
+  dir.create(ds_dir,  recursive = TRUE, showWarnings = FALSE)
 
   # ---- 1. Clean taxa names ------------------------------------------------
   df <- clean_taxa_names(cleaned$noncontaminants, cfg)
@@ -122,6 +124,11 @@ run_relative_abundance <- function(cleaned, cfg) {
   taxa_levels <- c(setdiff(taxa_levels, others_label),
                    intersect(others_label, taxa_levels))
   df_pct$name <- factor(df_pct$name, levels = taxa_levels)
+
+  # Long-form tidy table for the dashboard composition card. Kept separate
+  # from the "Others"-collapsed plotting frame so the report can re-rank by
+  # cfg$report$rank_taxa_by without being locked to top_n from this stage.
+  readr::write_csv(df_pct, file.path(ds_dir, "composition_long.csv"))
 
   n_levels <- length(taxa_levels)
   palette  <- relab_palette(n_levels, cfg)
