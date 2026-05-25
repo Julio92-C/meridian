@@ -6,7 +6,7 @@ study:
     dataset. Reads inputs from the original project_root but writes every
     output under test_run/ so existing analysis files are never overwritten.
 
-project_root: "C:/Users/julio/OneDrive/Desktop/PC_JC_2024-11-29_Julio_Gallus"
+project_root: "C:/Users/julio/Desktop/PC_JC_2024-11-29_Julio_Gallus"
 
 inputs:
   abricate_summary: "Reports/Abricate/summary_reportClean.csv"
@@ -46,12 +46,27 @@ stages:
   virulome:               true
   mobilome:               true
   network:                true
-  report:                 false
+  report:                 true
 
 stats:
   permanova_permutations: 9999
   aldex_mc_samples:       128
   alpha: 0.05
+
+# Display caps for the Quarto dashboard. Statistics are always computed on
+# unfiltered data — these only limit what plots and reactable tables show
+# so the report stays readable regardless of project size.
+report:
+  top_n_taxa:              25     # composition stacked bar / heatmap / table
+  top_n_genes:             30     # resistome / virulome / mobilome / DAA gene
+  rank_taxa_by:            prevalence_x_abundance   # mean_abundance | prevalence | max_abundance | prevalence_x_abundance
+  other_bucket:            true   # collapse remainder into "Others" in stacked bars
+  daa_extra:               significant   # always include sig features beyond top-N
+  network_top_nodes:       50     # hub cap for topology / gephi cards
+  network_edge_min_weight: 0.3    # display threshold for gephi edges
+  show_per_group_chord:    true
+  show_per_group_sankey:   true
+  embed_sankey_widgets:    true   # iframe the R/12 sankey_*.html outputs
 
 outputs:
   datasets_dir: "test_run/Datasets"
