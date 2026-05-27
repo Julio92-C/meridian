@@ -196,9 +196,8 @@ run_alpha_diversity <- function(cleaned, cfg) {
     stats_lines <- c(stats_lines, line)
     pipeline_log(cfg, paste("Alpha diversity:", line))
 
-    # Violin + inner boxplot
-    y_max <- max(sub[[m]], na.rm = TRUE)
-    y_pad <- 0.08 * (y_max - min(sub[[m]], na.rm = TRUE) + 1e-9)
+    # Violin + inner boxplot. KW annotation parked in the upper-right
+    # corner with a small inset so it never overlaps the violin caps.
     p_violin <- ggplot2::ggplot(sub,
         ggplot2::aes(x = .data[[group]], y = .data[[m]], fill = .data[[group]])) +
       ggplot2::geom_violin(trim = FALSE, scale = "width", alpha = 0.6) +
@@ -206,9 +205,9 @@ run_alpha_diversity <- function(cleaned, cfg) {
                             position = ggplot2::position_dodge(0.9)) +
       ggplot2::geom_jitter(width = 0.08, size = 1.4, alpha = 0.8) +
       ggplot2::scale_fill_manual(values = pal) +
-      ggplot2::annotate("text", x = (length(group_levels) + 1) / 2,
-                        y = y_max + y_pad, label = label_kw,
-                        size = 4.5, colour = "black") +
+      ggplot2::annotate("text", x = Inf, y = Inf, label = label_kw,
+                        hjust = 1.05, vjust = 1.4,
+                        size = 4.2, colour = "black") +
       ggplot2::labs(x = group, y = label, title = paste(label, "by", group)) +
       ggplot2::theme_classic() +
       ggplot2::theme(legend.position = "top",

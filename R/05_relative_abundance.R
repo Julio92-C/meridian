@@ -1,4 +1,4 @@
-# 05_relative_abundance.R — stacked bar plot of relative abundance per sample
+# 05_relative_abundance.R — relative abundance per sample (stacked bar)
 # (top-N taxa, remainder collapsed into "Others"), plus a horizontal total-
 # count bar for the same taxa. Mirrors relativeAbundance.R and
 # bracken_relativeAbundance.R from the reference chicken_batch1 scripts but
@@ -9,11 +9,11 @@
 #      drop clade-group noise, keep species-level only, strip NCBI brackets,
 #      abbreviate genus, truncate long names.
 #   2. Apply a per-(taxon, sample) count floor.
-#   3. Optionally join metadata so the stacked bar can be facetted by group.
+#   3. Optionally join metadata so the relative abundance bar can be facetted by group.
 #   4. Compute per-sample relative abundance %.
 #   5. Identify the top-N taxa by total count; collapse everything else into
 #      "Others" so the palette only has to cover top_n + 1 levels.
-#   6. Stacked bar plot (PNG + plotly HTML) and horizontal total-count plot
+#   6. Relative abundance stacked bar (PNG + plotly HTML) and total-count plot
 #      (PNG, log10 scale with median line and count labels).
 
 `%||%` <- function(a, b) if (is.null(a)) b else a
@@ -139,7 +139,7 @@ run_relative_abundance <- function(cleaned, cfg) {
     n_levels
   ))
 
-  # ---- 6a. Stacked bar plot ----------------------------------------------
+  # ---- 6a. Relative abundance stacked bar --------------------------------
   show_legend <- ra_cfg$show_legend %||% TRUE
   legend_pos  <- if (isTRUE(show_legend)) "top" else "none"
 
@@ -166,7 +166,7 @@ run_relative_abundance <- function(cleaned, cfg) {
   pw <- max(10, 0.5 * n_samples + 3)
   ph <- if (isTRUE(show_legend)) max(7, 6 + ceiling(n_levels / 10) * 0.4) else 6
 
-  ggplot2::ggsave(file.path(fig_dir, "stacked_bar.png"), p,
+  ggplot2::ggsave(file.path(fig_dir, "relative_abundance.png"), p,
                   width = pw, height = ph, dpi = 300)
 
   if (requireNamespace("plotly", quietly = TRUE) &&
@@ -177,7 +177,7 @@ run_relative_abundance <- function(cleaned, cfg) {
     suppressWarnings(
       htmlwidgets::saveWidget(
         plotly::ggplotly(p),
-        file = file.path(fig_dir, "stacked_bar.html"),
+        file = file.path(fig_dir, "relative_abundance.html"),
         selfcontained = TRUE
       )
     )

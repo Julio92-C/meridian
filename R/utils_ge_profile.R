@@ -138,10 +138,10 @@ ge_minmax_per_col <- function(mat) {
 }
 
 # Violin + boxplot + jitter of `metric` ~ `group`, fill by group. KW
-# annotation drawn at the top when `kw` is non-NULL.
+# annotation drawn in the upper-right corner when `kw` is non-NULL, so the
+# label doesn't collide with the violin distributions.
 ge_plot_alpha_violin <- function(alpha, group, metric, kw, pal_group, file) {
   if (!metric %in% colnames(alpha)) return(invisible(NULL))
-  y_max <- max(alpha[[metric]], na.rm = TRUE)
   p <- ggplot2::ggplot(alpha,
         ggplot2::aes(x = .data[[group]], y = .data[[metric]],
                      fill = .data[[group]])) +
@@ -156,11 +156,9 @@ ge_plot_alpha_violin <- function(alpha, group, metric, kw, pal_group, file) {
                    text = ggplot2::element_text(size = 13))
   if (!is.null(kw)) {
     p <- p + ggplot2::annotate(
-      "text",
-      x = (dplyr::n_distinct(alpha[[group]]) + 1) / 2,
-      y = y_max * 1.08,
+      "text", x = Inf, y = Inf,
       label = sprintf("Kruskal-Wallis p = %.2g", kw$p.value),
-      size = 4.5
+      hjust = 1.05, vjust = 1.4, size = 4.2, colour = "black"
     )
   }
   ggplot2::ggsave(file, p, width = 7, height = 5, dpi = 300)
@@ -226,7 +224,6 @@ ge_plot_abundance_violin <- function(df, group, pal_group, file,
     pipeline_log(cfg, sprintf("%s log(%s+1) ~ %s KW p = %.4g",
                               log_label, value_col, group, kw$p.value))
   }
-  y_max <- max(v$log_val, na.rm = TRUE)
   p <- ggplot2::ggplot(v,
         ggplot2::aes(x = .data[[group]], y = .data$log_val,
                      fill = .data[[group]])) +
@@ -242,13 +239,13 @@ ge_plot_abundance_violin <- function(df, group, pal_group, file,
                                                        face = "bold",
                                                        size = 13),
                    text = ggplot2::element_text(size = 13))
+  # KW annotation in upper-right corner so it doesn't overlap the
+  # log(TPM+1) distributions (which often peak near the panel top).
   if (!is.null(kw)) {
     p <- p + ggplot2::annotate(
-      "text",
-      x = (dplyr::n_distinct(v[[group]]) + 1) / 2,
-      y = y_max * 1.05,
+      "text", x = Inf, y = Inf,
       label = sprintf("Kruskal-Wallis p = %.2g", kw$p.value),
-      size = 4.5
+      hjust = 1.05, vjust = 1.4, size = 4.2, colour = "black"
     )
   }
   ggplot2::ggsave(file, p, width = 7, height = 5.5, dpi = 300)

@@ -509,6 +509,41 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
 
   grDevices::dev.off(); pdf_open <- FALSE
 
+  # ---- 5b. Per-pair volcano PNG (effect vs -log10(q)) --------------------
+  # Quarto dashboards can't inline a multi-page PDF, so emit a flat PNG per
+  # pair for the report. Same data as the PDF's custom volcano above.
+  alpha <- cfg$stats$alpha %||% 0.05
+  for (cn in names(raw_results)) {
+    res_obj <- raw_results[[cn]]
+    res_df  <- tibble::rownames_to_column(as.data.frame(res_obj), feature_col)
+    qcol <- intersect(c("wi.eBH", "we.eBH"), colnames(res_df))[1]
+    if (is.na(qcol)) next
+    res_df$neglogq <- -log10(pmax(res_df[[qcol]], 1e-300))
+    res_df$sig     <- res_df[[qcol]] < alpha
+    p <- ggplot2::ggplot(res_df,
+          ggplot2::aes(x = .data$effect, y = .data$neglogq,
+                       color = .data$sig)) +
+      ggplot2::geom_point(size = 2, alpha = 0.85) +
+      ggplot2::geom_vline(xintercept = c(-effect_thresh, effect_thresh),
+                          linetype = "dashed", colour = "grey60") +
+      ggplot2::geom_hline(yintercept = -log10(alpha),
+                          linetype = "dashed", colour = "red") +
+      ggplot2::scale_color_manual(values = c(`TRUE` = "#d62728",
+                                              `FALSE` = "#7f7f7f"),
+                                   labels = c("ns", sprintf("q < %.2f", alpha))) +
+      ggplot2::labs(
+        title = sprintf("%s — effect vs -log10(q)", cn),
+        x = "ALDEx2 effect (CLR diff)",
+        y = sprintf("-log10(%s)", qcol),
+        color = NULL
+      ) +
+      ggplot2::theme_classic() +
+      ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, size = 12),
+                     text = ggplot2::element_text(size = 12))
+    ggplot2::ggsave(file.path(fig_dir, paste0("volcano_", cn, ".png")),
+                    p, width = 7, height = 5, dpi = 300)
+  }
+
   # ---- 6. Cross-comparison summary ---------------------------------------
   # Pool candidates across pairs, dedupe, rank by max |effect|, then plot
   # each surviving feature against ALL groups (not just one pair). Mirrors

@@ -66,7 +66,6 @@ report:
   network_edge_min_weight: 0.3    # display threshold for gephi edges
   show_per_group_chord:    true
   show_per_group_sankey:   true
-  embed_sankey_widgets:    true   # iframe the R/12 sankey_*.html outputs
 
 outputs:
   datasets_dir: "test_run/Datasets"

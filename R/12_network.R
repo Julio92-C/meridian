@@ -261,6 +261,29 @@ run_network <- function(cleaned, cfg) {
     igraph::modularity(cluster)
   ))
 
+  # Degree distribution PNG — top-N nodes ranked by degree, coloured by
+  # node kind (sample / taxa / gene). Replaces the report's in-page plotly
+  # recompute so figures stay pipeline-owned.
+  top_n_nodes <- ncfg$degree_distribution_top_n %||% 50
+  topo_top <- topo[order(-topo$degree), , drop = FALSE]
+  topo_top <- utils::head(topo_top, top_n_nodes)
+  dd <- ggplot2::ggplot(topo_top,
+        ggplot2::aes(x = stats::reorder(.data$node, -.data$degree),
+                     y = .data$degree, fill = .data$kind)) +
+    ggplot2::geom_col() +
+    ggplot2::labs(x = NULL, y = "Degree",
+                  title = sprintf("Top %d nodes by degree", nrow(topo_top)),
+                  fill = "Node kind") +
+    ggplot2::theme_classic() +
+    ggplot2::theme(
+      plot.title  = ggplot2::element_text(hjust = 0.5, size = 13),
+      axis.text.x = ggplot2::element_text(angle = 60, hjust = 1, size = 8),
+      text        = ggplot2::element_text(size = 12)
+    )
+  ggplot2::ggsave(file.path(fig_dir, "degree_distribution.png"),
+                  dd, width = max(8, 0.18 * nrow(topo_top) + 4),
+                  height = 5.5, dpi = 200, bg = "white")
+
   if (requireNamespace("ggraph", quietly = TRUE)) {
     .network_plot_ggraph(g, nodes, ncfg, fig_dir)
   } else {
