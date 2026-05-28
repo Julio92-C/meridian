@@ -36,7 +36,6 @@ rcfg <- modifyList(
   list(
     top_n_taxa              = 25,
     rank_taxa_by            = "prevalence_x_abundance",
-    other_bucket            = TRUE,
     network_top_nodes       = 50,
     network_edge_min_weight = 0.3,
     show_per_group_chord    = TRUE,
@@ -442,25 +441,36 @@ htmltools::tagList(
 ```{r}
 #| content: valuebox
 #| title: "Samples"
-list(value = format(n_samples %||% "—"), icon = "people-fill", color = "primary")
+# flask-fill: lab vessel — closest Bootstrap Icon to "lab tube".
+list(value = format(n_samples %||% "—"), icon = "flask-fill", color = "primary")
 ```
 
 ```{r}
 #| content: valuebox
 #| title: "Taxa (post-filter)"
-list(value = format(n_taxa %||% "—"), icon = "bug", color = "success")
+# virus: microbial community stand-in (BS Icons has no broader microbe glyph).
+list(value = format(n_taxa %||% "—"), icon = "virus", color = "success")
 ```
 
 ```{r}
-#| content: valuebox
-#| title: "Genes tested (DAA)"
-list(value = format(n_genes_daa %||% "—"), icon = "diagram-3", color = "info")
+# Genes (DAA): Bootstrap Icons ships no DNA glyph, so build the value
+# box directly via bslib so we can pass an inline SVG double-helix as the
+# showcase. The card otherwise renders identically to the other three.
+bslib::value_box(
+  title    = "Genes tested (DAA)",
+  value    = format(n_genes_daa %||% "—"),
+  theme    = "info",
+  showcase = htmltools::HTML(
+    '<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" width="36" height="36" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M8 2c6 3 0 8 0 10s-6 5 0 10"/><path d="M16 2c-6 3 0 8 0 10s6 5 0 10"/><line x1="8" y1="5" x2="16" y2="5"/><line x1="8" y1="12" x2="16" y2="12"/><line x1="8" y1="19" x2="16" y2="19"/></svg>'
+  )
+)
 ```
 
 ```{r}
 #| content: valuebox
 #| title: "Primary grouping"
-list(value = group %||% "—", icon = "tag", color = "secondary")
+# tags-fill: categorical group labels (unchanged per user preference).
+list(value = group %||% "—", icon = "tags-fill", color = "secondary")
 ```
 
 ## Row {height=78%}
@@ -635,6 +645,15 @@ render_daa_level <- function(level_label, bundle, level_short) {
   pdf_path   <- file.path(fig_subdir, "aldex_plots.pdf")
   cat(sprintf("\n### %s\n\n", level_label))
   cat("::: {.panel-tabset}\n\n")
+  # First tab: the full ALDEx2 diagnostic PDF, spanning every pair. Previously
+  # this link was duplicated inside every pair's sub-tabs — one link per
+  # level is enough since the PDF covers them all.
+  cat("\n#### All-pairs diagnostics PDF\n\n")
+  print(htmltools::tagList(link_card(
+    pdf_path,
+    label = sprintf("ALDEx2 diagnostic plots — %s", level_label),
+    description = "Multi-page PDF (MA / MW / volcano) covering every pair."
+  )))
   for (pf in bundle$pair_files) {
     cn <- tools::file_path_sans_ext(basename(pf))
     df <- read_tsv_safe(pf)
@@ -646,13 +665,6 @@ render_daa_level <- function(level_label, bundle, level_short) {
     print(htmltools::tagList(img_card(
       file.path(fig_subdir, paste0("volcano_", cn, ".png")),
       alt = sprintf("%s volcano", cn)
-    )))
-
-    cat("\n\n##### Full plots (MA / MW / volcano)\n\n")
-    print(htmltools::tagList(link_card(
-      pdf_path,
-      label = sprintf("ALDEx2 diagnostic plots — %s", level_label),
-      description = "Multi-page PDF, all pairs."
     )))
 
     cat("\n\n##### Candidates\n\n")
@@ -720,12 +732,19 @@ render_ge_domain <- function(g) {
   cat("\n\n:::\n\n")
 
   # ---- Composition ----
+  # The "Total count" PNG already shows every category's total — the
+  # underlying CSV was a separate redundant tab. Attach a CSV download
+  # under the bar plot instead and drop the table tab.
   cat("\n\n#### Composition\n\n")
   cat("::: {.panel-tabset}\n\n")
   cat("\n##### Relative abundance\n\n")
   print(htmltools::tagList(img_card(g$rel_abundance)))
   cat("\n\n##### Total count\n\n")
-  print(htmltools::tagList(img_card(g$total_count)))
+  print(htmltools::tagList(
+    img_card(g$total_count),
+    csv_download_link(g$totals_csv,
+                      sprintf("Download %s totals CSV", g$category_label))
+  ))
   cat(sprintf("\n\n##### %s prevalence\n\n", g$category_label))
   print(htmltools::tagList(img_card(g$cat_prevalence)))
   # Skip the "Gene prevalence" tab when a domain doesn't have a separate
@@ -734,8 +753,6 @@ render_ge_domain <- function(g) {
     cat("\n\n##### Gene prevalence\n\n")
     print(htmltools::tagList(img_card(g$gene_prevalence)))
   }
-  cat("\n\n##### Totals table\n\n")
-  print(htmltools::tagList(rt(read_csv_safe(g$totals_csv))))
   cat("\n\n:::\n\n")
 
   # ---- Beta ----
@@ -762,11 +779,13 @@ render_ge_domain <- function(g) {
     cat("\n##### Relative abundance\n\n")
     print(htmltools::tagList(img_card(g$family_rel)))
     cat("\n\n##### Total count\n\n")
-    print(htmltools::tagList(img_card(g$family_total)))
+    print(htmltools::tagList(
+      img_card(g$family_total),
+      csv_download_link(g$family_totals_csv,
+                        "Download replicon-family totals CSV")
+    ))
     cat("\n\n##### Prevalence\n\n")
     print(htmltools::tagList(img_card(g$family_prevalence)))
-    cat("\n\n##### Totals table\n\n")
-    print(htmltools::tagList(rt(read_csv_safe(g$family_totals_csv))))
     cat("\n\n:::\n\n")
   }
 
