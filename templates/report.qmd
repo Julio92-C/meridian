@@ -627,20 +627,22 @@ htmltools::pre(dat$permdisp %||% "permdisp.txt not found")
 
 # Differential abundance
 
-## Row {height=7%}
+## Row {height=12%}
 
 ```{r}
 # The full ALDEx2 diagnostic PDFs (MA / MW / volcano, all pairs) are
 # level-wide artefacts, not pair-specific, so they belong here as section
-# downloads rather than inside the per-pair tabset.
+# downloads rather than inside the per-pair tabset. The wrapper fills the
+# row (height:100%; box-sizing:border-box) so the inner padding has room
+# instead of being clipped by the 12% row band.
 htmltools::div(
   style = paste(
-    "display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;",
-    "padding:0.35rem 0.55rem;"
+    "display:flex;gap:0.9rem;align-items:center;flex-wrap:wrap;",
+    "padding:0.9rem 1.1rem;height:100%;box-sizing:border-box;"
   ),
   htmltools::tags$small(
     "Full ALDEx2 diagnostic plots (MA / MW / volcano, all pairs):",
-    style = "color:#555;font-weight:500;"
+    style = "color:#555;font-weight:500;margin-right:0.3rem;"
   ),
   csv_download_link(
     file.path(fig_root, "differential_abundance", "taxa", "aldex_plots.pdf"),
