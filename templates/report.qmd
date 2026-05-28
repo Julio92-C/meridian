@@ -627,14 +627,41 @@ htmltools::pre(dat$permdisp %||% "permdisp.txt not found")
 
 # Differential abundance
 
+## Row {height=7%}
+
+```{r}
+# The full ALDEx2 diagnostic PDFs (MA / MW / volcano, all pairs) are
+# level-wide artefacts, not pair-specific, so they belong here as section
+# downloads rather than inside the per-pair tabset.
+htmltools::div(
+  style = paste(
+    "display:flex;gap:0.6rem;align-items:center;flex-wrap:wrap;",
+    "padding:0.35rem 0.55rem;"
+  ),
+  htmltools::tags$small(
+    "Full ALDEx2 diagnostic plots (MA / MW / volcano, all pairs):",
+    style = "color:#555;font-weight:500;"
+  ),
+  csv_download_link(
+    file.path(fig_root, "differential_abundance", "taxa", "aldex_plots.pdf"),
+    "Taxa PDF"
+  ),
+  csv_download_link(
+    file.path(fig_root, "differential_abundance", "gene", "aldex_plots.pdf"),
+    "Genes PDF"
+  )
+)
+```
+
 ## Row {.tabset}
 
 ```{r}
 #| output: asis
 
 # R/08 emits a per-pair volcano PNG plus a multi-page aldex_plots.pdf.
-# We embed the PNG and link out to the PDF for the full MA / MW / volcano
-# trio — no plotly recompute in the report.
+# The PNG is shown inside each pair's sub-tabs; the PDF is offered as a
+# section-header download above (one per level) instead of a redundant
+# in-tab card.
 render_daa_level <- function(level_label, bundle, level_short) {
   if (is.null(bundle$pair_files) || !length(bundle$pair_files)) {
     cat(sprintf("\n### %s\n\nNo ALDEx2 outputs found for %s.\n",
@@ -642,18 +669,8 @@ render_daa_level <- function(level_label, bundle, level_short) {
     return(invisible(NULL))
   }
   fig_subdir <- file.path(fig_root, "differential_abundance", level_short)
-  pdf_path   <- file.path(fig_subdir, "aldex_plots.pdf")
   cat(sprintf("\n### %s\n\n", level_label))
   cat("::: {.panel-tabset}\n\n")
-  # First tab: the full ALDEx2 diagnostic PDF, spanning every pair. Previously
-  # this link was duplicated inside every pair's sub-tabs — one link per
-  # level is enough since the PDF covers them all.
-  cat("\n#### All-pairs diagnostics PDF\n\n")
-  print(htmltools::tagList(link_card(
-    pdf_path,
-    label = sprintf("ALDEx2 diagnostic plots — %s", level_label),
-    description = "Multi-page PDF (MA / MW / volcano) covering every pair."
-  )))
   for (pf in bundle$pair_files) {
     cn <- tools::file_path_sans_ext(basename(pf))
     df <- read_tsv_safe(pf)
