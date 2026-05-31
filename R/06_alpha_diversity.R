@@ -58,6 +58,17 @@ load_precomputed_diversity <- function(cfg) {
 
   # Drop trailing summary columns (e.g. "total") — not real samples.
   drop_cols <- intersect(c("total", "Total", "TOTAL"), colnames(raw))
+  # Also drop negative-control columns. R/02 strips controls from the
+  # cleaned counts table during baseline subtraction, but this loader
+  # reads the precomputed diversity CSV directly from disk and bypasses
+  # that. Leaving controls in produces two problems: (1) wf-metagenomics
+  # emits string sentinels like "None" for some indices on controls,
+  # which makes pivot_longer fail with a "Can't combine <character> and
+  # <double>" vctrs error; (2) even if it didn't, controls don't belong
+  # in alpha-diversity comparisons.
+  ctrl_cols <- intersect(cfg$metadata$controls %||% character(0),
+                         colnames(raw))
+  drop_cols <- unique(c(drop_cols, ctrl_cols))
   if (length(drop_cols) > 0) raw <- raw[, setdiff(colnames(raw), drop_cols)]
 
   long <- raw |>
