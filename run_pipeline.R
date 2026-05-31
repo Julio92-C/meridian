@@ -58,7 +58,8 @@ enabled_names <- c(
   if (isTRUE(cfg$stages$virulome))               "virulome",
   if (isTRUE(cfg$stages$mobilome))               "mobilome",
   if (isTRUE(cfg$stages$network))                "network",
-  if (isTRUE(cfg$stages$report))                 "report"
+  if (isTRUE(cfg$stages$report))                 "report",
+  if (isTRUE(cfg$stages$manifest %||% TRUE))     "manifest"
 )
 total_stages <- length(enabled_names)
 stage_idx    <- 0L
@@ -124,6 +125,21 @@ run_stage("report", function() {
   } else {
     pipeline_log(cfg, "Quarto not found or report.qmd missing — skipping HTML")
   }
+})
+
+pipeline_end <- Sys.time()
+
+# Emit manifest.json before logging the final summary so its duration shows
+# up in the breakdown. The writer is gated by cfg$stages$manifest (default TRUE)
+# and consults stage_times to mark each stage complete / skipped / failed.
+run_stage("manifest", function() {
+  write_manifest(
+    cfg,
+    stage_times        = stage_times,
+    pipeline_start     = pipeline_start,
+    pipeline_end       = pipeline_end,
+    pipeline_repo_root = repo_root
+  )
 })
 
 total_elapsed <- as.numeric(difftime(Sys.time(), pipeline_start, units = "secs"))
