@@ -44,16 +44,26 @@ every analysis block.
 | 05 | `05_relative_abundance.R` | Stacked-bar relative abundance per sample (PNG + plotly HTML) |
 | 06 | `06_alpha_diversity.R` | Shannon / Simpson / richness with violin/bar plots |
 | 07 | `07_beta_diversity.R` | PCoA |
-| 08 | `08_differential_abundance.R` | ALDEx2 — overall and pairwise |
-| 09 | `09_resistome.R` | AMR gene profiling (ABRicate + CARD/ResFinder) |
-| 10 | `10_virulome.R` | Virulence factor profiling (VFDB) |
-| 11 | `11_mobilome.R` | Mobile genetic element profiling |
-| 12 | `12_network.R` | Tripartite chord diagram / network of taxa × ARGs × MGEs |
+| 08 | `08_differential_abundance.R` | ALDEx2 two-level (taxa + gene): omnibus Kruskal-Wallis + pairwise Welch's t; optional `aldex.glm` design path for covariate-adjusted models |
+| 09 | `09_resistome.R` | AMR gene profiling (ABRicate + CARD); drug-class classification with optional MLS rollup; per-domain alpha/Venn/heatmap/PCoA + PERMANOVA suite |
+| 10 | `10_virulome.R` | Virulence factor profiling (VFDB); function category extracted from ABRicate `PRODUCT`; per-domain alpha/Venn/heatmap/PCoA + PERMANOVA suite |
+| 11 | `11_mobilome.R` | Mobile genetic element profiling (PlasmidFinder); configurable replicon-family classification (Col-like, IncF, IncX, other Inc); per-domain alpha/Venn/heatmap/PCoA + PERMANOVA suite (gene- and family-level) |
+| 12 | `12_network.R` | Tripartite sample × taxon × gene ggraph network + chord (overall + per-group) + 4-tier networkD3 Sankey; Gephi-compatible node/edge CSVs; igraph topology (degree, betweenness, Louvain modularity); Bray-Curtis sample clusters |
+| 13 | `13_manifest.R` | Emits `manifest.json` describing every artefact, table schema and stage status (complete / skipped / failed). Stable JSON contract consumed by the downstream `metaomics-scribe` manuscript-drafting agent |
 
-Plus `R/utils_taxa.R` — shared taxa-name cleanup helper.
+Plus three `R/utils_*` helpers:
 
-A Quarto template at `templates/report.qmd` renders all outputs into a
-single HTML report at the end.
+- `utils_taxa.R` — shared taxa-name cleanup (used by R/04, R/05, R/07, R/12)
+- `utils_ge_profile.R` — shared engine driving R/09–R/11 (alpha, beta, Venn, heatmap, relative abundance, total bar, prevalence, palettes, renames)
+- `utils_prevalence.R` — paired total / sample-prevalence panel helper (R/05, R/09–R/11)
+
+A Quarto template at `templates/report.qmd` is built as a `dashboard` format
+(multi-page, sidebar, value boxes, per-domain panels with download links)
+and is rendered at the end of the run.
+
+`run_pipeline.R` auto-instruments per-stage wall time and logs a
+slowest-first breakdown to `cfg$outputs$log_file` at the end of each run;
+memory is not instrumented.
 
 ## Tool stack (cite these)
 

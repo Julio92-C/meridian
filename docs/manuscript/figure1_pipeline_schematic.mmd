@@ -18,30 +18,31 @@ flowchart TD
 
     CFG["config.yaml<br/>(one per study)"]:::cfg
 
-    subgraph PIPE["R workflow — R/00 to R/12"]
+    subgraph PIPE["R workflow — R/00 to R/13"]
         S0["R/00 setup<br/>library load · config validation"]:::stage
         S1["R/01 load inputs"]:::stage
-        S2["R/02 clean<br/>decontaminate · taxid fix · link ABRicate to taxa"]:::stage
+        S2["R/02 clean<br/>taxid_fixes · decontaminate · Bracken merge · link ABRicate to taxa"]:::stage
         S3["R/03 TPM normalisation"]:::stage
 
         subgraph COMM["Community analyses"]
             S4["R/04 taxonomy<br/>Venn · heatmaps"]:::comm
-            S5["R/05 relative abundance<br/>stacked bar · plotly"]:::comm
-            S6["R/06 alpha diversity<br/>Shannon · Simpson · richness"]:::comm
-            S7["R/07 beta diversity<br/>PCoA (vegan)"]:::comm
-            S8["R/08 differential abundance<br/>ALDEx2 (overall + pairwise)"]:::comm
+            S5["R/05 relative abundance<br/>stacked bar · plotly · prevalence"]:::comm
+            S6["R/06 alpha diversity<br/>precomputed CSV or vegan · KW · violin/bar"]:::comm
+            S7["R/07 beta diversity<br/>Hellinger-Bray-Curtis PCoA · PERMANOVA · PERMDISP"]:::comm
+            S8["R/08 differential abundance<br/>ALDEx2 two-level (taxa + gene) · KW + pairwise"]:::comm
         end
 
-        subgraph FUNC["Functional profiling"]
-            S9["R/09 resistome<br/>CARD / ResFinder"]:::func
-            S10["R/10 virulome<br/>VFDB"]:::func
-            S11["R/11 mobilome<br/>PlasmidFinder"]:::func
+        subgraph FUNC["Functional profiling<br/>(alpha · Venn · heatmap · PCoA · prevalence)"]
+            S9["R/09 resistome<br/>CARD · drug-class + MLS"]:::func
+            S10["R/10 virulome<br/>VFDB · function category"]:::func
+            S11["R/11 mobilome<br/>PlasmidFinder · replicon family"]:::func
         end
 
-        S12["R/12 network<br/>tripartite taxa &times; ARGs &times; MGEs"]:::net
+        S12["R/12 network<br/>tripartite (sample &times; taxon &times; gene) · chord · Sankey · Gephi · igraph topology"]:::net
+        S13["R/13 manifest<br/>manifest.json contract"]:::stage
     end
 
-    QR["Quarto HTML report<br/>(single deliverable per study)"]:::out
+    QR["Quarto HTML dashboard<br/>(per-domain panels)"]:::out
 
     CFG --> S0
     K --> S1
@@ -58,3 +59,4 @@ flowchart TD
     COMM --> QR
     FUNC --> QR
     S12 --> QR
+    QR --> S13
