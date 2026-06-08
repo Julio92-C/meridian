@@ -14,6 +14,11 @@
 # Named palette for the group levels. Falls back to ggsci::default_igv (the
 # palette GT used in PCoA.R / taxaProfile_PCoA.R).
 beta_palette <- function(levels, cfg) {
+  # 1. Top-level cfg$colors[[group_var]] (centralised resolver)
+  group_var <- cfg$metadata$group_cols[[1]]
+  top <- resolve_top_level_colors(group_var, levels, cfg)
+  if (!is.null(top)) return(top)
+  # 2. Legacy per-stage / taxonomy fallback
   user_map <- cfg$beta_diversity$group_colors %||%
               cfg$taxonomy$treatment_colors
   if (!is.null(user_map)) {

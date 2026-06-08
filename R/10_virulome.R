@@ -56,7 +56,8 @@ run_virulome <- function(cleaned, cfg) {
   group        <- cfg$metadata$group_cols[[1]]
   vfdb         <- ge_ensure_group_column(vfdb, cfg, group, label)
   group_levels <- sort(unique(as.character(vfdb[[group]])))
-  pal_group    <- ge_named_palette(group_levels, vcfg$group_colors,
+  pal_group    <- resolve_top_level_colors(group, group_levels, cfg) %||%
+                  ge_named_palette(group_levels, vcfg$group_colors,
                                     vcfg$group_palette %||% "ggsci::default_nejm")
 
   # ---- Function extraction from PRODUCT --------------------------------

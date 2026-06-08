@@ -86,6 +86,15 @@ report:
   show_per_group_chord:    true
   show_per_group_sankey:   true
 
+# Centralised palette for any categorical metadata variable. Picked up by
+# every stage's group-palette resolver (R/04-R/11), so Exhale/Sputum get
+# the same colors in alpha-violin, beta-PCoA, DA effect plots, and the
+# resistome/virulome/mobilome bars.
+colors:
+  sample_type:
+    Exhale: "#1F77B4"   # colorblind-safe blue
+    Sputum: "#FF7F0E"   # colorblind-safe orange
+
 outputs:
   datasets_dir: "test_run/Datasets"
   figures_dir:  "test_run/Figures"

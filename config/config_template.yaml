@@ -155,6 +155,20 @@ report:
   show_per_group_sankey:   true
 
 # --------------------------------------------------------------------------- #
+# Centralised palette for categorical metadata variables.                     #
+# Picked up by every stage's group-palette resolver (R/04-R/11) so a level    #
+# gets the same color in alpha-violin, beta-PCoA, DA effect plots, and the    #
+# resistome/virulome/mobilome bars. Two value forms are supported:            #
+#   - explicit named map { level: hex_color }                                 #
+#   - paletteer palette name string (applied across whatever levels appear)   #
+# --------------------------------------------------------------------------- #
+# colors:
+#   sample_type:                  # explicit per-level map
+#     Exhale: "#1F77B4"
+#     Sputum: "#FF7F0E"
+#   ID: "ggsci::default_jama"     # OR a paletteer_d palette name
+
+# --------------------------------------------------------------------------- #
 # Output paths (relative to project_root)                                     #
 # --------------------------------------------------------------------------- #
 outputs:

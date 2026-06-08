@@ -32,6 +32,11 @@
 
 # Build a named palette for the group levels (mirrors helpers in R/05–R/07).
 da_palette <- function(levels, cfg) {
+  # 1. Top-level cfg$colors[[group_var]] (centralised resolver)
+  group_var <- cfg$metadata$group_cols[[1]]
+  top <- resolve_top_level_colors(group_var, levels, cfg)
+  if (!is.null(top)) return(top)
+  # 2. Legacy per-stage / taxonomy fallback
   user_map <- cfg$differential_abundance$group_colors %||%
               cfg$taxonomy$treatment_colors
   if (!is.null(user_map)) {

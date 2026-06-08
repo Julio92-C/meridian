@@ -20,6 +20,11 @@
 # Falls back to a paletteer palette if the user has not supplied an explicit
 # mapping under cfg$taxonomy[[key]].
 group_palette <- function(levels, cfg, key = "treatment_colors") {
+  # 1. Top-level cfg$colors[[group_var]] (centralised resolver)
+  group_var <- cfg$metadata$group_cols[[1]]
+  top <- resolve_top_level_colors(group_var, levels, cfg)
+  if (!is.null(top)) return(top)
+  # 2. Legacy per-stage map under cfg$taxonomy[[key]]
   user_map <- cfg$taxonomy[[key]]
   if (!is.null(user_map)) {
     pal <- unlist(user_map[levels])

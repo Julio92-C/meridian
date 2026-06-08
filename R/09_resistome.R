@@ -58,7 +58,8 @@ run_resistome <- function(cleaned, cfg) {
   group        <- cfg$metadata$group_cols[[1]]
   card         <- ge_ensure_group_column(card, cfg, group, label)
   group_levels <- sort(unique(as.character(card[[group]])))
-  pal_group    <- ge_named_palette(group_levels, rcfg$group_colors,
+  pal_group    <- resolve_top_level_colors(group, group_levels, cfg) %||%
+                  ge_named_palette(group_levels, rcfg$group_colors,
                                     rcfg$group_palette %||% "ggsci::default_nejm")
 
   # ---- Drug-class classification ---------------------------------------

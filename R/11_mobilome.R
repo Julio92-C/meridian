@@ -59,7 +59,8 @@ run_mobilome <- function(cleaned, cfg) {
   group        <- cfg$metadata$group_cols[[1]]
   pfdb         <- ge_ensure_group_column(pfdb, cfg, group, label)
   group_levels <- sort(unique(as.character(pfdb[[group]])))
-  pal_group    <- ge_named_palette(group_levels, mcfg$group_colors,
+  pal_group    <- resolve_top_level_colors(group, group_levels, cfg) %||%
+                  ge_named_palette(group_levels, mcfg$group_colors,
                                     mcfg$group_palette %||% "ggsci::default_nejm")
 
   # ---- Replicon family classification ----------------------------------
