@@ -1,37 +1,62 @@
 study:
   id: lung_microbiome
-  name: "Lung microbiome — EBSP / UCLH"
+  name: "Lung microbiome — EBSP / UCLH (3-batch combined)"
   description: >
-    Exhaled breath and sputum samples from immunocompromised patients seen
-    at the Royal Free Hospital. PhD thesis chapter; paper in preparation.
+    Exhaled-breath (EB) vs sputum (SP) microbiome of immunocompromised
+    patients seen at the Royal Free Hospital. Combines three ONT sequencing
+    batches (JC_PC_2025-04-11, JC_PC_2025-05-13, JC_2025-06-18) via
+    projects/lung_microbiome/combine_batches.R into single pipeline-ready
+    reports under metaOmics/Reports/. Sample IDs reconciled across batches
+    using sequence_info.xlsx patient-ID lookup; counts summed across
+    batches for the 6 re-sequenced samples (SP-16/15/03/10, EB-23, EB-17).
+    Outputs land under test_run/ so the merged Reports/ tree is untouched.
 
-project_root: "C:/Users/julio/OneDrive/Desktop/Lung_microbiome"
+project_root: "C:/Users/julio/Desktop/Lung_microbiome/metaOmics"
 
 inputs:
-  abricate_summary: "Abricate/summary_reportClean.csv"
-  kraken2_report:   "Kraken2/kraken2_combined_reports.txt"
-  bracken_report:   "Kraken2/kraken2-bracken_combined_reports.csv"
-  recentrifuge_csv: "Re-centrifuge/*.rcf.data.csv"
-  diversity_csv:    "Datasets/wf-metagenomics-diversity.csv"
+  abricate_summary: "Reports/Abricate/summary_reportClean.csv"
+  # NOTE: kraken2 lives under Reports/Kraken/ (not Kraken2/ like chicken_batch1)
+  kraken2_report:   "Reports/Kraken/kraken2_db1_combined_reports.txt"
+  # NOTE: bracken lives under Reports/Bracken/ (chicken_batch1 had it under Reports/Kraken2/)
+  bracken_report:   "Reports/Bracken/bracken_arranged.csv"
+  recentrifuge_csv: "Reports/Re-centrifuge/EBSP_samples.rcf.data.csv"
+  # Precomputed wf-metagenomics diversity is left null: it uses a different
+  # taxonomic classifier than Bracken AND has NA for the 6 re-sequenced
+  # samples that cannot be re-summed at the metric level. R/06 will compute
+  # all 51 samples uniformly from the combined Bracken counts instead.
+  # The combined file lives at Reports/wf-metagenomics/wf-metagenomics-diversity.csv
+  # if you ever want to switch to precomputed.
+  diversity_csv:    ~
 
 metadata:
-  file: "Metadata/patient_metadata.csv"
-  sample_id_col: "sample"          # adjust once the sample column is confirmed
+  file: "Metadata/sample_metadata.csv"
+  sample_id_col: "sample"
   group_cols:
-    - "Immunodeficiency diagnosis"
-    - Treatment
-    - Sex
-  random_effect: null              # subject-level cohort, no block design
+    - sample_type                     # Exhale | Sputum (Control rows stripped by R/02 via `controls` list).
+                                      # Renamed from "type" to avoid a collision with R/12_network.R's
+                                      # internal `nodes$type` column (sample/taxa/gene kind), which
+                                      # otherwise drops the grouping after the sample_meta left-join.
+  random_effect: "ID"                 # patient ID — many patients contribute >1 sample
   fixed_effects:
-    - "Immunodeficiency diagnosis"
-    - Treatment
-  controls: [CTRL1, CTRL2]
+    - sample_type
+  # Per-batch baseline subtraction is performed upstream in
+  # combine_batches.R (BATCH_CONTROLS const) so that April's NC-19 only
+  # filters April samples, May's NC-10/NC-13 only filter May samples, and
+  # June's NC-22/NC-30 only filter June samples. The 5 control rows
+  # (NC-10, NC-13, NC-19, NC-22, NC-30) have also been removed from
+  # sample_metadata.csv so R/13 reports the correct 46 analysis samples
+  # and group_levels = [Exhale, Sputum]. `controls` left empty because
+  # there's nothing for R/02 / R/06 / R/13 to do — the upstream-tolerant
+  # path in R/02 (declared-but-rcf-absent → skip filter) is still
+  # available if you ever want to restore the list for documentation.
+  controls: []
 
-taxid_fixes_file: "Metadata/taxid_fixes.csv"
+# No manual taxid/name fixes for this study.
+taxid_fixes_file: ~
 
 filters:
   min_count_per_sample:   17
-  min_count_for_species:  2000
+  min_count_for_species:  500
   min_prevalence_aldex:   2
 
 stages:
@@ -53,8 +78,16 @@ stats:
   aldex_mc_samples:       128
   alpha: 0.05
 
+report:
+  top_n_taxa:              25
+  rank_taxa_by:            prevalence_x_abundance
+  network_top_nodes:       50
+  network_edge_min_weight: 0.3
+  show_per_group_chord:    true
+  show_per_group_sankey:   true
+
 outputs:
-  datasets_dir: "Datasets"
-  figures_dir:  "Figures"
-  report_html:  "Reports/pipeline_report.html"
-  log_file:     "Reports/pipeline.log"
+  datasets_dir: "test_run/Datasets"
+  figures_dir:  "test_run/Figures"
+  report_html:  "test_run/Reports/pipeline_report.html"
+  log_file:     "test_run/Reports/pipeline.log"
