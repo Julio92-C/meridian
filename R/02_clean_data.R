@@ -61,21 +61,37 @@ clean_data <- function(inputs, cfg) {
   }
 
   # --- Split contaminant vs non-contaminant counts -------------------------
-  # Negative controls are optional. If declared, validate they exist in the
-  # Re-centrifuge data; if absent, skip the control-baseline subtraction.
+  # Negative controls are optional. Three cases:
+  #   1. controls declared and all present in rcf  -> validate, then subtract
+  #   2. controls declared but ALL absent from rcf -> assume upstream
+  #      subtraction (e.g. a project-specific combine script that strips
+  #      control columns after per-batch filtering); keep `controls`
+  #      populated downstream so R/06 / R/13 still know which metadata
+  #      rows are controls, but skip this stage's filter.
+  #   3. partial mismatch                          -> hard error (typo)
   declared <- cfg$metadata$controls
   if (is.null(declared)) declared <- character(0)
+  ctrl_present  <- intersect(declared, colnames(rcf_named))
   missing_ctrls <- setdiff(declared, colnames(rcf_named))
-  if (length(missing_ctrls) > 0) {
+
+  upstream_subtracted <- length(declared) > 0 && length(ctrl_present) == 0
+  if (upstream_subtracted) {
+    pipeline_log(cfg, sprintf(
+      "Declared controls (%s) absent from Re-centrifuge columns — assuming upstream subtraction; R/02 baseline filter skipped",
+      paste(declared, collapse = ", ")
+    ))
+    controls <- character(0)
+  } else if (length(missing_ctrls) > 0) {
     stop(sprintf(
       "Negative controls declared in config but not found in Re-centrifuge data: %s",
       paste(missing_ctrls, collapse = ", ")
     ))
+  } else {
+    controls <- declared
   }
-  controls <- declared
   has_controls <- length(controls) > 0
 
-  if (!has_controls) {
+  if (!has_controls && !upstream_subtracted) {
     pipeline_log(cfg, "No negative controls declared — skipping control-baseline subtraction")
   }
 
