@@ -169,6 +169,21 @@ report:
 #   ID: "ggsci::default_jama"     # OR a paletteer_d palette name
 
 # --------------------------------------------------------------------------- #
+# Tripartite network + sankey (R/12) display tuning.                          #
+# --------------------------------------------------------------------------- #
+# network:
+#   sankey:
+#     # Filters applied BEFORE rendering to keep the diagram readable.
+#     top_genes:           20                       # cap genes shown (Inf for unlimited)
+#     min_gene_prevalence: 0.15                     # drop genes in <15% of samples
+#     rank_by:             prevalence_x_abundance   # mean_abundance | prevalence | prevalence_x_abundance
+#     # Other knobs:
+#     database:            vfdb                     # vfdb | card | plasmidfinder
+#     min_sample_count:    0                        # per-row sampleCount floor
+#     per_group:           true                     # also emit one sankey per group level
+#     enabled:             true
+
+# --------------------------------------------------------------------------- #
 # Output paths (relative to project_root)                                     #
 # --------------------------------------------------------------------------- #
 outputs:

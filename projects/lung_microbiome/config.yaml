@@ -95,6 +95,14 @@ colors:
     Exhale: "#1F77B4"   # colorblind-safe blue
     Sputum: "#FF7F0E"   # colorblind-safe orange
 
+# Per-VFDB sankey filter (R/12). Trims the noisy long tail before
+# rendering so the diagram tells a story about the top virulence drivers.
+network:
+  sankey:
+    top_genes:           20                        # keep top-N genes by rank score
+    min_gene_prevalence: 0.15                      # drop genes present in <15% of samples
+    rank_by:             prevalence_x_abundance    # mean_abundance | prevalence | prevalence_x_abundance
+
 outputs:
   datasets_dir: "test_run/Datasets"
   figures_dir:  "test_run/Figures"

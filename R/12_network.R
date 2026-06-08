@@ -559,6 +559,48 @@ run_network <- function(cleaned, cfg) {
   if (min_count > 0) {
     df <- dplyr::filter(df, .data$sampleCount > min_count)
   }
+
+  # --- Per-gene prevalence + top-N filter -------------------------------
+  # Reduces sankey clutter by keeping only the most prevalent / abundant
+  # genes BEFORE rendering. Whitelist is computed once on the full df and
+  # then applied to per-group sub-sankeys too, so group panels stay
+  # comparable (same gene set across panels).
+  min_prev   <- scfg$min_gene_prevalence %||% 0
+  top_n_gene <- scfg$top_genes           %||% Inf
+  rank_by    <- scfg$rank_by             %||% "prevalence_x_abundance"
+  if ((min_prev > 0 || is.finite(top_n_gene)) && nrow(df) > 0) {
+    total_samples <- dplyr::n_distinct(df$sample)
+    gene_stats <- df |>
+      dplyr::group_by(.data$GENE) |>
+      dplyr::summarise(
+        prevalence = dplyr::n_distinct(.data$sample) /
+                     max(total_samples, 1L),
+        abundance  = sum(.data$sampleCount, na.rm = TRUE),
+        .groups    = "drop"
+      ) |>
+      dplyr::mutate(
+        score = dplyr::case_when(
+          rank_by == "mean_abundance" ~ .data$abundance,
+          rank_by == "prevalence"     ~ .data$prevalence,
+          TRUE                         ~ .data$prevalence * .data$abundance
+        )
+      )
+    n_before <- nrow(gene_stats)
+    gene_stats <- dplyr::filter(gene_stats, .data$prevalence >= min_prev)
+    if (is.finite(top_n_gene)) {
+      gene_stats <- gene_stats |>
+        dplyr::arrange(dplyr::desc(.data$score)) |>
+        dplyr::slice_head(n = as.integer(top_n_gene))
+    }
+    df <- dplyr::filter(df, .data$GENE %in% gene_stats$GENE)
+    pipeline_log(cfg, sprintf(
+      "Sankey gene filter: %d -> %d genes (min_prev=%.2f, top_n=%s, rank_by=%s)",
+      n_before, nrow(gene_stats), min_prev,
+      if (is.finite(top_n_gene)) as.character(top_n_gene) else "Inf",
+      rank_by
+    ))
+  }
+
   df <- df |>
     dplyr::filter(!is.na(.data$category), nzchar(.data$category)) |>
     dplyr::distinct(.data$sample, .data$name, .data$GENE, .data$category,
