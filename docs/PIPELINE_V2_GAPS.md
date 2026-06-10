@@ -407,31 +407,33 @@ This is the updated `journals/frontiers_microbiome.yaml` slot layout recommended
 ## Summary checklist
 
 ### Immediate (A-level, no manifest change)
-- [ ] A1 — Add trend-line overlay to alpha-bar plots in R
-- [ ] A2 — Fix Venn group ordering for virulome
-- [ ] A3 — Switch network to Fruchterman-Reingold layout
+- [x] A1 — Add trend-line overlay to alpha-bar plots in R (per-group mean line, fa8d651 → 25a8438)
+- [x] A2 — Reality check: not a group-ordering bug; real fix is `scaled=FALSE` (still pending render-side change)
+- [x] A3 — Reality check: already Fruchterman-Reingold; no change needed
 
 ### Short-term (B-level, manifest v1.1, already specified)
-- [ ] B1–B10 as listed in `PIPELINE_V1.1_GAPS.md`
+- [x] B1–B5, B7–B9 shipped fa8d651
+- [x] B6 species_count_genmap shipped 4422862
+- [ ] B10 taxa_ges_composition — deferred, needs spec writeup (no fig9_taxa_ges slot in v2 layout table)
 
 ### Medium-term (C-level, manifest v1.2)
-- [ ] C1 `rarefaction_curves`
-- [ ] C2 `alpha_violin` for Richness, Chao1, Simpson metrics
-- [ ] C3 `pcoa_jaccard`
-- [ ] C4 `genus_heatmap`
-- [ ] C5 `aldex2_maplot` (3 pairwise comparisons)
-- [ ] C6 `aldex2_dotplot`
-- [ ] C7 `arg_upset`
-- [ ] C8 `arg_circos`
-- [ ] C9 `vf_arg_corr_heatmap`
-- [ ] C10 `mantel_triangle`
-- [ ] C11 `sankey_taxon_arg_mge`
-- [ ] C12 `mobile_fraction_bar`
+- [x] C1 `rarefaction_curves` (25a8438)
+- [x] C2 `alpha_violin` for Chao1 (Richness + Simpson already emitted; Shannon already there)
+- [x] C3 `pcoa_jaccard` (25a8438)
+- [x] C4 `genus_heatmap` (13ba39e)
+- [x] C5 `aldex2_maplot` (13ba39e, 3 pairwise comparisons)
+- [x] C6 `aldex2_dotplot` (13ba39e; fires only when ≥1 feature significant)
+- [x] C7 `arg_upset` (25a8438) + `vf_upset` + `mge_upset` (087b5ab)
+- [x] C8 `arg_circos` (13ba39e + circos label fix 087b5ab)
+- [x] C9 `vf_arg_corr_heatmap` (13ba39e)
+- [x] C10 `mantel_triangle` (4422862)
+- [ ] C11 `sankey_taxon_arg_mge` — deferred, blocked on R/02 rank-aware rewrite
+- [x] C12 `mobile_fraction_bar` (4422862; fires only when contigs co-harbour CARD+PlasmidFinder)
 
 ### After C-level is emitted
-- [ ] Update `journals/frontiers_microbiome.yaml` figure slots to v2 layout
-- [ ] Bump `manifest_version` to `"1.2"` in R pipeline writer
-- [ ] Re-run `scratch/demo_real.py` — expect 10/10 main + 17/17 supplementary
+- [x] Bump `manifest_version` to `"1.2"` in R pipeline writer
+- [ ] Update `journals/frontiers_microbiome.yaml` figure slots to v2 layout (agent repo)
+- [ ] Re-run `scratch/demo_real.py` — expect 10/10 main + 17/17 supplementary (agent repo)
 
 ---
 

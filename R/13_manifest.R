@@ -670,7 +670,7 @@ write_manifest <- function(cfg,
   n_samples <- if (!is.null(meta)) sum(!meta[[sid_col]] %in% controls) else NA_integer_
 
   manifest <- list(
-    manifest_version = "1.1",
+    manifest_version = "1.2",
     study = list(
       id                = cfg$study$id,
       name              = cfg$study$name,
