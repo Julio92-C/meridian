@@ -549,6 +549,27 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
                     p, width = 7, height = 5, dpi = 300)
   }
 
+  # ---- 5c. Per-pair ALDEx2 MA-plot PNG (PIPELINE_V2_GAPS C5) ------------
+  # Same MA data as the multi-page aldex_plots.pdf but written one PNG per
+  # pair so the dashboard / manuscript can embed individual panels. Taxa
+  # level only per spec (the gene-level path skips this to avoid bloat).
+  if (level == "taxa") {
+    for (cn in names(raw_results)) {
+      res_obj <- raw_results[[cn]]
+      grDevices::png(file.path(fig_dir, paste0("aldex2_maplot_", cn, ".png")),
+                     width = 1800, height = 1400, res = 220, bg = "white")
+      tryCatch({
+        graphics::par(mar = c(4, 4, 3, 1))
+        ALDEx2::aldex.plot(res_obj, type = "MA", test = "welch",
+                           main = sprintf("ALDEx2 MA — %s", cn))
+      }, error = function(e) {
+        pipeline_log(cfg, sprintf("DA[%s] %s MA-plot failed: %s",
+                                  level, cn, conditionMessage(e)))
+      })
+      grDevices::dev.off()
+    }
+  }
+
   # ---- 6. Cross-comparison summary ---------------------------------------
   # Pool candidates across pairs, dedupe, rank by max |effect|, then plot
   # each surviving feature against ALL groups (not just one pair). Mirrors
@@ -646,6 +667,101 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
     num <- vapply(sum_df, is.numeric, logical(1))
     sum_df[num] <- lapply(sum_df[num], function(x) round(x, 4))
     readr::write_csv(sum_df, file.path(ds_dir, "top_candidates_summary.csv"))
+
+    # ---- 6b. Cross-comparison dot plot (PIPELINE_V2_GAPS C6) -----------
+    # Forest-style summary: rows = features significant in >=1 pair (capped
+    # at top-30 by max |effect|), columns = pairwise comparisons (facets),
+    # x = ALDEx2 effect, point shape = significance, colour = direction,
+    # BH-adjusted padj as star annotation. Single PNG so the dashboard can
+    # embed it as fig5 panel D.
+    if (level == "taxa" && length(effect_cols) > 0) {
+      alpha_dt  <- cfg$stats$alpha %||% 0.05
+      padj_cols <- grep("_(we|wi)\\.eBH$", colnames(merged), value = TRUE)
+      if (length(padj_cols) > 0) {
+        sig_mat <- as.matrix(merged[, padj_cols, drop = FALSE]) < alpha_dt
+        sig_mat[is.na(sig_mat)] <- FALSE
+        feature_sig <- rowSums(sig_mat) > 0
+      } else {
+        feature_sig <- rep(FALSE, nrow(merged))
+      }
+      if (any(feature_sig)) {
+        max_abs <- apply(abs(eff_mat), 1, max)
+        keep_idx <- which(feature_sig)
+        keep_idx <- keep_idx[order(-max_abs[keep_idx])]
+        keep_idx <- utils::head(keep_idx, 30L)
+        sub_m    <- merged[keep_idx, , drop = FALSE]
+
+        long_parts <- lapply(effect_cols, function(ec) {
+          cn       <- sub("_effect$", "", ec)
+          padj_col <- intersect(c(paste0(cn, "_we.eBH"),
+                                  paste0(cn, "_wi.eBH")),
+                                colnames(sub_m))[1]
+          data.frame(
+            feature = sub_m[[feature_col]],
+            pair    = cn,
+            effect  = sub_m[[ec]],
+            padj    = if (!is.na(padj_col)) sub_m[[padj_col]] else NA_real_,
+            stringsAsFactors = FALSE
+          )
+        })
+        long_dt <- do.call(rbind, long_parts)
+        long_dt$sig   <- !is.na(long_dt$padj) & long_dt$padj < alpha_dt
+        long_dt$stars <- dplyr::case_when(
+          is.na(long_dt$padj)      ~ "",
+          long_dt$padj < 0.001     ~ "***",
+          long_dt$padj < 0.01      ~ "**",
+          long_dt$padj < alpha_dt  ~ "*",
+          TRUE                      ~ ""
+        )
+        # Preserve max-|effect| ordering (most extreme at top of y-axis).
+        long_dt$feature <- factor(long_dt$feature,
+                                  levels = rev(sub_m[[feature_col]]))
+        long_dt$direction <- ifelse(long_dt$effect > 0, "Up", "Down")
+
+        p_dot <- ggplot2::ggplot(long_dt,
+                  ggplot2::aes(x = .data$effect, y = .data$feature,
+                                colour = .data$direction,
+                                shape  = .data$sig)) +
+          ggplot2::geom_vline(xintercept = 0, linetype = "dashed",
+                              colour = "grey60") +
+          ggplot2::geom_point(size = 3, alpha = 0.85) +
+          ggplot2::geom_text(ggplot2::aes(label = .data$stars),
+                             hjust = -0.6, vjust = 0.5,
+                             size = 3, colour = "black",
+                             show.legend = FALSE) +
+          ggplot2::scale_colour_manual(values = c(Up   = "#d62728",
+                                                   Down = "#1f77b4"),
+                                        na.value = "grey60") +
+          ggplot2::scale_shape_manual(values = c(`TRUE`  = 16,
+                                                  `FALSE` = 1),
+                                       labels = c("ns",
+                                                  sprintf("q < %.2g",
+                                                          alpha_dt))) +
+          ggplot2::facet_wrap(~ pair, nrow = 1) +
+          ggplot2::labs(x = "ALDEx2 effect (CLR diff)", y = NULL,
+                        colour = "Direction", shape = "Significance") +
+          ggplot2::theme_classic() +
+          ggplot2::theme(
+            legend.position = "top",
+            strip.text      = ggplot2::element_text(face = "bold"),
+            text            = ggplot2::element_text(size = 11)
+          )
+        nf <- nrow(sub_m)
+        dh <- max(6, 0.28 * nf + 2.5)
+        dw <- max(9, 3.5 * length(effect_cols) + 2)
+        ggplot2::ggsave(file.path(fig_dir, "aldex2_dotplot_summary.png"),
+                        p_dot, width = dw, height = dh, dpi = 300)
+        pipeline_log(cfg, sprintf(
+          "DA[%s] aldex2_dotplot_summary.png (%d features x %d pairs)",
+          level, nf, length(effect_cols)
+        ))
+      } else {
+        pipeline_log(cfg, sprintf(
+          "DA[%s] aldex2_dotplot: no features significant in >=1 pair — skipping",
+          level
+        ))
+      }
+    }
   }
 
   invisible(NULL)

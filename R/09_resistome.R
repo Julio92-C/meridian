@@ -195,6 +195,14 @@ run_resistome <- function(cleaned, cfg) {
   # ---- (5) Drug-class relative abundance + total bar -------------------
   drug_totals <- NULL
   if (nrow(card_drug) > 0) {
+    # Per-sample drug-class TPM sums — feeds the v1.2 VF×ARG correlation
+    # heatmap computed in R/10 (PIPELINE_V2_GAPS C9).
+    card_drug |>
+      dplyr::group_by(.data$sample, .data$DRUG) |>
+      dplyr::summarise(TPM = sum(.data$TPM, na.rm = TRUE),
+                       .groups = "drop") |>
+      readr::write_csv(file.path(ds_dir, "drug_class_per_sample_TPM.csv"))
+
     drug_totals <- ge_plot_category_relative_abundance(
       card_drug, category_col = "DRUG", group = group, palette = pal_drug,
       fig_file = file.path(fig_dir, "drug_relative_abundance.png"),
@@ -217,6 +225,64 @@ run_resistome <- function(cleaned, cfg) {
       category_label = "Drug class",
       width = 12, height = 6
     )
+
+    # ---- (5b) ARG drug-class circos (PIPELINE_V2_GAPS C8) -------------
+    # Distinct from R/12's sample->taxon->gene->drug-class chord. This is
+    # a 2-tier chord: outer = drug classes, inner = treatment groups,
+    # link width = summed TPM. Shows at a glance which drug classes
+    # dominate which treatments without scrolling through the heatmap.
+    if (requireNamespace("circlize", quietly = TRUE)) {
+      drug_grp_mat <- card_drug |>
+        dplyr::group_by(.data$DRUG, .data[[group]]) |>
+        dplyr::summarise(TPM = sum(.data$TPM, na.rm = TRUE),
+                         .groups = "drop") |>
+        tidyr::pivot_wider(names_from = dplyr::all_of(group),
+                           values_from = "TPM", values_fill = 0) |>
+        tibble::column_to_rownames("DRUG") |>
+        as.matrix()
+      if (nrow(drug_grp_mat) >= 2 && ncol(drug_grp_mat) >= 2) {
+        grid_col <- c(pal_drug[rownames(drug_grp_mat)],
+                      pal_group[colnames(drug_grp_mat)])
+        circos_png <- file.path(fig_dir, "arg_circos_drugclass.png")
+        grDevices::png(circos_png, width = 2200, height = 2200,
+                       res = 220, bg = "white")
+        tryCatch({
+          circlize::circos.clear()
+          circlize::circos.par(start.degree = 90, gap.degree = 3)
+          circlize::chordDiagram(
+            drug_grp_mat,
+            grid.col        = grid_col,
+            transparency    = 0.4,
+            annotationTrack = "grid",
+            preAllocateTracks = list(track.height = 0.06)
+          )
+          circlize::circos.trackPlotRegion(
+            track.index = 1,
+            panel.fun = function(x, y) {
+              sector_idx <- circlize::get.cell.meta.data("sector.index")
+              circlize::circos.text(
+                circlize::get.cell.meta.data("xcenter"),
+                circlize::get.cell.meta.data("ylim")[1],
+                sector_idx, facing = "clockwise", niceFacing = TRUE,
+                adj = c(0, 0.5), cex = 0.85
+              )
+            }, bg.border = NA
+          )
+          circlize::circos.clear()
+        }, error = function(e) {
+          pipeline_log(cfg, sprintf("Resistome arg_circos failed: %s",
+                                    conditionMessage(e)))
+        })
+        grDevices::dev.off()
+        pipeline_log(cfg, sprintf(
+          "Resistome: arg_circos_drugclass.png (%d drug classes x %d groups)",
+          nrow(drug_grp_mat), ncol(drug_grp_mat)
+        ))
+      }
+    } else {
+      pipeline_log(cfg,
+        "Resistome: circlize not available — arg_circos skipped")
+    }
   } else {
     pipeline_log(cfg, "Resistome: no rows with a drug class — RA/total skipped")
   }

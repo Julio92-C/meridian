@@ -41,6 +41,18 @@ relab_palette <- function(n, cfg) {
   rep_len(pal, n)
 }
 
+# Genus extraction from a raw species name. Used by the v1.2 genus_heatmap
+# (PIPELINE_V2_GAPS C4). NCBI-style "[Genus] species" brackets are
+# normalised; "Candidatus Genus species" drops the Candidatus prefix; lone
+# words pass through unchanged. Returns NA for empty / NA input.
+ra_extract_genus <- function(name) {
+  s <- as.character(name)
+  s <- ifelse(is.na(s) | !nzchar(s), NA_character_, s)
+  s <- gsub("^\\[([^\\]]+)\\]\\s*", "\\1 ", s)
+  s <- gsub("^Candidatus\\s+",      "",     s)
+  stringr::word(s, 1L)
+}
+
 # Compact stacked-bar render for filtered species partitions (v1.1
 # unique/shared composition plots, Frontiers Fig S1/S2). Mirrors the
 # main 6a render in run_relative_abundance() but skips the plotly HTML
@@ -354,6 +366,110 @@ run_relative_abundance <- function(cleaned, cfg) {
   } else {
     pipeline_log(cfg,
       "Relative abundance: no facet column — unique/shared composition skipped")
+  }
+
+  # ---- 8. Top-30 genus heatmap (PIPELINE_V2_GAPS C4) ----------------------
+  # Genus rollup is derived from cleaned$noncontaminants$name's first word
+  # (the unabbreviated species column). Bracketed "[Genus] x" and Candidatus
+  # prefixes get normalised; lone-word taxa are kept verbatim. Heatmap
+  # values are log10(% + 0.01) for colour scale; clustering uses raw
+  # percentages with Bray-Curtis distance + complete linkage on both axes
+  # per the v1.2 spec.
+  if (!isFALSE(ra_cfg$genus_heatmap %||% TRUE) &&
+      requireNamespace("pheatmap", quietly = TRUE) &&
+      !is.null(cleaned$noncontaminants)) {
+    raw <- cleaned$noncontaminants
+    raw <- dplyr::filter(raw, !is.na(.data$name), .data$count > min_count)
+    raw$genus <- ra_extract_genus(raw$name)
+    raw <- dplyr::filter(raw, !is.na(.data$genus), nzchar(.data$genus))
+
+    meta_g <- tryCatch(
+      readr::read_csv(file.path(cfg$project_root, cfg$metadata$file),
+                       show_col_types = FALSE),
+      error = function(e) NULL
+    )
+    has_group <- !is.null(facet_by) && !is.null(meta_g) &&
+                 facet_by %in% colnames(meta_g)
+    if (has_group) {
+      raw <- dplyr::inner_join(
+        raw,
+        meta_g[, c(cfg$metadata$sample_id_col, facet_by)],
+        by = c("sample" = cfg$metadata$sample_id_col)
+      )
+    }
+
+    if (nrow(raw) > 0 && dplyr::n_distinct(raw$genus) >= 2) {
+      samp_total <- raw |>
+        dplyr::group_by(.data$sample) |>
+        dplyr::summarise(samp_total = sum(.data$count, na.rm = TRUE),
+                         .groups = "drop")
+      g_long <- raw |>
+        dplyr::group_by(.data$sample, .data$genus) |>
+        dplyr::summarise(count = sum(.data$count, na.rm = TRUE),
+                         .groups = "drop") |>
+        dplyr::inner_join(samp_total, by = "sample") |>
+        dplyr::mutate(pct = 100 * .data$count / .data$samp_total)
+
+      top_g <- g_long |>
+        dplyr::group_by(.data$genus) |>
+        dplyr::summarise(mean_pct = mean(.data$pct, na.rm = TRUE),
+                         .groups = "drop") |>
+        dplyr::arrange(dplyr::desc(.data$mean_pct)) |>
+        dplyr::slice_head(n = 30L) |>
+        dplyr::pull(.data$genus)
+
+      g_wide <- g_long |>
+        dplyr::filter(.data$genus %in% top_g) |>
+        dplyr::select("sample", "genus", "pct") |>
+        tidyr::pivot_wider(names_from = "sample", values_from = "pct",
+                           values_fill = 0) |>
+        tibble::column_to_rownames("genus") |>
+        as.matrix()
+
+      d_rows <- vegan::vegdist(g_wide,     method = "bray")
+      d_cols <- vegan::vegdist(t(g_wide),  method = "bray")
+      z      <- log10(g_wide + 0.01)
+
+      samp_ann <- NA
+      ann_colors <- NA
+      if (has_group) {
+        samp_ann <- raw |>
+          dplyr::distinct(.data$sample, .keep_all = TRUE) |>
+          dplyr::select("sample", dplyr::all_of(facet_by)) |>
+          tibble::column_to_rownames("sample")
+        samp_ann <- samp_ann[colnames(z), , drop = FALSE]
+        ann_lvls <- sort(unique(as.character(samp_ann[[facet_by]])))
+        ann_pal  <- resolve_top_level_colors(facet_by, ann_lvls, cfg)
+        if (is.null(ann_pal)) {
+          ann_pal <- relab_palette(length(ann_lvls), cfg)
+          names(ann_pal) <- ann_lvls
+        }
+        ann_colors <- setNames(list(ann_pal), facet_by)
+      }
+
+      pheatmap::pheatmap(
+        z,
+        clustering_distance_rows = d_rows,
+        clustering_distance_cols = d_cols,
+        clustering_method        = "complete",
+        color = grDevices::colorRampPalette(
+          c("white", "#fee08b", "#d73027"))(100),
+        annotation_col    = samp_ann,
+        annotation_colors = ann_colors,
+        border_color      = NA,
+        fontsize_row = 9, fontsize_col = 9, fontsize = 10,
+        filename = file.path(fig_dir, "genus_heatmap_top30.png"),
+        width    = max(8, 0.4  * ncol(z) + 4),
+        height   = max(6, 0.25 * nrow(z) + 2.5)
+      )
+      pipeline_log(cfg, sprintf(
+        "Relative abundance: genus_heatmap_top30.png (%d genera x %d samples)",
+        nrow(z), ncol(z)
+      ))
+    } else {
+      pipeline_log(cfg,
+        "Relative abundance: not enough genus data — heatmap skipped")
+    }
   }
 
   invisible(df_pct)

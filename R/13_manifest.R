@@ -230,7 +230,10 @@ build_stage_relative_abundance <- function(cfg, stage_times) {
                    caption_seed = "Relative abundance of species unique to each treatment group."),
       figure_entry(cfg, fig_path(cfg, "relative_abundance/shared_species_relative_abundance.png"),
                    kind = "composition_shared_species", groups = as.list(groups),
-                   caption_seed = "Relative abundance of species shared across all treatment groups.")
+                   caption_seed = "Relative abundance of species shared across all treatment groups."),
+      figure_entry(cfg, fig_path(cfg, "relative_abundance/genus_heatmap_top30.png"),
+                   kind = "genus_heatmap", groups = as.list(groups),
+                   caption_seed = "Heatmap of the top 30 genera by mean relative abundance, hierarchically clustered on both axes (Bray-Curtis, complete linkage).")
     ))
   )
 }
@@ -357,6 +360,22 @@ build_stage_differential_abundance <- function(cfg, stage_times) {
                                domain, pair[[1]] %||% "?", pair[[2]] %||% "?")
       )
     }
+    # ALDEx2 MA-plot PNGs (PIPELINE_V2_GAPS C5; taxa only — gene path
+    # currently skips MA-plot PNG emission). Same pair-from-filename
+    # parser as volcano.
+    for (rel in project_glob(cfg, fig_path(cfg, sprintf("differential_abundance/%s/aldex2_maplot_*.png", domain)))) {
+      m <- regmatches(basename(rel),
+                      regexec("^aldex2_maplot_(.+)_vs_(.+)\\.png$", basename(rel)))[[1]]
+      pair <- if (length(m) == 3) list(m[[2]], m[[3]]) else NULL
+      figures[[length(figures) + 1]] <- figure_entry(
+        cfg, rel,
+        kind = "aldex2_maplot",
+        domain = domain,
+        pair = pair,
+        caption_seed = sprintf("ALDEx2 MA plot for %s contrast (%s vs %s). Significant features (BH p < 0.05) coloured by direction.",
+                               domain, pair[[1]] %||% "?", pair[[2]] %||% "?")
+      )
+    }
     figures[[length(figures) + 1]] <- figure_entry(
       cfg, fig_path(cfg, sprintf("differential_abundance/%s/top_candidates.pdf", domain)),
       kind = "top_candidates", domain = domain,
@@ -372,6 +391,13 @@ build_stage_differential_abundance <- function(cfg, stage_times) {
         cfg, fig_path(cfg, "differential_abundance/taxa/top30_daa_heatmap.png"),
         kind = "taxa_daa_heatmap", domain = "taxa",
         caption_seed = "Sample-level heatmap of the top 30 differentially-abundant taxa across treatment groups.")
+      # ALDEx2 cross-comparison dotplot summary (PIPELINE_V2_GAPS C6;
+      # taxa only). Figure_entry returns NULL if the PNG isn't on disk
+      # (e.g. no features significant in any pair).
+      figures[[length(figures) + 1]] <- figure_entry(
+        cfg, fig_path(cfg, "differential_abundance/taxa/aldex2_dotplot_summary.png"),
+        kind = "aldex2_dotplot", domain = "taxa",
+        caption_seed = "Effect-size summary across all pairwise ALDEx2 comparisons; rows are features significant in at least one comparison, columns are pairs.")
     }
   }
 
@@ -418,6 +444,23 @@ build_stage_ge_domain <- function(cfg, domain, stage_times) {
             domain = "resistome",
             groups = as.list(cfg_group_levels(cfg)),
             caption_seed = "UpSet plot of ARG gene families shared and unique across dietary treatment groups."
+          ))
+        }
+        if (domain == "resistome" && base == "arg_circos_drugclass") {
+          return(figure_entry(
+            cfg, rel,
+            kind   = "arg_circos",
+            domain = "resistome",
+            caption_seed = "Circos plot showing proportional contribution of antibiotic drug classes to total ARG TPM across dietary treatment groups."
+          ))
+        }
+        # VFxARG correlation heatmap is cross-domain; rendered from R/10
+        # so its file sits under virulome/ but the kind is domain-neutral.
+        if (domain == "virulome" && base == "vf_arg_correlation_heatmap") {
+          return(figure_entry(
+            cfg, rel,
+            kind = "vf_arg_corr_heatmap",
+            caption_seed = "Spearman correlation heatmap between virulence-factor functional categories and antibiotic drug classes; significance stars from BH-adjusted p-values."
           ))
         }
         figure_entry(

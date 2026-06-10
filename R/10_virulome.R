@@ -208,6 +208,91 @@ run_virulome <- function(cleaned, cfg) {
     )
   }
 
+  # ---- (7) VF x ARG cross-domain correlation (PIPELINE_V2_GAPS C9) -----
+  # Spearman correlation between per-sample VF-function TPM sums and
+  # ARG-drug-class TPM sums. R/09 saves drug_class_per_sample_TPM.csv;
+  # we read it here (virulome runs after resistome) and join on sample.
+  # Significance: per-cell Spearman p-value, BH-adjusted across the
+  # whole matrix; stars annotated on the heatmap cells.
+  arg_csv <- file.path(cfg$project_root, cfg$outputs$datasets_dir,
+                       "resistome/drug_class_per_sample_TPM.csv")
+  if (file.exists(arg_csv) && nrow(vfdb_fun) > 0 &&
+      requireNamespace("pheatmap", quietly = TRUE)) {
+    arg_long <- readr::read_csv(arg_csv, show_col_types = FALSE)
+    vf_long  <- vfdb_fun |>
+      dplyr::group_by(.data$sample, .data$Functions) |>
+      dplyr::summarise(TPM = sum(.data$TPM, na.rm = TRUE), .groups = "drop")
+
+    vf_mat  <- vf_long  |>
+      tidyr::pivot_wider(names_from = "Functions", values_from = "TPM",
+                         values_fill = 0) |>
+      tibble::column_to_rownames("sample") |>
+      as.matrix()
+    arg_mat <- arg_long |>
+      tidyr::pivot_wider(names_from = "DRUG", values_from = "TPM",
+                         values_fill = 0) |>
+      tibble::column_to_rownames("sample") |>
+      as.matrix()
+
+    common <- intersect(rownames(vf_mat), rownames(arg_mat))
+    if (length(common) >= 3 && ncol(vf_mat) >= 2 && ncol(arg_mat) >= 2) {
+      vf_mat  <- vf_mat[common, , drop = FALSE]
+      arg_mat <- arg_mat[common, , drop = FALSE]
+
+      r_mat <- matrix(NA_real_, nrow = ncol(vf_mat), ncol = ncol(arg_mat),
+                      dimnames = list(colnames(vf_mat), colnames(arg_mat)))
+      p_mat <- r_mat
+      for (i in seq_len(ncol(vf_mat))) {
+        for (j in seq_len(ncol(arg_mat))) {
+          ct <- suppressWarnings(stats::cor.test(
+            vf_mat[, i], arg_mat[, j], method = "spearman", exact = FALSE
+          ))
+          r_mat[i, j] <- as.numeric(ct$estimate)
+          p_mat[i, j] <- ct$p.value
+        }
+      }
+      padj <- matrix(stats::p.adjust(as.vector(p_mat), method = "BH"),
+                     nrow = nrow(p_mat), ncol = ncol(p_mat),
+                     dimnames = dimnames(p_mat))
+      stars <- ifelse(is.na(padj), "",
+        ifelse(padj < 0.001, "***",
+        ifelse(padj < 0.01,  "**",
+        ifelse(padj < 0.05,  "*", ""))))
+
+      n_vf  <- nrow(r_mat); n_arg <- ncol(r_mat)
+      pheatmap::pheatmap(
+        r_mat,
+        cluster_rows     = TRUE, cluster_cols = TRUE,
+        clustering_method = "complete",
+        color = grDevices::colorRampPalette(
+          c("#2166AC", "white", "#B2182B"))(100),
+        breaks            = seq(-1, 1, length.out = 101),
+        display_numbers   = stars,
+        number_color      = "black",
+        fontsize_number   = 11,
+        border_color      = "grey80",
+        fontsize_row = 10, fontsize_col = 10, fontsize = 10,
+        main = sprintf("VF function x ARG drug class Spearman (%d samples)",
+                       length(common)),
+        filename = file.path(fig_dir, "vf_arg_correlation_heatmap.png"),
+        width  = max(8,  0.55 * n_arg + 4),
+        height = max(6,  0.50 * n_vf  + 3)
+      )
+      pipeline_log(cfg, sprintf(
+        "Virulome: vf_arg_correlation_heatmap.png (%d VF functions x %d drug classes, %d samples)",
+        n_vf, n_arg, length(common)
+      ))
+    } else {
+      pipeline_log(cfg, sprintf(
+        "Virulome: insufficient overlap for VFxARG correlation (samples=%d, vf=%d, arg=%d)",
+        length(common), ncol(vf_mat), ncol(arg_mat)
+      ))
+    }
+  } else {
+    pipeline_log(cfg,
+      "Virulome: ARG drug-class CSV not found or pheatmap missing — VFxARG corr skipped")
+  }
+
   invisible(list(alpha = alpha, vf_totals = vf_totals))
 }
 
