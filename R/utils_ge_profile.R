@@ -172,6 +172,14 @@ ge_plot_alpha_bar <- function(alpha, group, metric, kw, pal_group, file) {
             metric_label, group, kw$p.value)
   else
     sprintf("%s by %s", metric_label, group)
+  # Per-group means for the in-facet trend line (PIPELINE_V2_GAPS A1).
+  # facet_wrap dispatches the geom by matching the group column, so a
+  # tibble with one row per group draws one mean line per panel without
+  # cross-facet bleed.
+  group_means <- alpha |>
+    dplyr::group_by(.data[[group]]) |>
+    dplyr::summarise(grp_mean = mean(.data[[metric]], na.rm = TRUE),
+                     .groups = "drop")
   p <- ggplot2::ggplot(alpha,
         ggplot2::aes(x = sample, y = .data[[metric]],
                      fill = .data[[group]])) +
@@ -180,6 +188,10 @@ ge_plot_alpha_bar <- function(alpha, group, metric, kw, pal_group, file) {
                        vjust = -0.6, size = 3) +
     ggplot2::geom_hline(yintercept = mean(alpha[[metric]], na.rm = TRUE),
                         linetype = "dashed", colour = "red") +
+    ggplot2::geom_hline(data = group_means,
+                        ggplot2::aes(yintercept = .data$grp_mean),
+                        linetype = "dashed", colour = "black",
+                        linewidth = 0.7) +
     ggplot2::scale_fill_manual(values = pal_group) +
     ggplot2::facet_wrap(stats::reformulate(group),
                         scales = "free_x", nrow = 1) +
@@ -249,6 +261,45 @@ ge_plot_abundance_violin <- function(df, group, pal_group, file,
     )
   }
   ggplot2::ggsave(file, p, width = 7, height = 5.5, dpi = 300)
+}
+
+# UpSet plot of unique category values per group. Scales better than a
+# Venn when the number of sets or intersections is large. Skipped (with a
+# log line) if UpSetR isn't installed. `nintersects` caps the bars shown
+# (NA = unlimited; default unlimited to match the spec's "all intersections"
+# direction). Mirrors ge_plot_category_venn's input shape so the same long-
+# form table works for both renders.
+ge_plot_category_upset <- function(df, category_col, group, file,
+                                    log_label, cfg, value_col = "TPM",
+                                    nintersects = NA) {
+  if (!requireNamespace("UpSetR", quietly = TRUE)) {
+    pipeline_log(cfg, sprintf("%s: UpSetR not available — UpSet skipped",
+                              log_label))
+    return(invisible(NULL))
+  }
+  per_group <- df |>
+    dplyr::group_by(.data[[group]], .data[[category_col]]) |>
+    dplyr::summarise(total = sum(.data[[value_col]], na.rm = TRUE),
+                     .groups = "drop") |>
+    dplyr::filter(.data$total > 0)
+  sets  <- split(per_group[[category_col]], per_group[[group]])
+  sets  <- lapply(sets, unique)
+  if (length(sets) < 2) {
+    pipeline_log(cfg, sprintf("%s: <2 groups — UpSet skipped", log_label))
+    return(invisible(NULL))
+  }
+  df_upset <- UpSetR::fromList(sets)
+  grDevices::png(file, width = 2200, height = 1500, res = 220, bg = "white")
+  on.exit(grDevices::dev.off(), add = TRUE)
+  print(UpSetR::upset(
+    df_upset,
+    sets        = names(sets),
+    keep.order  = TRUE,
+    order.by    = "freq",
+    nintersects = if (is.na(nintersects)) NA else as.integer(nintersects),
+    text.scale  = c(1.4, 1.3, 1.2, 1.2, 1.3, 1.1)
+  ))
+  invisible(NULL)
 }
 
 # Venn diagram of unique category values per group. Supports 2-5 groups

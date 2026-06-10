@@ -212,6 +212,75 @@ run_beta_diversity <- function(cleaned, cfg) {
     )
   }
 
+  # ---- 10. Jaccard PCoA (PIPELINE_V2_GAPS C3) -----------------------------
+  # Presence/absence distance captures rare-biosphere structure that
+  # Bray-Curtis can miss when a handful of abundant taxa dominate. Same
+  # pipeline (PCoA + adonis2 + betadisper + ellipses) but on a binarised
+  # matrix, written to its own filenames so the Bray-Curtis panel stays
+  # untouched. Skip by setting cfg$beta_diversity$jaccard: false.
+  if (!isFALSE(bd_cfg$jaccard %||% TRUE)) {
+    mat_pa  <- vegan::decostand(mat, method = "pa")
+    d_jac   <- vegan::vegdist(mat_pa, method = "jaccard", binary = TRUE)
+    pcoa_j  <- stats::cmdscale(d_jac, eig = TRUE, k = 2)
+    var_j   <- pcoa_j$eig / sum(pcoa_j$eig[pcoa_j$eig > 0]) * 100
+    scores_j <- data.frame(
+      sample = rownames(mat_pa),
+      PC1    = pcoa_j$points[, 1],
+      PC2    = pcoa_j$points[, 2]
+    )
+    scores_j$sample <- as.character(scores_j$sample)
+    scores_j <- dplyr::inner_join(scores_j, meta, by = c("sample" = sid))
+    scores_j[[group]] <- as.character(scores_j[[group]])
+    readr::write_csv(scores_j,
+                     file.path(out_dir, "beta_diversity_jaccard_pcoa.csv"))
+
+    perm_j <- vegan::adonis2(
+      stats::reformulate(group, "d_jac"),
+      data         = meta_aligned,
+      permutations = cfg$stats$permanova_permutations %||% 9999
+    )
+    utils::capture.output(perm_j,
+                          file = file.path(fig_dir, "jaccard_permanova.txt"))
+    r2_j <- perm_j$R2[1]
+    p_j  <- perm_j$`Pr(>F)`[1]
+    pipeline_log(cfg, sprintf("PERMANOVA Jaccard %s: R2 = %.3f, p = %.4g",
+                              group, r2_j, p_j))
+
+    bd_j      <- vegan::betadisper(d_jac, factor(meta_aligned[[group]]))
+    bd_j_test <- vegan::permutest(
+      bd_j, permutations = cfg$stats$permanova_permutations %||% 9999
+    )
+    utils::capture.output(bd_j_test,
+                          file = file.path(fig_dir, "jaccard_permdisp.txt"))
+    permdisp_j_p <- bd_j_test$tab$`Pr(>F)`[1]
+    pipeline_log(cfg, sprintf("PERMDISP Jaccard %s: p = %.4g",
+                              group, permdisp_j_p))
+
+    annot_j <- sprintf(
+      "PERMANOVA R² = %.3f, p = %.4g\nPERMDISP p = %.4g",
+      r2_j, p_j, permdisp_j_p
+    )
+    p_jac <- ggplot2::ggplot(scores_j,
+              ggplot2::aes(x = PC1, y = PC2, colour = .data[[group]])) +
+      ggplot2::geom_point(size = 3) +
+      ggplot2::stat_ellipse(type = ellipse_type, linewidth = 0.8,
+                            linetype = ellipse_line) +
+      ggplot2::scale_color_manual(values = pal) +
+      ggplot2::labs(
+        title  = sprintf("Jaccard PCoA (presence/absence) — by %s", group),
+        colour = group,
+        x = sprintf("PC1 (%.1f%%)", var_j[1]),
+        y = sprintf("PC2 (%.1f%%)", var_j[2])
+      ) +
+      ggplot2::annotate("text", x = Inf, y = Inf, label = annot_j,
+                        hjust = 1.05, vjust = 1.5, size = 4, colour = "black") +
+      ggplot2::theme_classic() +
+      ggplot2::theme(text = ggplot2::element_text(size = 13),
+                     plot.title = ggplot2::element_text(size = 12, hjust = 0.5))
+    ggplot2::ggsave(file.path(fig_dir, "jaccard_pcoa.png"),
+                    p_jac, width = 7, height = 5.5, dpi = 300)
+  }
+
   invisible(list(
     scores      = scores,
     permanova   = permanova,

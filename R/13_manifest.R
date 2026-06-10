@@ -17,6 +17,7 @@
 # bounds") under `[[slug]]` lookup.
 .ALPHA_METRIC_LABELS <- list(
   berger_parker_index         = "Berger Parker index",
+  chao1                       = "Chao1 estimator",
   effective_number_of_species = "Effective number of species",
   fisher_s_alpha              = "Fisher's alpha",
   inverse_simpson_s_index     = "Inverse Simpson's index",
@@ -266,7 +267,15 @@ build_stage_alpha_diversity <- function(cfg, stage_times) {
                   kind = "alpha_diversity_per_sample",
                   description = "Per-sample alpha-diversity indices (negative controls excluded).")
     )),
-    figures    = metric_figs,
+    figures    = c(
+      metric_figs,
+      Filter(Negate(is.null), list(
+        figure_entry(cfg, fig_path(cfg, "alpha_diversity/rarefaction_curves.png"),
+                     kind = "rarefaction_curves",
+                     groups = as.list(groups),
+                     caption_seed = "Rarefaction curves for all samples coloured by primary grouping; endpoints mark actual sequencing depth.")
+      ))
+    ),
     stats_text = Filter(Negate(is.null), list(
       stats_entry(cfg, fig_path(cfg, "alpha_diversity/alpha_stats.txt"),
                   kind = "kruskal_wallis",
@@ -285,12 +294,18 @@ build_stage_beta_diversity <- function(cfg, stage_times) {
     tables     = Filter(Negate(is.null), list(
       table_entry(cfg, ds_path(cfg, "beta_diversity_pcoa.csv"),
                   kind = "beta_pcoa_scores",
-                  description = "PCoA scores from Bray-Curtis on the filtered relative-abundance table.")
+                  description = "PCoA scores from Bray-Curtis on the filtered relative-abundance table."),
+      table_entry(cfg, ds_path(cfg, "beta_diversity_jaccard_pcoa.csv"),
+                  kind = "beta_pcoa_scores",
+                  description = "PCoA scores from Jaccard (presence/absence) on the filtered relative-abundance table.")
     )),
     figures    = Filter(Negate(is.null), list(
       figure_entry(cfg, fig_path(cfg, "beta_diversity/pcoa.png"),
                    kind = "pcoa_scatter", groups = as.list(groups),
-                   caption_seed = "PCoA of Bray-Curtis distances coloured by primary grouping; 95% confidence ellipses.")
+                   caption_seed = "PCoA of Bray-Curtis distances coloured by primary grouping; 95% confidence ellipses."),
+      figure_entry(cfg, fig_path(cfg, "beta_diversity/jaccard_pcoa.png"),
+                   kind = "pcoa_jaccard", groups = as.list(groups),
+                   caption_seed = "PCoA of Jaccard (presence/absence) dissimilarity coloured by primary grouping; PERMANOVA R² and p-value annotated.")
     )),
     stats_text = Filter(Negate(is.null), list(
       stats_entry(cfg, fig_path(cfg, "beta_diversity/permanova.txt"),
@@ -298,7 +313,13 @@ build_stage_beta_diversity <- function(cfg, stage_times) {
                   description = "Adonis PERMANOVA on Bray-Curtis distances."),
       stats_entry(cfg, fig_path(cfg, "beta_diversity/permdisp.txt"),
                   kind = "permdisp",
-                  description = "PERMDISP homogeneity-of-dispersion test.")
+                  description = "PERMDISP homogeneity-of-dispersion test."),
+      stats_entry(cfg, fig_path(cfg, "beta_diversity/jaccard_permanova.txt"),
+                  kind = "permanova",
+                  description = "Adonis PERMANOVA on Jaccard (presence/absence) distances."),
+      stats_entry(cfg, fig_path(cfg, "beta_diversity/jaccard_permdisp.txt"),
+                  kind = "permdisp",
+                  description = "PERMDISP on Jaccard distances.")
     ))
   )
 }
@@ -385,13 +406,27 @@ build_stage_ge_domain <- function(cfg, domain, stage_times) {
     ),
     figures    = lapply(
       project_glob(cfg, fig_path(cfg, sprintf("%s/*.png", domain))),
-      function(rel) figure_entry(
-        cfg, rel,
-        kind = paste0("ge_", tools::file_path_sans_ext(basename(rel))),
-        domain = domain,
-        caption_seed = sprintf("%s — %s.", domain,
-                               tools::file_path_sans_ext(basename(rel)))
-      )
+      function(rel) {
+        base <- tools::file_path_sans_ext(basename(rel))
+        # Filename-dispatch for kinds that don't follow the ge_<filename>
+        # convention. Keep the override list short; everything else falls
+        # through to the auto-classified ge_* kind.
+        if (domain == "resistome" && base == "arg_upset_treatments") {
+          return(figure_entry(
+            cfg, rel,
+            kind   = "arg_upset",
+            domain = "resistome",
+            groups = as.list(cfg_group_levels(cfg)),
+            caption_seed = "UpSet plot of ARG gene families shared and unique across dietary treatment groups."
+          ))
+        }
+        figure_entry(
+          cfg, rel,
+          kind = paste0("ge_", base),
+          domain = domain,
+          caption_seed = sprintf("%s — %s.", domain, base)
+        )
+      }
     ),
     stats_text = Filter(Negate(is.null), list(
       stats_entry(cfg, ds_path(cfg, sprintf("%s/beta_permanova.txt", domain)),

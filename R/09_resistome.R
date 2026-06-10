@@ -144,6 +144,15 @@ run_resistome <- function(cleaned, cfg) {
     log_label = label, cfg = cfg
   )
 
+  # ARG UpSet (PIPELINE_V2_GAPS C7) — same set membership as venn_args but
+  # rendered as an UpSet plot, which scales beyond 4-5 groups where Venns
+  # become unreadable.
+  ge_plot_category_upset(
+    card, category_col = "GENE", group = group,
+    file = file.path(fig_dir, "arg_upset_treatments.png"),
+    log_label = label, cfg = cfg
+  )
+
   # ---- (2b) Beta diversity on the gene-level TPM matrix ----------------
   if (isTRUE(rcfg$beta %||% TRUE)) {
     ge_plot_beta(
