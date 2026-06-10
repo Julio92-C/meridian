@@ -1,0 +1,105 @@
+study:
+  id: chicken_batch2
+  name: "Smoke test against chicken_batch2 (Dulse vs Control, JC_FL_2025-05-20)"
+  description: >
+    Second chicken caecum dataset (Dulse vs Control, weeks 4 and 5) used to
+    smoke-test the pipeline against a study that exercises three features
+    chicken_batch1 did not: a random effect (`block`, 1-8), two negative
+    controls (CTRL1, CTRL2), and a composite Treatment x Time grouping
+    (`Treatment_Bird` with levels Control_W4, Control_W5, Dulse_W4,
+    Dulse_W5). All outputs land under test_run/ so the original project
+    tree is never overwritten.
+
+project_root: "C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics"
+
+inputs:
+  abricate_summary: "Reports/Abricate/summary_reportClean.csv"
+  kraken2_report:   "Reports/Kraken2/kraken2_db1_combined_reports.txt"
+  bracken_report:   "Reports/Bracken/bracken_arranged.csv"
+  recentrifuge_csv: "Reports/Re-centrifuge/*.rcf.data.csv"
+  diversity_csv:    "Reports/wf-metagenomics/wf-metagenomics-diversity.csv"
+
+metadata:
+  file: "Metadata/chicken_metadata.csv"
+  sample_id_col: "sample"
+  # Primary grouping is the composite Treatment x Time factor so plots,
+  # ALDEx2, PERMANOVA and DAA all contrast the four levels directly
+  # (Control_W4, Control_W5, Dulse_W4, Dulse_W5) — mirrors the
+  # original analysis. The plain `Treatment` column is still in the file
+  # if a future config wants a 2-level comparison.
+  group_cols:
+    - Treatment_Bird
+  # `block` is a usable random effect here (8 pens, ids 1-8); this is the
+  # main thing chicken_batch1 could not exercise.
+  random_effect: "block"
+  fixed_effects:
+    - Treatment_Bird
+    - Weight
+  # Documentation-only: expected levels for the grouping/fixed-effect
+  # variables. The pipeline currently does not read this block, but it
+  # serves as a contract for downstream reviewers and is the place to add
+  # factor ordering once R/02 honours it.
+  #   Treatment       : [Control, Dulse, "Negative Control"]
+  #   Bird            : [4, 5]      # week-4 vs week-5 sampling time
+  #   Treatment_Bird  : [Control_W4, Control_W5, Dulse_W4, Dulse_W5,
+  #                      Negative_Control]
+  # Two negative controls present in this study — chicken_batch1 had none.
+  # The Re-centrifuge CSV labels these columns CTRL1/CTRL2 (with the
+  # Kraken_outputs/ prefix that R/02 strips). The metadata was edited to
+  # match (NC20→CTRL1, NC21→CTRL2) so the join in R/02 succeeds.
+  controls:
+    - CTRL1
+    - CTRL2
+
+# No Metadata/taxid_fixes.csv shipped with this dataset.
+taxid_fixes_file: ~
+
+filters:
+  min_count_per_sample:   17
+  min_count_for_species:  500
+  min_prevalence_aldex:   2
+
+stages:
+  clean_data:             true
+  normalisation:          true
+  taxonomy:               true
+  relative_abundance:     true
+  alpha_diversity:        true
+  beta_diversity:         true
+  differential_abundance: true
+  resistome:              true
+  virulome:               true
+  mobilome:               true
+  network:                true
+  report:                 true
+
+stats:
+  permanova_permutations: 9999
+  aldex_mc_samples:       128
+  alpha: 0.05
+
+# Display caps for the Quarto dashboard. Statistics are always computed on
+# unfiltered data — these only limit what plots and reactable tables show
+# so the report stays readable regardless of project size.
+report:
+  top_n_taxa:              25
+  rank_taxa_by:            prevalence_x_abundance
+  network_top_nodes:       50
+  network_edge_min_weight: 0.3
+  show_per_group_chord:    true
+  show_per_group_sankey:   true
+
+# Sankey gene filter — cap VF genes at the top-N by prevalence x abundance
+# before rendering. Without this the full VF set produces a noisy figure
+# that's unreadable in print; 30 keeps the dominant taxon -> function flows
+# (mirrors chicken_batch1 for Frontiers Fig S9-equivalent panels).
+network:
+  sankey:
+    top_genes:   30
+    rank_by:     prevalence_x_abundance   # mean_abundance | prevalence | prevalence_x_abundance
+
+outputs:
+  datasets_dir: "test_run/Datasets"
+  figures_dir:  "test_run/Figures"
+  report_html:  "test_run/Reports/pipeline_report.html"
+  log_file:     "test_run/Reports/pipeline.log"
