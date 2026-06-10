@@ -714,13 +714,13 @@ run_network <- function(cleaned, cfg) {
     return(invisible(NULL))
   }
 
-  n_items <- max(
-    dplyr::n_distinct(df_alluv$sample),
-    dplyr::n_distinct(df_alluv$name),
-    dplyr::n_distinct(df_alluv$GENE),
-    dplyr::n_distinct(df_alluv$category)
-  )
-  ph <- max(7, 0.18 * n_items + 3)
+  # ggalluvial sizes each stratum proportionally to its flow count, so the
+  # smallest sample (e.g. one passing through a single category) gets a
+  # stratum of height ~1/nrow(df_alluv). Scaling the plot height by total
+  # flow count (not max-axis cardinality) gives those small strata enough
+  # room for their labels to clear the neighbours.
+  total_flows <- nrow(df_alluv)
+  ph <- scfg$png_height %||% max(10, 0.07 * total_flows + 5)
   pw <- scfg$png_width  %||% 14
   label_size <- scfg$png_label_size %||% 2.5
 
