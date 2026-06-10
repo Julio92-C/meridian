@@ -1,0 +1,104 @@
+study:
+  id: hospital_microbiome
+  name: "Hospital Air vs Surface microbiome (H1A + H1S, single batch)"
+  description: >
+    Hospital indoor microbiome study comparing 28 Air samples (H1A Kraken2,
+    27 in metadata) and 36 Surface samples (H1S Kraken2). Both Kraken2 multi-
+    sample reports are merged into one combined report by projects/
+    hospital_microbiome/prep_inputs.R, which also synthesises a Bracken-shaped
+    counts table (no Bracken was run on this dataset) and a Re-centrifuge-
+    shaped contaminants file derived from NX_AH4_contam.csv. The two negative
+    controls NX and N3 are R/02's baseline. Outputs are sandboxed under
+    test_run/ so the inputs tree stays untouched.
+
+# All inputs live under metaOmics/ (a user-curated subset of the parent
+# Hospital_microbiome/ project tree). Run prep_inputs.R once first.
+project_root: "C:/Users/julio/Desktop/Hospital_microbiome/metaOmics"
+
+inputs:
+  # Produced by prep_inputs.R from Datasets/Summary.csv (A37R -> A37 collapse,
+  # A25R dropped) — mirrors abri_kraken2_cleanData.R's sample reconciliation.
+  abricate_summary: "Reports/Abricate/summary_reportClean.csv"
+  # Produced by prep_inputs.R: minimal taxid->name lookup union of H1A + H1S
+  # preambles. Only used by R/02 for the taxid->name join.
+  kraken2_report:   "Reports/Kraken2/kraken2_db1_combined_reports.txt"
+  # Produced by prep_inputs.R: SYNTHETIC bracken — Kraken2 _all counts pivoted
+  # to wide per-sample format. Hospital_microbiome never ran Bracken; we
+  # substitute Kraken2 counts so R/03 normalisation has the merged table it
+  # hard-requires (see R/03 line 14).
+  bracken_report:   "Reports/Bracken/bracken_arranged.csv"
+  # Produced by prep_inputs.R: SYNTHETIC rcf in R/02's expected 3-header-row
+  # triplet-column shape. Sample counts = Kraken2 _all; NX/N3 control columns
+  # populated from NX_AH4_contam.csv (0 for taxa not in contam).
+  recentrifuge_csv: "Reports/Re-centrifuge/*.rcf.data.csv"
+  # No wf-metagenomics diversity CSV exists for this study; R/06 will compute
+  # alpha indices from the combined counts as fallback.
+  diversity_csv:    ~
+
+metadata:
+  # Produced by prep_inputs.R: MetadataLocations2.csv + 2 Control rows (NX, N3).
+  file: "Metadata/hospital_metadata.csv"
+  sample_id_col: "sample"
+  group_cols:
+    - type                              # Air | Surface | Control (controls stripped by R/02 via the `controls` key below)
+  # Ward is partially confounded with type (all Surface samples are on ward E),
+  # so a ward random effect would absorb the type signal. Leaving null for the
+  # first run; revisit once we see how within-ward variance looks for Air.
+  random_effect: ~
+  fixed_effects:
+    - type
+  # NX and N3 negative controls. R/02 will compute control_max = max(NX, N3)
+  # per taxon and subtract it from each sample count (lines 106-117 in
+  # R/02_clean_data.R), then strip these columns from the analysis set.
+  controls:
+    - NX
+    - N3
+
+# No manual taxid/name fixes for this study.
+taxid_fixes_file: ~
+
+filters:
+  min_count_per_sample:   17
+  min_count_for_species:  500
+  min_prevalence_aldex:   2
+
+stages:
+  clean_data:             true
+  normalisation:          true
+  taxonomy:               true
+  relative_abundance:     true
+  alpha_diversity:        true
+  beta_diversity:         true
+  differential_abundance: true
+  resistome:              true
+  virulome:               true
+  mobilome:               true
+  network:                true
+  report:                 true
+
+stats:
+  permanova_permutations: 9999
+  aldex_mc_samples:       128
+  alpha: 0.05
+
+report:
+  top_n_taxa:              25
+  rank_taxa_by:            prevalence_x_abundance
+  network_top_nodes:       50
+  network_edge_min_weight: 0.3
+  show_per_group_chord:    true
+  show_per_group_sankey:   true
+
+# Per-VFDB sankey filter (R/12). Cap genes shown so the diagram stays legible.
+network:
+  sankey:
+    top_genes:   30
+    rank_by:     prevalence_x_abundance
+
+# Sandboxed outputs (mirrors chicken_batch1 / lung_microbiome). All pipeline
+# writes go under metaOmics/test_run/ so the curated inputs tree is read-only.
+outputs:
+  datasets_dir: "test_run/Datasets"
+  figures_dir:  "test_run/Figures"
+  report_html:  "test_run/Reports/pipeline_report.html"
+  log_file:     "test_run/Reports/pipeline.log"
