@@ -174,6 +174,15 @@ run_virulome <- function(cleaned, cfg) {
   # ---- (5) Function relative abundance + total bar ---------------------
   vf_totals <- NULL
   if (nrow(vfdb_fun) > 0) {
+    # Per-sample VF function TPM sums — feeds the v1.2 Mantel triangle
+    # (R/12 reads this when cfg$network$mantel$level == "category") and
+    # mirrors R/09's drug_class_per_sample_TPM.csv pattern.
+    vfdb_fun |>
+      dplyr::group_by(.data$sample, .data$Functions) |>
+      dplyr::summarise(TPM = sum(.data$TPM, na.rm = TRUE),
+                       .groups = "drop") |>
+      readr::write_csv(file.path(ds_dir, "vf_function_per_sample_TPM.csv"))
+
     vf_totals <- ge_plot_category_relative_abundance(
       vfdb_fun, category_col = "Functions", group = group,
       palette = pal_function,

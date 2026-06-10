@@ -914,6 +914,20 @@ run_network <- function(cleaned, cfg) {
     return(invisible(NULL))
   }
 
+  # Level switch (PIPELINE_V2_GAPS C10 follow-up). Default "category"
+  # — Bray-Curtis at the ecologically-meaningful rollup (genus / drug
+  # class / VF function / replicon family) so the 4 domains are scale-
+  # matched and noise from rare features is averaged out. "feature"
+  # falls back to the gene/species level original behaviour.
+  level <- cfg$network$mantel$level %||% "category"
+  if (!level %in% c("category", "feature")) {
+    pipeline_log(cfg, sprintf(
+      "Mantel triangle: unknown level '%s' — falling back to 'category'",
+      level
+    ))
+    level <- "category"
+  }
+
   # Helper: long-form (sample, id, val) -> Bray-Curtis dist on sample x id.
   build_dist <- function(df, id_col, val_col, label) {
     if (is.null(df) || nrow(df) == 0) return(NULL)
@@ -939,16 +953,57 @@ run_network <- function(cleaned, cfg) {
   }
 
   dists <- list()
-  dists$Taxonomy <- build_dist(cleaned$noncontaminants, "name", "count",
-                                "Taxonomy")
 
-  norm <- ge_load_norm_table(cfg, "Mantel triangle")
-  if (!is.null(norm)) {
-    db_map <- list(Resistome = "card", Virulome = "vfdb",
-                   Mobilome  = "plasmidfinder")
-    for (label in names(db_map)) {
-      sub <- norm[tolower(norm$DATABASE) == db_map[[label]], , drop = FALSE]
-      dists[[label]] <- build_dist(sub, "GENE", "TPM", label)
+  # ---- Taxonomy --------------------------------------------------------
+  if (level == "category") {
+    # Genus rollup via first-word of species name (mirrors R/05's C4
+    # heatmap recipe). Avoids the species-level zero inflation that
+    # dominates per-OTU Bray-Curtis.
+    tx <- cleaned$noncontaminants
+    if (!is.null(tx) && nrow(tx) > 0) {
+      tx$genus <- ra_extract_genus(tx$name)
+      tx <- dplyr::filter(tx, !is.na(.data$genus), nzchar(.data$genus))
+      dists$Taxonomy <- build_dist(tx, "genus", "count", "Taxonomy")
+    }
+  } else {
+    dists$Taxonomy <- build_dist(cleaned$noncontaminants, "name", "count",
+                                  "Taxonomy")
+  }
+
+  if (level == "category") {
+    # Resistome / Virulome / Mobilome from the per-sample category-TPM
+    # CSVs written by R/09 / R/10 / R/11. Mantel-comparable scale: ~20
+    # drug classes vs ~5-10 VF functions vs ~3-5 replicon families.
+    ds_root <- file.path(cfg$project_root, cfg$outputs$datasets_dir)
+    cat_sources <- list(
+      list(label = "Resistome", path = "resistome/drug_class_per_sample_TPM.csv",
+           id = "DRUG"),
+      list(label = "Virulome",  path = "virulome/vf_function_per_sample_TPM.csv",
+           id = "Functions"),
+      list(label = "Mobilome",  path = "mobilome/replicon_family_per_sample_TPM.csv",
+           id = "Replicon_Family")
+    )
+    for (src in cat_sources) {
+      f <- file.path(ds_root, src$path)
+      if (!file.exists(f)) {
+        pipeline_log(cfg, sprintf(
+          "Mantel %s: %s not found — domain skipped (run R/09-11 first)",
+          src$label, src$path
+        ))
+        next
+      }
+      df <- readr::read_csv(f, show_col_types = FALSE)
+      dists[[src$label]] <- build_dist(df, src$id, "TPM", src$label)
+    }
+  } else {
+    norm <- ge_load_norm_table(cfg, "Mantel triangle")
+    if (!is.null(norm)) {
+      db_map <- list(Resistome = "card", Virulome = "vfdb",
+                     Mobilome  = "plasmidfinder")
+      for (label in names(db_map)) {
+        sub <- norm[tolower(norm$DATABASE) == db_map[[label]], , drop = FALSE]
+        dists[[label]] <- build_dist(sub, "GENE", "TPM", label)
+      }
     }
   }
 
@@ -1024,8 +1079,8 @@ run_network <- function(cleaned, cfg) {
     fontsize_number = 13,
     border_color    = "grey70",
     fontsize_row = 12, fontsize_col = 12, fontsize = 11,
-    main = sprintf("Mantel correlation triangle (Spearman, %d permutations)",
-                   perms),
+    main = sprintf("Mantel triangle (Spearman, %s-level, %d perms)",
+                   level, perms),
     filename = file.path(fig_dir, "mantel_correlation_triangle.png"),
     width = 7, height = 6
   )

@@ -201,6 +201,16 @@ run_mobilome <- function(cleaned, cfg) {
 
   family_totals <- NULL
   if (nrow(pfdb_fam) > 0) {
+    # Per-sample replicon-family TPM sums — feeds the v1.2 Mantel triangle
+    # (R/12 reads this when cfg$network$mantel$level == "category") and
+    # mirrors R/09's drug_class_per_sample_TPM.csv pattern.
+    pfdb_fam |>
+      dplyr::group_by(.data$sample, .data$Replicon_Family) |>
+      dplyr::summarise(TPM = sum(.data$TPM, na.rm = TRUE),
+                       .groups = "drop") |>
+      readr::write_csv(file.path(ds_dir,
+                                  "replicon_family_per_sample_TPM.csv"))
+
     family_totals <- ge_plot_category_relative_abundance(
       pfdb_fam, category_col = "Replicon_Family", group = group,
       palette = pal_family,
