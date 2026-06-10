@@ -67,6 +67,16 @@ run_network <- function(cleaned, cfg) {
     .network_build_sankey(df_all, group, sankey_cfg, fig_dir, ds_dir, cfg)
   }
 
+  # --- 4-omics Mantel triangle (PIPELINE_V2_GAPS C10) -------------------
+  if (!isFALSE(ncfg$mantel %||% TRUE)) {
+    .network_build_mantel_triangle(cleaned, cfg, fig_dir, ds_dir)
+  }
+
+  # --- Mobile ARG fraction bar (PIPELINE_V2_GAPS C12) -------------------
+  if (!isFALSE(ncfg$mobile_fraction %||% TRUE)) {
+    .network_build_mobile_fraction(cleaned, cfg, group, fig_dir, ds_dir)
+  }
+
   invisible(NULL)
 }
 
@@ -885,5 +895,298 @@ run_network <- function(cleaned, cfg) {
     htmlwidgets::saveWidget(sk, normalizePath(html_path, mustWork = FALSE),
                             selfcontained = selfcontained)
   )
+  invisible(NULL)
+}
+
+# ============================================================================
+# 4-omics Mantel triangle (PIPELINE_V2_GAPS C10)
+# ============================================================================
+
+# Pairwise Mantel correlations between Bray-Curtis distance matrices for
+# the four omics layers (taxonomy / resistome / virulome / mobilome). The
+# cells display Mantel r + significance stars; colour intensity = sign+|r|.
+# Domains without enough samples or features are dropped silently with a
+# log line; if fewer than 2 survive, the whole figure is skipped.
+.network_build_mantel_triangle <- function(cleaned, cfg, fig_dir, ds_dir) {
+  if (!requireNamespace("vegan", quietly = TRUE) ||
+      !requireNamespace("pheatmap", quietly = TRUE)) {
+    pipeline_log(cfg, "Mantel triangle: vegan/pheatmap missing — skipping")
+    return(invisible(NULL))
+  }
+
+  # Helper: long-form (sample, id, val) -> Bray-Curtis dist on sample x id.
+  build_dist <- function(df, id_col, val_col, label) {
+    if (is.null(df) || nrow(df) == 0) return(NULL)
+    wide <- df |>
+      dplyr::filter(!is.na(.data[[id_col]])) |>
+      dplyr::group_by(.data$sample, .data[[id_col]]) |>
+      dplyr::summarise(v = sum(.data[[val_col]], na.rm = TRUE),
+                       .groups = "drop") |>
+      tidyr::pivot_wider(names_from = dplyr::all_of(id_col),
+                         values_from = "v", values_fill = 0)
+    if (nrow(wide) < 3) return(NULL)
+    mat <- as.matrix(wide[, -1, drop = FALSE])
+    rownames(mat) <- as.character(wide$sample)
+    mat <- mat[rowSums(mat) > 0, , drop = FALSE]
+    if (nrow(mat) < 3) {
+      pipeline_log(cfg, sprintf(
+        "Mantel %s: only %d non-empty samples — domain skipped",
+        label, nrow(mat)
+      ))
+      return(NULL)
+    }
+    vegan::vegdist(mat, method = "bray")
+  }
+
+  dists <- list()
+  dists$Taxonomy <- build_dist(cleaned$noncontaminants, "name", "count",
+                                "Taxonomy")
+
+  norm <- ge_load_norm_table(cfg, "Mantel triangle")
+  if (!is.null(norm)) {
+    db_map <- list(Resistome = "card", Virulome = "vfdb",
+                   Mobilome  = "plasmidfinder")
+    for (label in names(db_map)) {
+      sub <- norm[tolower(norm$DATABASE) == db_map[[label]], , drop = FALSE]
+      dists[[label]] <- build_dist(sub, "GENE", "TPM", label)
+    }
+  }
+
+  dists <- Filter(Negate(is.null), dists)
+  if (length(dists) < 2) {
+    pipeline_log(cfg,
+      "Mantel triangle: <2 domains with usable data — skipping")
+    return(invisible(NULL))
+  }
+
+  dom_names <- names(dists)
+  k     <- length(dom_names)
+  r_mat <- matrix(NA_real_, k, k, dimnames = list(dom_names, dom_names))
+  p_mat <- r_mat
+  perms <- cfg$stats$permanova_permutations %||% 9999
+
+  for (i in seq_len(k - 1)) {
+    for (j in seq.int(i + 1, k)) {
+      d1 <- dists[[i]]; d2 <- dists[[j]]
+      s1 <- attr(d1, "Labels"); s2 <- attr(d2, "Labels")
+      common <- intersect(s1, s2)
+      if (length(common) < 3) {
+        pipeline_log(cfg, sprintf(
+          "Mantel %s vs %s: only %d shared samples — pair skipped",
+          dom_names[i], dom_names[j], length(common)
+        ))
+        next
+      }
+      d1_sub <- stats::as.dist(as.matrix(d1)[common, common])
+      d2_sub <- stats::as.dist(as.matrix(d2)[common, common])
+      res <- tryCatch(
+        vegan::mantel(d1_sub, d2_sub, method = "spearman",
+                       permutations = perms),
+        error = function(e) NULL
+      )
+      if (!is.null(res)) {
+        r_mat[i, j] <- res$statistic
+        r_mat[j, i] <- res$statistic
+        p_mat[i, j] <- res$signif
+        p_mat[j, i] <- res$signif
+        pipeline_log(cfg, sprintf(
+          "Mantel %s vs %s: r = %.3f, p = %.4g (n=%d samples)",
+          dom_names[i], dom_names[j], res$statistic, res$signif,
+          length(common)
+        ))
+      }
+    }
+  }
+  diag(r_mat) <- 1
+
+  # Save the matrix as CSV for downstream consumption.
+  out_df <- cbind(data.frame(domain = dom_names),
+                  as.data.frame(round(r_mat, 4)))
+  readr::write_csv(out_df,
+                    file.path(ds_dir, "mantel_correlation_triangle.csv"))
+
+  stars <- ifelse(is.na(p_mat), "",
+    ifelse(p_mat < 0.001, "***",
+    ifelse(p_mat < 0.01,  "**",
+    ifelse(p_mat < 0.05,  "*", ""))))
+  labels <- ifelse(is.na(r_mat), "",
+                   paste0(sprintf("%.2f", r_mat), stars))
+  diag(labels) <- "—"
+
+  pheatmap::pheatmap(
+    r_mat,
+    cluster_rows = FALSE, cluster_cols = FALSE,
+    color  = grDevices::colorRampPalette(
+      c("#2166AC", "white", "#B2182B"))(100),
+    breaks = seq(-1, 1, length.out = 101),
+    display_numbers = labels,
+    number_color    = "black",
+    fontsize_number = 13,
+    border_color    = "grey70",
+    fontsize_row = 12, fontsize_col = 12, fontsize = 11,
+    main = sprintf("Mantel correlation triangle (Spearman, %d permutations)",
+                   perms),
+    filename = file.path(fig_dir, "mantel_correlation_triangle.png"),
+    width = 7, height = 6
+  )
+  pipeline_log(cfg, sprintf(
+    "Mantel triangle: %d domains x %d, %d pairs computed",
+    k, k, sum(!is.na(r_mat[upper.tri(r_mat)]))
+  ))
+  invisible(NULL)
+}
+
+# ============================================================================
+# Mobile ARG fraction (PIPELINE_V2_GAPS C12)
+# ============================================================================
+
+# Per-treatment stacked bar of % ARG TPM that's "mobile". A contig is
+# considered mobile when it carries both a CARD hit and a PlasmidFinder
+# hit in the same sample. An ARG gene's TPM is then assigned to the
+# mobile bucket if any of its contigs in that sample are mobile.
+# Approximation: TPM is per-(sample, GENE), not per-(sample, contig, GENE),
+# so a gene with multiple contigs (some mobile, some not) contributes its
+# full TPM to "mobile" if ANY of them are mobile. Defensible upper bound
+# on the mobile fraction.
+.network_build_mobile_fraction <- function(cleaned, cfg, group,
+                                            fig_dir, ds_dir) {
+  if (is.null(cleaned$abri_kraken2)) {
+    pipeline_log(cfg,
+      "Mobile fraction: abri_kraken2 missing — skipping")
+    return(invisible(NULL))
+  }
+  required <- c("sample", "sequence", "DATABASE", "GENE")
+  miss <- setdiff(required, colnames(cleaned$abri_kraken2))
+  if (length(miss) > 0) {
+    pipeline_log(cfg, sprintf(
+      "Mobile fraction: abri_kraken2 missing column(s) %s — skipping",
+      paste(miss, collapse = ", ")
+    ))
+    return(invisible(NULL))
+  }
+
+  abri <- cleaned$abri_kraken2
+  contig_db <- abri |>
+    dplyr::filter(!is.na(.data$DATABASE), !is.na(.data$sequence)) |>
+    dplyr::mutate(db = tolower(.data$DATABASE)) |>
+    dplyr::distinct(.data$sample, .data$sequence, .data$db)
+
+  mobile_contigs <- contig_db |>
+    dplyr::group_by(.data$sample, .data$sequence) |>
+    dplyr::summarise(
+      has_card = any(.data$db == "card"),
+      has_pf   = any(.data$db == "plasmidfinder"),
+      .groups  = "drop"
+    ) |>
+    dplyr::filter(.data$has_card & .data$has_pf) |>
+    dplyr::select("sample", "sequence")
+
+  if (nrow(mobile_contigs) == 0) {
+    pipeline_log(cfg,
+      "Mobile fraction: no contigs co-harbouring CARD + PlasmidFinder — skipping")
+    return(invisible(NULL))
+  }
+
+  card_hits <- abri |>
+    dplyr::filter(tolower(.data$DATABASE) == "card",
+                  !is.na(.data$sequence), !is.na(.data$GENE)) |>
+    dplyr::select("sample", "GENE", "sequence") |>
+    dplyr::left_join(
+      dplyr::mutate(mobile_contigs, is_mobile = TRUE),
+      by = c("sample", "sequence")
+    ) |>
+    dplyr::mutate(is_mobile = !is.na(.data$is_mobile)) |>
+    dplyr::group_by(.data$sample, .data$GENE) |>
+    dplyr::summarise(is_mobile = any(.data$is_mobile), .groups = "drop")
+
+  norm <- ge_load_norm_table(cfg, "Mobile fraction")
+  if (is.null(norm)) return(invisible(NULL))
+  card_tpm <- norm |>
+    dplyr::filter(tolower(.data$DATABASE) == "card") |>
+    dplyr::select("sample", "GENE", "TPM")
+
+  per_sample <- dplyr::inner_join(card_tpm, card_hits,
+                                   by = c("sample", "GENE")) |>
+    dplyr::group_by(.data$sample) |>
+    dplyr::summarise(
+      mobile_TPM     = sum(.data$TPM[.data$is_mobile],  na.rm = TRUE),
+      non_mobile_TPM = sum(.data$TPM[!.data$is_mobile], na.rm = TRUE),
+      total_TPM      = sum(.data$TPM, na.rm = TRUE),
+      .groups = "drop"
+    ) |>
+    dplyr::mutate(mobile_pct = ifelse(.data$total_TPM > 0,
+                                       100 * .data$mobile_TPM / .data$total_TPM,
+                                       0))
+
+  if (nrow(per_sample) == 0) {
+    pipeline_log(cfg, "Mobile fraction: no per-sample TPM rows — skipping")
+    return(invisible(NULL))
+  }
+
+  sid  <- cfg$metadata$sample_id_col
+  meta <- readr::read_csv(file.path(cfg$project_root, cfg$metadata$file),
+                          show_col_types = FALSE)
+  per_sample <- dplyr::inner_join(per_sample,
+                                   meta[, c(sid, group)],
+                                   by = c("sample" = sid))
+  per_sample[[group]] <- as.character(per_sample[[group]])
+
+  readr::write_csv(per_sample,
+                    file.path(ds_dir, "mobile_arg_fraction_per_sample.csv"))
+
+  kw <- tryCatch(
+    kruskal.test(stats::reformulate(group, "mobile_pct"), data = per_sample),
+    error = function(e) NULL
+  )
+  kw_label <- if (!is.null(kw))
+    sprintf("Kruskal-Wallis p = %.3g", kw$p.value)
+  else "Kruskal-Wallis p = NA"
+
+  per_group <- per_sample |>
+    dplyr::group_by(.data[[group]]) |>
+    dplyr::summarise(
+      mobile_pct_mean     = mean(.data$mobile_pct, na.rm = TRUE),
+      non_mobile_pct_mean = 100 - mean(.data$mobile_pct, na.rm = TRUE),
+      .groups = "drop"
+    )
+  per_group_long <- tidyr::pivot_longer(
+    per_group,
+    cols      = c("mobile_pct_mean", "non_mobile_pct_mean"),
+    names_to  = "type",
+    values_to = "pct"
+  )
+  per_group_long$type <- ifelse(per_group_long$type == "mobile_pct_mean",
+                                 "Mobile", "Non-mobile")
+  per_group_long$type <- factor(per_group_long$type,
+                                 levels = c("Non-mobile", "Mobile"))
+
+  p <- ggplot2::ggplot(per_group_long,
+        ggplot2::aes(x = .data[[group]], y = .data$pct, fill = .data$type)) +
+    ggplot2::geom_col(width = 0.7) +
+    ggplot2::scale_fill_manual(values = c(`Non-mobile` = "#4575b4",
+                                           Mobile      = "#d73027")) +
+    ggplot2::labs(
+      x = group, y = "% of total ARG TPM",
+      fill = NULL,
+      title = sprintf("ARG mobile fraction by treatment (%s)", kw_label)
+    ) +
+    ggplot2::theme_classic() +
+    ggplot2::theme(
+      legend.position = "top",
+      plot.title  = ggplot2::element_text(hjust = 0.5, size = 12),
+      axis.text.x = ggplot2::element_text(angle = 25, hjust = 1),
+      text        = ggplot2::element_text(size = 12)
+    )
+  ggplot2::ggsave(
+    file.path(fig_dir, "mobile_arg_fraction_bar.png"),
+    p,
+    width  = max(7, 1.2 * dplyr::n_distinct(per_group_long[[group]]) + 4),
+    height = 6, dpi = 300
+  )
+  pipeline_log(cfg, sprintf(
+    "Mobile ARG fraction: %d samples, %d treatment groups, %d mobile contigs",
+    nrow(per_sample), dplyr::n_distinct(per_sample[[group]]),
+    nrow(mobile_contigs)
+  ))
   invisible(NULL)
 }

@@ -472,6 +472,38 @@ build_stage_ge_domain <- function(cfg, domain, stage_times) {
             caption_seed = "Circos plot showing proportional contribution of antibiotic drug classes to total ARG TPM across dietary treatment groups."
           ))
         }
+        # Per-organism deep-dive (B6, Frontiers Figs S6/S11). Hardcoded
+        # filenames + organism labels — kept in sync with R/09's default
+        # organism list. The `organism` annotation lets the agent target
+        # the right panel without parsing filenames.
+        if (domain == "resistome" &&
+            base %in% c("c_difficile_count_per_treatment",
+                        "c_difficile_gene_map")) {
+          return(figure_entry(
+            cfg, rel,
+            kind     = "species_count_genmap",
+            domain   = "resistome",
+            organism = "Clostridioides difficile",
+            caption_seed = if (grepl("count_per_treatment", base))
+              "Per-sample Clostridioides difficile count grouped by treatment with Kruskal-Wallis p-value."
+            else
+              "Per-sample ARG neighbourhood map for Clostridioides difficile."
+          ))
+        }
+        if (domain == "resistome" &&
+            base %in% c("enterobacteriaceae_count_per_treatment",
+                        "enterobacteriaceae_gene_map")) {
+          return(figure_entry(
+            cfg, rel,
+            kind     = "species_count_genmap",
+            domain   = "resistome",
+            organism = "Enterobacteriaceae",
+            caption_seed = if (grepl("count_per_treatment", base))
+              "Per-sample Enterobacteriaceae count grouped by treatment with Kruskal-Wallis p-value."
+            else
+              "Per-sample ARG neighbourhood map for Enterobacteriaceae."
+          ))
+        }
         # VFxARG correlation heatmap is cross-domain; rendered from R/10
         # so its file sits under virulome/ but the kind is domain-neutral.
         if (domain == "virulome" && base == "vf_arg_correlation_heatmap") {
@@ -527,7 +559,13 @@ build_stage_network <- function(cfg, stage_times) {
                   description = "Long-form sankey data."),
       table_entry(cfg, ds_path(cfg, "network/sample_clusters.csv"),
                   kind = "network_sample_clusters",
-                  description = "Per-sample cluster / module assignment.")
+                  description = "Per-sample cluster / module assignment."),
+      table_entry(cfg, ds_path(cfg, "network/mantel_correlation_triangle.csv"),
+                  kind = "mantel_triangle_matrix",
+                  description = "Pairwise Mantel correlations (Spearman) between Bray-Curtis distance matrices of the 4 omics layers."),
+      table_entry(cfg, ds_path(cfg, "network/mobile_arg_fraction_per_sample.csv"),
+                  kind = "mobile_arg_fraction_per_sample",
+                  description = "Per-sample mobile vs non-mobile ARG TPM totals; an ARG is mobile when its contig co-harbours a PlasmidFinder hit.")
     )),
     figures    = c(
       Filter(Negate(is.null), list(
@@ -553,7 +591,14 @@ build_stage_network <- function(cfg, stage_times) {
         figure_entry(cfg, fig_path(cfg, "network/connectivity_venn_genesets.png"),
                      kind = "connectivity_venn_genesets",
                      groups = list("ARGs", "VFs", "MGEs"),
-                     caption_seed = "Network-connected gene elements (ARGs / VFs / MGEs).")
+                     caption_seed = "Network-connected gene elements (ARGs / VFs / MGEs)."),
+        figure_entry(cfg, fig_path(cfg, "network/mantel_correlation_triangle.png"),
+                     kind = "mantel_triangle",
+                     caption_seed = "Mantel test correlation triangle showing pairwise community-level Spearman correlations between taxonomy, resistome, virulome, and mobilome distance matrices."),
+        figure_entry(cfg, fig_path(cfg, "network/mobile_arg_fraction_bar.png"),
+                     kind = "mobile_fraction_bar",
+                     groups = as.list(cfg_group_levels(cfg)),
+                     caption_seed = "Proportion of ARG TPM carried on predicted mobile contigs (co-harbouring a PlasmidFinder hit) by treatment group; Kruskal-Wallis annotated.")
       )),
       lapply(project_glob(cfg, fig_path(cfg, "network/chord_*.png")), function(rel) {
         if (basename(rel) == "chord_overall.png") return(NULL)

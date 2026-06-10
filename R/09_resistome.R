@@ -312,12 +312,169 @@ run_resistome <- function(cleaned, cfg) {
     )
   }
 
+  # ---- (7) Per-organism deep-dive (PIPELINE_V2_GAPS B6) -----------------
+  # Two panels per organism: per-sample count by treatment (with KW p)
+  # and gggenes-style ARG neighbourhood map (Y=sample, X=contig coords).
+  # Hardcoded organism list — matches the v1.1 manuscript spec
+  # (Frontiers Figs S6 + S11). Override via cfg$resistome$organisms.
+  if (isTRUE(rcfg$species_deepdive %||% TRUE)) {
+    organisms <- rcfg$organisms %||% .default_resistome_organisms()
+    .resistome_organism_deepdive(cleaned, cfg, group, pal_group, organisms,
+                                  fig_dir)
+  }
+
   invisible(list(alpha = alpha, drug_totals = drug_totals))
 }
 
 # ============================================================================
 # Resistome-specific helpers (used here and re-used by R/12 network)
 # ============================================================================
+
+# Default per-organism list for the B6 deep-dive. Each entry has:
+#   label : human-readable name (used in figure titles + manifest organism field)
+#   match : regex applied to cleaned$noncontaminants$name (species column)
+#   slug  : filename-safe slug used in the PNG basename
+# Override via cfg$resistome$organisms.
+.default_resistome_organisms <- function() {
+  list(
+    list(
+      label = "Clostridioides difficile",
+      match = "^Clostridioides difficile",
+      slug  = "c_difficile"
+    ),
+    list(
+      label = "Enterobacteriaceae",
+      match = "^(Escherichia|Klebsiella|Salmonella|Enterobacter|Citrobacter|Shigella|Proteus|Serratia|Yersinia|Pantoea|Cronobacter|Hafnia|Morganella)",
+      slug  = "enterobacteriaceae"
+    )
+  )
+}
+
+# Per-organism deep-dive renderer. Two PNGs per organism (count + gene_map);
+# both skip cleanly if the organism is absent or has no ARG hits.
+.resistome_organism_deepdive <- function(cleaned, cfg, group, pal_group,
+                                          organisms, fig_dir) {
+  if (is.null(cleaned$noncontaminants)) return(invisible(NULL))
+
+  sid    <- cfg$metadata$sample_id_col
+  noncon <- cleaned$noncontaminants
+  if (!group %in% colnames(noncon)) {
+    meta <- readr::read_csv(file.path(cfg$project_root, cfg$metadata$file),
+                             show_col_types = FALSE)
+    noncon <- dplyr::inner_join(noncon, meta[, c(sid, group)],
+                                 by = c("sample" = sid))
+  }
+  abri <- cleaned$abri_kraken2
+
+  for (org in organisms) {
+    org_rows <- dplyr::filter(noncon, grepl(org$match, .data$name))
+    if (nrow(org_rows) == 0) {
+      pipeline_log(cfg, sprintf(
+        "Resistome %s: no taxa rows match — deep-dive skipped", org$slug
+      ))
+      next
+    }
+    per_sample <- org_rows |>
+      dplyr::group_by(.data$sample, .data[[group]]) |>
+      dplyr::summarise(count = sum(.data$count, na.rm = TRUE),
+                       .groups = "drop")
+
+    kw <- if (dplyr::n_distinct(per_sample[[group]]) >= 2) {
+      tryCatch(
+        kruskal.test(stats::reformulate(group, "count"), data = per_sample),
+        error = function(e) NULL
+      )
+    } else NULL
+    kw_label <- if (!is.null(kw))
+      sprintf("Kruskal-Wallis p = %.3g", kw$p.value)
+    else "Kruskal-Wallis p = NA"
+
+    p_count <- ggplot2::ggplot(per_sample,
+                ggplot2::aes(x = sample, y = .data$count,
+                              fill = .data[[group]])) +
+      ggplot2::geom_col() +
+      ggplot2::facet_wrap(stats::reformulate(group),
+                           scales = "free_x", nrow = 1) +
+      ggplot2::scale_fill_manual(values = pal_group) +
+      ggplot2::labs(
+        title = sprintf("%s — per-sample count (%s)", org$label, kw_label),
+        x = "Sample", y = "Read count"
+      ) +
+      ggplot2::theme_classic() +
+      ggplot2::theme(
+        legend.position = "none",
+        plot.title  = ggplot2::element_text(hjust = 0.5, size = 12),
+        axis.text.x = ggplot2::element_text(angle = 45, hjust = 1),
+        text        = ggplot2::element_text(size = 11)
+      )
+    bw <- max(7, 0.5 * dplyr::n_distinct(per_sample$sample) + 3)
+    ggplot2::ggsave(
+      file.path(fig_dir, sprintf("%s_count_per_treatment.png", org$slug)),
+      p_count, width = bw, height = 5, dpi = 300
+    )
+    pipeline_log(cfg, sprintf(
+      "Resistome %s: count_per_treatment.png (%d samples)",
+      org$slug, dplyr::n_distinct(per_sample$sample)
+    ))
+
+    if (!requireNamespace("gggenes", quietly = TRUE)) {
+      pipeline_log(cfg, sprintf(
+        "Resistome %s: gggenes not available — gene_map skipped",
+        org$slug
+      ))
+      next
+    }
+    if (is.null(abri) || nrow(abri) == 0) next
+    org_taxa <- unique(org_rows$name)
+    abri_org <- dplyr::filter(abri,
+                               .data$name %in% org_taxa,
+                               tolower(.data$DATABASE) == "card",
+                               !is.na(.data$sequence),
+                               !is.na(.data$START), !is.na(.data$END))
+    if (nrow(abri_org) == 0) {
+      pipeline_log(cfg, sprintf(
+        "Resistome %s: no ARG hits on this organism's contigs — gene_map skipped",
+        org$slug
+      ))
+      next
+    }
+    abri_org$strand_sign <- if ("STRAND" %in% colnames(abri_org)) {
+      ifelse(tolower(as.character(abri_org$STRAND)) %in% c("+", "1", "plus"),
+             1L, -1L)
+    } else {
+      1L
+    }
+
+    p_genes <- ggplot2::ggplot(abri_org,
+                ggplot2::aes(xmin = .data$START, xmax = .data$END,
+                              y = .data$sample, fill = .data$GENE,
+                              forward = .data$strand_sign > 0)) +
+      gggenes::geom_gene_arrow(arrowhead_height = grid::unit(3, "mm"),
+                                arrowhead_width  = grid::unit(2, "mm")) +
+      ggplot2::scale_fill_viridis_d(option = "turbo") +
+      ggplot2::labs(
+        title = sprintf("%s — ARG gene neighbourhoods", org$label),
+        x = "Contig coordinate (bp)", y = "Sample", fill = "ARG"
+      ) +
+      ggplot2::theme_classic() +
+      ggplot2::theme(
+        plot.title      = ggplot2::element_text(hjust = 0.5, size = 12),
+        legend.position = "right",
+        legend.text     = ggplot2::element_text(size = 9),
+        text            = ggplot2::element_text(size = 11)
+      )
+    gh <- max(4, 0.35 * dplyr::n_distinct(abri_org$sample) + 2)
+    ggplot2::ggsave(
+      file.path(fig_dir, sprintf("%s_gene_map.png", org$slug)),
+      p_genes, width = 12, height = gh, dpi = 300
+    )
+    pipeline_log(cfg, sprintf(
+      "Resistome %s: gene_map.png (%d hits, %d samples)",
+      org$slug, nrow(abri_org), dplyr::n_distinct(abri_org$sample)
+    ))
+  }
+  invisible(NULL)
+}
 
 # Turn a semicolon-separated RESISTANCE string into a single drug-class label.
 # Single class -> that class, multiple -> "Multi-drug", empty/NA -> NA.
