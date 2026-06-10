@@ -98,6 +98,20 @@ run_mobilome <- function(cleaned, cfg) {
                     file.path(fig_dir, sprintf("alpha_%s_bar.png",
                                                alpha_metric)))
 
+  # ge_compute_alpha returns both richness and shannon; always emit the
+  # shannon companion so the v1.1 manifest contract (ge_alpha_shannon_bar
+  # for Fig S4/S7/S12) doesn't depend on cfg$mobilome$alpha_metric.
+  if (alpha_metric != "shannon") {
+    kw_sh <- ge_alpha_kw(alpha, group, "shannon", cfg, label)
+    if (!is.null(kw_sh)) {
+      capture.output(kw_sh, file = file.path(ds_dir, "kw_shannon.txt"))
+    }
+    ge_plot_alpha_violin(alpha, group, "shannon", kw_sh, pal_group,
+                         file.path(fig_dir, "alpha_shannon_violin.png"))
+    ge_plot_alpha_bar(alpha, group, "shannon", kw_sh, pal_group,
+                      file.path(fig_dir, "alpha_shannon_bar.png"))
+  }
+
   # ---- (1b) MGE abundance per Treatment (log TPM violin) ---------------
   ge_plot_abundance_violin(
     pfdb, group, pal_group,

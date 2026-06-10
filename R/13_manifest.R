@@ -223,7 +223,13 @@ build_stage_relative_abundance <- function(cfg, stage_times) {
                    caption_seed = "Distinct species observed per sample, grouped by primary grouping."),
       figure_entry(cfg, fig_path(cfg, "relative_abundance/species_count_prevalence.png"),
                    kind = "species_prevalence",
-                   caption_seed = "Per-sample distinct-species counts paired with feature prevalence.")
+                   caption_seed = "Per-sample distinct-species counts paired with feature prevalence."),
+      figure_entry(cfg, fig_path(cfg, "relative_abundance/unique_species_relative_abundance.png"),
+                   kind = "composition_unique_species", groups = as.list(groups),
+                   caption_seed = "Relative abundance of species unique to each treatment group."),
+      figure_entry(cfg, fig_path(cfg, "relative_abundance/shared_species_relative_abundance.png"),
+                   kind = "composition_shared_species", groups = as.list(groups),
+                   caption_seed = "Relative abundance of species shared across all treatment groups.")
     ))
   )
 }
@@ -338,6 +344,14 @@ build_stage_differential_abundance <- function(cfg, stage_times) {
       cfg, fig_path(cfg, sprintf("differential_abundance/%s/aldex_plots.pdf", domain)),
       kind = "aldex_plot", domain = domain,
       caption_seed = sprintf("ALDEx2 MA / effect plots (%s).", domain))
+    # Top-30 DAA sample heatmap (Frontiers Fig S3; taxa only — gene-level
+    # PNG isn't currently emitted so figure_entry returns NULL there).
+    if (domain == "taxa") {
+      figures[[length(figures) + 1]] <- figure_entry(
+        cfg, fig_path(cfg, "differential_abundance/taxa/top30_daa_heatmap.png"),
+        kind = "taxa_daa_heatmap", domain = "taxa",
+        caption_seed = "Sample-level heatmap of the top 30 differentially-abundant taxa across treatment groups.")
+    }
   }
 
   list(
@@ -430,9 +444,20 @@ build_stage_network <- function(cfg, stage_times) {
         figure_entry(cfg, fig_path(cfg, "network/sankey_overall.html"),
                      kind = "sankey",
                      caption_seed = "Overall sankey diagram of taxon flows."),
+        figure_entry(cfg, fig_path(cfg, "network/sankey_overall.png"),
+                     kind = "sankey_png",
+                     caption_seed = "VF taxa-to-function sankey (PNG render of the interactive supplementary)."),
         figure_entry(cfg, fig_path(cfg, "network/degree_distribution.png"),
                      kind = "degree_distribution",
-                     caption_seed = "Network degree distribution.")
+                     caption_seed = "Network degree distribution."),
+        figure_entry(cfg, fig_path(cfg, "network/connectivity_venn_taxa.png"),
+                     kind = "connectivity_venn_taxa",
+                     groups = as.list(cfg_group_levels(cfg)),
+                     caption_seed = "Network-connected taxa shared and unique across treatment groups."),
+        figure_entry(cfg, fig_path(cfg, "network/connectivity_venn_genesets.png"),
+                     kind = "connectivity_venn_genesets",
+                     groups = list("ARGs", "VFs", "MGEs"),
+                     caption_seed = "Network-connected gene elements (ARGs / VFs / MGEs).")
       )),
       lapply(project_glob(cfg, fig_path(cfg, "network/chord_*.png")), function(rel) {
         if (basename(rel) == "chord_overall.png") return(NULL)
@@ -504,7 +529,7 @@ write_manifest <- function(cfg,
   n_samples <- if (!is.null(meta)) sum(!meta[[sid_col]] %in% controls) else NA_integer_
 
   manifest <- list(
-    manifest_version = "1.0",
+    manifest_version = "1.1",
     study = list(
       id                = cfg$study$id,
       name              = cfg$study$name,

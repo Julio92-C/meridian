@@ -584,6 +584,56 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
     }
     grDevices::dev.off(); pdf_open <- FALSE
 
+    # Top-30 sample-level heatmap (Frontiers Fig S3, taxa level only).
+    # Picks the 30 features ranked by max |effect| across pairs (same
+    # ranking as all_cands but without the top_n_plots cap), log10(count+1)
+    # transformed and per-row z-scored so a single colour ramp covers all
+    # rows. Columns are samples ordered by treatment, with gaps + a
+    # treatment annotation strip on top.
+    if (level == "taxa" &&
+        requireNamespace("pheatmap", quietly = TRUE) &&
+        length(effect_cols) > 0) {
+      max_abs_all <- apply(abs(eff_mat), 1, max)
+      top30 <- names(sort(max_abs_all, decreasing = TRUE))
+      top30 <- intersect(top30, rownames(mat))
+      top30 <- top30[seq_len(min(30L, length(top30)))]
+      if (length(top30) >= 2) {
+        samp_order <- order(conds)
+        sub_mat    <- mat[top30, samp_order, drop = FALSE]
+        grp_run    <- conds[samp_order]
+        grp_lvls   <- unique(grp_run)
+        grp_sizes  <- as.integer(table(grp_run)[grp_lvls])
+        gaps_col   <- if (length(grp_sizes) > 1) {
+          utils::head(cumsum(grp_sizes), -1L)
+        } else NULL
+        z <- t(scale(t(log10(sub_mat + 1))))
+        z[is.na(z)] <- 0
+        ann_col    <- data.frame(Treatment = grp_run,
+                                  row.names = colnames(sub_mat))
+        ann_colors <- list(Treatment = pal[grp_lvls])
+        pheatmap::pheatmap(
+          z,
+          cluster_rows = FALSE,
+          cluster_cols = FALSE,
+          color = grDevices::colorRampPalette(
+            c("#0612bd", "#bbbbbd", "#bd0606")
+          )(100),
+          border_color      = NA,
+          annotation_col    = ann_col,
+          annotation_colors = ann_colors,
+          gaps_col          = gaps_col,
+          fontsize_row = 8, fontsize_col = 9, fontsize = 10,
+          filename = file.path(fig_dir, "top30_daa_heatmap.png"),
+          width  = max(8, 0.4  * ncol(sub_mat) + 4),
+          height = max(6, 0.22 * nrow(sub_mat) + 2.5)
+        )
+        pipeline_log(cfg, sprintf(
+          "DA[%s] top30_daa_heatmap.png (%d features x %d samples)",
+          level, nrow(sub_mat), ncol(sub_mat)
+        ))
+      }
+    }
+
     # Summary CSV: union of top candidates with overall + per-pair stats.
     keep_cols <- c(feature_col,
                    intersect(c("kw.ep", "kw.eBH"), colnames(merged)),

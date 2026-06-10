@@ -41,6 +41,82 @@ relab_palette <- function(n, cfg) {
   rep_len(pal, n)
 }
 
+# Compact stacked-bar render for filtered species partitions (v1.1
+# unique/shared composition plots, Frontiers Fig S1/S2). Mirrors the
+# main 6a render in run_relative_abundance() but skips the plotly HTML
+# and dataset CSV — callers only need the PNG. Takes long-form
+# (sample, name, count, [facet_by]) and applies the same top-N + Others
+# + taxa ordering recipe so the legend style matches.
+ra_render_stacked_bar <- function(df_in, facet_by, ra_cfg, cfg,
+                                   file_path, log_label) {
+  if (nrow(df_in) == 0) {
+    pipeline_log(cfg, sprintf("%s: no rows — skipping %s", log_label,
+                              basename(file_path)))
+    return(invisible(NULL))
+  }
+  df_pct <- df_in |>
+    dplyr::group_by(sample) |>
+    dplyr::mutate(percentage = count / sum(count, na.rm = TRUE) * 100) |>
+    dplyr::ungroup()
+
+  top_n        <- ra_cfg$top_n        %||% 50
+  others_label <- ra_cfg$others_label %||% "Others"
+
+  top_taxa <- df_pct |>
+    dplyr::group_by(name) |>
+    dplyr::summarise(total = sum(count, na.rm = TRUE), .groups = "drop") |>
+    dplyr::slice_max(total, n = top_n, with_ties = FALSE) |>
+    dplyr::pull(name)
+
+  df_pct <- df_pct |>
+    dplyr::mutate(name = ifelse(name %in% top_taxa, name, others_label)) |>
+    dplyr::group_by(sample, name, dplyr::across(dplyr::any_of(facet_by))) |>
+    dplyr::summarise(
+      count      = sum(count, na.rm = TRUE),
+      percentage = sum(percentage, na.rm = TRUE),
+      .groups    = "drop"
+    )
+
+  taxa_levels <- df_pct |>
+    dplyr::group_by(name) |>
+    dplyr::summarise(total = sum(percentage, na.rm = TRUE), .groups = "drop") |>
+    dplyr::arrange(dplyr::desc(total)) |>
+    dplyr::pull(name)
+  taxa_levels <- c(setdiff(taxa_levels, others_label),
+                   intersect(others_label, taxa_levels))
+  df_pct$name <- factor(df_pct$name, levels = taxa_levels)
+
+  n_levels    <- length(taxa_levels)
+  palette     <- relab_palette(n_levels, cfg)
+  show_legend <- ra_cfg$show_legend %||% TRUE
+  legend_pos  <- if (isTRUE(show_legend)) "top" else "none"
+
+  p <- ggplot2::ggplot(df_pct,
+                       ggplot2::aes(x = factor(sample), y = percentage, fill = name)) +
+    ggplot2::geom_bar(stat = "identity") +
+    ggplot2::scale_fill_manual(values = palette) +
+    ggplot2::labs(x = "Sample", y = "Relative abundance (%)", fill = "Taxa") +
+    ggplot2::theme_classic() +
+    ggplot2::theme(
+      legend.position = legend_pos,
+      axis.text.x     = ggplot2::element_text(angle = 45, hjust = 1),
+      text            = ggplot2::element_text(size = 12)
+    ) +
+    ggplot2::guides(fill = ggplot2::guide_legend(nrow = 10))
+  if (!is.null(facet_by)) {
+    p <- p + ggplot2::facet_wrap(stats::as.formula(paste("~", facet_by)),
+                                 scales = "free_x", nrow = 1)
+  }
+  n_samples <- length(unique(df_pct$sample))
+  pw <- max(10, 0.5 * n_samples + 3)
+  ph <- if (isTRUE(show_legend)) max(7, 6 + ceiling(n_levels / 10) * 0.4) else 6
+  ggplot2::ggsave(file_path, p, width = pw, height = ph, dpi = 300)
+  pipeline_log(cfg, sprintf("%s: %d species, %d samples → %s",
+                            log_label, dplyr::n_distinct(df_in$name),
+                            n_samples, basename(file_path)))
+  invisible(df_pct)
+}
+
 run_relative_abundance <- function(cleaned, cfg) {
   pipeline_log(cfg, "Relative abundance")
   fig_dir <- file.path(cfg$project_root, cfg$outputs$figures_dir, "relative_abundance")
@@ -241,6 +317,43 @@ run_relative_abundance <- function(cleaned, cfg) {
       "Relative abundance: no taxa with total count >= %d — species_count.png skipped",
       min_for_species
     ))
+  }
+
+  # ---- 7. Group-membership partitions (Frontiers Fig S1 / S2) -------------
+  # Filtered composition plots: species observed in exactly one treatment
+  # group ("unique") and species observed in every group ("shared"). Both
+  # are derived from `df` (post-clean, post-count-filter, post-metadata
+  # join) before the Others collapse. Skipped when no facet column.
+  if (!is.null(facet_by) && facet_by %in% colnames(df)) {
+    group_species <- split(as.character(df$name), as.character(df[[facet_by]]))
+    group_species <- lapply(group_species, unique)
+    all_groups    <- names(group_species)
+    if (length(all_groups) >= 2) {
+      freq           <- table(unlist(group_species))
+      unique_species <- names(freq[freq == 1])
+      shared_species <- Reduce(intersect, group_species)
+
+      ra_render_stacked_bar(
+        dplyr::filter(df, name %in% unique_species),
+        facet_by, ra_cfg, cfg,
+        file_path = file.path(fig_dir, "unique_species_relative_abundance.png"),
+        log_label = "Relative abundance (unique species)"
+      )
+      ra_render_stacked_bar(
+        dplyr::filter(df, name %in% shared_species),
+        facet_by, ra_cfg, cfg,
+        file_path = file.path(fig_dir, "shared_species_relative_abundance.png"),
+        log_label = "Relative abundance (shared species)"
+      )
+    } else {
+      pipeline_log(cfg, sprintf(
+        "Relative abundance: only %d group(s) — unique/shared composition skipped",
+        length(all_groups)
+      ))
+    }
+  } else {
+    pipeline_log(cfg,
+      "Relative abundance: no facet column — unique/shared composition skipped")
   }
 
   invisible(df_pct)

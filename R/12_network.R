@@ -239,6 +239,58 @@ run_network <- function(cleaned, cfg) {
     sum(nodes$type == "gene")
   ))
 
+  # Connectivity Venns (Frontiers Fig S13 panels A/B) -------------------
+  # Both are derived from the just-built tripartite network member lists
+  # (NOT the raw taxonomy / abricate tables) so they reflect what's
+  # actually connected in the graph after the sampleCount > min cut. The
+  # taxa Venn uses the primary grouping; the gene-sets Venn uses the
+  # AMR/VFs/MGEs partition coming from .network_db_to_category().
+  if (group %in% colnames(df)) {
+    group_levels <- sort(unique(as.character(df[[group]])))
+    pal_group <- resolve_top_level_colors(group, group_levels, cfg) %||%
+                 ge_named_palette(group_levels, ncfg$group_colors,
+                                   ncfg$group_palette %||% "ggsci::default_nejm")
+    ge_plot_category_venn(
+      df, category_col = "name", group = group, pal_group = pal_group,
+      file = file.path(fig_dir, "connectivity_venn_taxa.png"),
+      main_title = sprintf("Network-connected taxa across %s groups", group),
+      log_label = "Network connectivity taxa", cfg = cfg,
+      value_col = "sampleCount"
+    )
+  } else {
+    pipeline_log(cfg, sprintf(
+      "Network connectivity taxa: group column '%s' missing — skipped", group
+    ))
+  }
+
+  gene_nodes <- nodes |> dplyr::filter(.data$type == "gene",
+                                       !is.na(.data$geneCategory))
+  if (nrow(gene_nodes) > 0 &&
+      dplyr::n_distinct(gene_nodes$geneCategory) >= 2) {
+    geneset_levels <- sort(unique(as.character(gene_nodes$geneCategory)))
+    pal_geneset <- c(AMR = "#d62728", VFs = "#9467bd", MGEs = "#2ca02c")
+    # Fill in any non-canonical categories with hcl colours.
+    extras <- setdiff(geneset_levels, names(pal_geneset))
+    if (length(extras) > 0) {
+      pal_geneset <- c(pal_geneset,
+                       setNames(grDevices::hcl.colors(length(extras),
+                                                       palette = "Dark 3"),
+                                extras))
+    }
+    gene_nodes$.count <- 1L
+    ge_plot_category_venn(
+      gene_nodes, category_col = "name", group = "geneCategory",
+      pal_group = pal_geneset[geneset_levels],
+      file = file.path(fig_dir, "connectivity_venn_genesets.png"),
+      main_title = "Network-connected gene elements (ARGs / VFs / MGEs)",
+      log_label = "Network connectivity gene-sets", cfg = cfg,
+      value_col = ".count"
+    )
+  } else {
+    pipeline_log(cfg,
+      "Network connectivity gene-sets: <2 gene categories — skipped")
+  }
+
   # Topology + ggraph plot ----------------------------------------------
   if (!requireNamespace("igraph", quietly = TRUE)) {
     pipeline_log(cfg,
@@ -621,6 +673,13 @@ run_network <- function(cleaned, cfg) {
   readr::write_csv(df, file.path(ds_dir, "sankey_long.csv"))
 
   .network_render_sankey(df, file.path(fig_dir, "sankey_overall.html"), scfg)
+  # Companion static PNG for the manuscript (Frontiers Fig S9). The HTML
+  # stays for the supplementary website; this PNG is a ggalluvial render
+  # of the same 4-tier data so the figure can be embedded in a journal
+  # PDF without requiring headless-Chrome.
+  .network_render_sankey_png(
+    df, file.path(fig_dir, "sankey_overall.png"), scfg, cfg
+  )
 
   if (!isFALSE(scfg$per_group %||% TRUE) && !is.null(group) &&
       group %in% colnames(df)) {
@@ -633,6 +692,72 @@ run_network <- function(cleaned, cfg) {
       )
     }
   }
+}
+
+# ggalluvial-based static PNG render of the 4-tier sankey. Skipped (with a
+# log line) when ggalluvial isn't installed — keeps the HTML render path
+# unaffected. Style is intentionally muted: strata are white boxes with
+# grey borders + labels; alluvia are alpha-blended bands coloured by the
+# rightmost tier (category) so flows are easy to trace. Width/height scale
+# with cardinality to keep labels legible across study sizes.
+.network_render_sankey_png <- function(df, png_path, scfg, cfg) {
+  if (!requireNamespace("ggalluvial", quietly = TRUE)) {
+    pipeline_log(cfg, "Network sankey PNG: ggalluvial not available — skipping")
+    return(invisible(NULL))
+  }
+
+  df_alluv <- df |>
+    dplyr::distinct(.data$sample, .data$name, .data$GENE, .data$category) |>
+    dplyr::mutate(value = 1L)
+  if (nrow(df_alluv) == 0) {
+    pipeline_log(cfg, "Network sankey PNG: empty alluvial frame — skipping")
+    return(invisible(NULL))
+  }
+
+  n_items <- max(
+    dplyr::n_distinct(df_alluv$sample),
+    dplyr::n_distinct(df_alluv$name),
+    dplyr::n_distinct(df_alluv$GENE),
+    dplyr::n_distinct(df_alluv$category)
+  )
+  ph <- max(7, 0.18 * n_items + 3)
+  pw <- scfg$png_width  %||% 14
+  label_size <- scfg$png_label_size %||% 2.5
+
+  p <- ggplot2::ggplot(
+        df_alluv,
+        ggplot2::aes(axis1 = .data$sample, axis2 = .data$name,
+                     axis3 = .data$GENE,   axis4 = .data$category,
+                     y     = .data$value)
+      ) +
+    ggalluvial::geom_alluvium(
+      ggplot2::aes(fill = .data$category), alpha = 0.5, width = 1/8
+    ) +
+    ggalluvial::geom_stratum(width = 1/8, fill = "white", colour = "grey40") +
+    # ggalluvial registers the "stratum" stat on package load. When we
+    # only `requireNamespace()` the package (not library()), bare
+    # stat = "stratum" isn't in ggplot2's registry — reference the
+    # StatStratum ggproto object directly so it resolves regardless.
+    ggplot2::geom_text(
+      stat = ggalluvial::StatStratum,
+      ggplot2::aes(label = ggplot2::after_stat(stratum)),
+      size = label_size
+    ) +
+    ggplot2::scale_x_discrete(
+      limits = c("Sample", "Taxon", "Gene", "Category"),
+      expand = ggplot2::expansion(mult = c(0.05, 0.05))
+    ) +
+    ggplot2::labs(x = NULL, y = NULL, fill = "Category") +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      axis.text.y     = ggplot2::element_blank(),
+      panel.grid      = ggplot2::element_blank(),
+      legend.position = "bottom",
+      text            = ggplot2::element_text(size = 11)
+    )
+  ggplot2::ggsave(png_path, p, width = pw, height = ph, dpi = 300, bg = "white")
+  pipeline_log(cfg, sprintf("Network sankey PNG: %s", basename(png_path)))
+  invisible(NULL)
 }
 
 # Resolve the GENE → category mapping for a given database. "auto" picks

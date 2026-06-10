@@ -105,6 +105,20 @@ run_resistome <- function(cleaned, cfg) {
                     file.path(fig_dir, sprintf("alpha_%s_bar.png",
                                                alpha_metric)))
 
+  # ge_compute_alpha returns both richness and shannon; always emit the
+  # shannon companion so the v1.1 manifest contract (ge_alpha_shannon_bar
+  # for Fig S4/S7/S12) doesn't depend on cfg$resistome$alpha_metric.
+  if (alpha_metric != "shannon") {
+    kw_sh <- ge_alpha_kw(alpha, group, "shannon", cfg, label)
+    if (!is.null(kw_sh)) {
+      capture.output(kw_sh, file = file.path(ds_dir, "kw_shannon.txt"))
+    }
+    ge_plot_alpha_violin(alpha, group, "shannon", kw_sh, pal_group,
+                         file.path(fig_dir, "alpha_shannon_violin.png"))
+    ge_plot_alpha_bar(alpha, group, "shannon", kw_sh, pal_group,
+                      file.path(fig_dir, "alpha_shannon_bar.png"))
+  }
+
   # ---- (1b) ARG abundance per Treatment (log TPM violin) ---------------
   ge_plot_abundance_violin(
     card, group, pal_group,
@@ -118,6 +132,15 @@ run_resistome <- function(cleaned, cfg) {
     card_drug, category_col = "DRUG", group = group, pal_group = pal_group,
     file = file.path(fig_dir, "venn_drug_classes.png"),
     main_title = sprintf("Drug classes shared across %s groups", group),
+    log_label = label, cfg = cfg
+  )
+
+  # Gene-level counterpart for v1.1 (Fig 4 panel D): ARGs (genes) shared
+  # vs unique across treatment groups, complementing the drug-class Venn.
+  ge_plot_category_venn(
+    card, category_col = "GENE", group = group, pal_group = pal_group,
+    file = file.path(fig_dir, "venn_args.png"),
+    main_title = sprintf("ARG genes shared across %s groups", group),
     log_label = label, cfg = cfg
   )
 
