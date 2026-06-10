@@ -266,12 +266,13 @@ ge_plot_abundance_violin <- function(df, group, pal_group, file,
 # UpSet plot of unique category values per group. Scales better than a
 # Venn when the number of sets or intersections is large. Skipped (with a
 # log line) if UpSetR isn't installed. `nintersects` caps the bars shown
-# (NA = unlimited; default unlimited to match the spec's "all intersections"
-# direction). Mirrors ge_plot_category_venn's input shape so the same long-
-# form table works for both renders.
+# (NA = unlimited). Mirrors ge_plot_category_venn's input shape so the
+# same long-form table works for both renders. When `pal_group` is
+# supplied (named character vector keyed by group level), the per-set
+# size bars (lower-left of the UpSet figure) are coloured by treatment.
 ge_plot_category_upset <- function(df, category_col, group, file,
                                     log_label, cfg, value_col = "TPM",
-                                    nintersects = NA) {
+                                    nintersects = NA, pal_group = NULL) {
   if (!requireNamespace("UpSetR", quietly = TRUE)) {
     pipeline_log(cfg, sprintf("%s: UpSetR not available — UpSet skipped",
                               log_label))
@@ -289,15 +290,26 @@ ge_plot_category_upset <- function(df, category_col, group, file,
     return(invisible(NULL))
   }
   df_upset <- UpSetR::fromList(sets)
+  set_names_ord <- names(sets)
+  # Align palette to set order; fall back to UpSetR's default grey when
+  # the palette is incomplete or absent.
+  sets_bar_color <- "gray23"
+  if (!is.null(pal_group)) {
+    aligned <- unname(pal_group[set_names_ord])
+    if (length(aligned) == length(set_names_ord) && !any(is.na(aligned))) {
+      sets_bar_color <- aligned
+    }
+  }
   grDevices::png(file, width = 2200, height = 1500, res = 220, bg = "white")
   on.exit(grDevices::dev.off(), add = TRUE)
   print(UpSetR::upset(
     df_upset,
-    sets        = names(sets),
-    keep.order  = TRUE,
-    order.by    = "freq",
-    nintersects = if (is.na(nintersects)) NA else as.integer(nintersects),
-    text.scale  = c(1.4, 1.3, 1.2, 1.2, 1.3, 1.1)
+    sets             = set_names_ord,
+    keep.order       = TRUE,
+    order.by         = "freq",
+    nintersects      = if (is.na(nintersects)) NA else as.integer(nintersects),
+    sets.bar.color   = sets_bar_color,
+    text.scale       = c(1.4, 1.3, 1.2, 1.2, 1.3, 1.1)
   ))
   invisible(NULL)
 }

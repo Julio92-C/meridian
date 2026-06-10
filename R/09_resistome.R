@@ -146,11 +146,11 @@ run_resistome <- function(cleaned, cfg) {
 
   # ARG UpSet (PIPELINE_V2_GAPS C7) — same set membership as venn_args but
   # rendered as an UpSet plot, which scales beyond 4-5 groups where Venns
-  # become unreadable.
+  # become unreadable. Per-set bars coloured by treatment via pal_group.
   ge_plot_category_upset(
     card, category_col = "GENE", group = group,
     file = file.path(fig_dir, "arg_upset_treatments.png"),
-    log_label = label, cfg = cfg
+    log_label = label, cfg = cfg, pal_group = pal_group
   )
 
   # ---- (2b) Beta diversity on the gene-level TPM matrix ----------------
@@ -244,11 +244,22 @@ run_resistome <- function(cleaned, cfg) {
         grid_col <- c(pal_drug[rownames(drug_grp_mat)],
                       pal_group[colnames(drug_grp_mat)])
         circos_png <- file.path(fig_dir, "arg_circos_drugclass.png")
-        grDevices::png(circos_png, width = 2200, height = 2200,
+        # Bumped to 2600px @ 220dpi (~12in canvas) and circle.margin/canvas
+        # extents mirror R/12's chord pattern so the long drug-class labels
+        # (Aminocoumarin, Fluoroquinolone, Streptogramin, ...) don't clip
+        # at the figure edges.
+        grDevices::png(circos_png, width = 2600, height = 2600,
                        res = 220, bg = "white")
         tryCatch({
           circlize::circos.clear()
-          circlize::circos.par(start.degree = 90, gap.degree = 3)
+          circlize::circos.par(
+            start.degree   = 90,
+            gap.degree     = 3,
+            canvas.xlim    = c(-1, 1),
+            canvas.ylim    = c(-1, 1),
+            circle.margin  = c(0.6, 0.6, 0.6, 0.6),
+            unit.circle.segments = 500
+          )
           circlize::chordDiagram(
             drug_grp_mat,
             grid.col        = grid_col,
@@ -264,7 +275,7 @@ run_resistome <- function(cleaned, cfg) {
                 circlize::get.cell.meta.data("xcenter"),
                 circlize::get.cell.meta.data("ylim")[1],
                 sector_idx, facing = "clockwise", niceFacing = TRUE,
-                adj = c(0, 0.5), cex = 0.85
+                adj = c(0, 0.5), cex = 0.8
               )
             }, bg.border = NA
           )

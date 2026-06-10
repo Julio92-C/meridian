@@ -446,6 +446,24 @@ build_stage_ge_domain <- function(cfg, domain, stage_times) {
             caption_seed = "UpSet plot of ARG gene families shared and unique across dietary treatment groups."
           ))
         }
+        if (domain == "virulome" && base == "vf_upset_treatments") {
+          return(figure_entry(
+            cfg, rel,
+            kind   = "vf_upset",
+            domain = "virulome",
+            groups = as.list(cfg_group_levels(cfg)),
+            caption_seed = "UpSet plot of virulence-factor genes shared and unique across dietary treatment groups."
+          ))
+        }
+        if (domain == "mobilome" && base == "mge_upset_treatments") {
+          return(figure_entry(
+            cfg, rel,
+            kind   = "mge_upset",
+            domain = "mobilome",
+            groups = as.list(cfg_group_levels(cfg)),
+            caption_seed = "UpSet plot of plasmid-replicon genes shared and unique across dietary treatment groups."
+          ))
+        }
         if (domain == "resistome" && base == "arg_circos_drugclass") {
           return(figure_entry(
             cfg, rel,

@@ -128,6 +128,13 @@ run_mobilome <- function(cleaned, cfg) {
     log_label = label, cfg = cfg
   )
 
+  # MGE UpSet (replicon-level) — UpSet counterpart to venn_replicons.
+  ge_plot_category_upset(
+    pfdb, category_col = "GENE", group = group,
+    file = file.path(fig_dir, "mge_upset_treatments.png"),
+    log_label = label, cfg = cfg, pal_group = pal_group
+  )
+
   # ---- (2b) Beta diversity on the gene-level TPM matrix ----------------
   if (isTRUE(mcfg$beta %||% TRUE)) {
     ge_plot_beta(

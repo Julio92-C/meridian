@@ -125,6 +125,13 @@ run_virulome <- function(cleaned, cfg) {
     log_label = label, cfg = cfg
   )
 
+  # VF UpSet (gene-level) — UpSet counterpart to the function-level Venn.
+  ge_plot_category_upset(
+    vfdb, category_col = "GENE", group = group,
+    file = file.path(fig_dir, "vf_upset_treatments.png"),
+    log_label = label, cfg = cfg, pal_group = pal_group
+  )
+
   # ---- (2b) Beta diversity on the gene-level TPM matrix ----------------
   if (isTRUE(vcfg$beta %||% TRUE)) {
     ge_plot_beta(
