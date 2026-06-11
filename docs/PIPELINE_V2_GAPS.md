@@ -78,13 +78,13 @@ These are copied verbatim from `PIPELINE_V1.1_GAPS.md`. Mark each as ✅ complet
 | B3 | `taxa_daa_heatmap` | figS3_top30_daa | differential_abundance | ✅ shipped (fa8d651) |
 | B4 | `ge_alpha_shannon_bar` (+ `_violin`) | figS4 B, figS7 B, figS12 B | resistome / virulome / mobilome | ✅ shipped (fa8d651) |
 | B5 | `ge_venn_args` | fig4_resistome panel D | resistome | ✅ shipped (fa8d651) |
-| B6 | `species_count_genmap` | figS6 (C. diff), figS11 (Entero) | resistome / virulome | ⬜ deferred (style pre-agreed: per-sample gggenes rows) |
+| B6 | `species_count_genmap` | figS6 (C. diff), figS11 (Entero) | resistome / virulome | ✅ shipped (4422862, 2026-06-10) |
 | B7 | `connectivity_venn_taxa` | figS13 panel A | network | ✅ shipped (fa8d651) |
 | B8 | `connectivity_venn_genesets` | figS13 panel B | network | ✅ shipped (fa8d651) |
 | B9 | `sankey_png` | figS9_vf_sankey | network | ✅ shipped (fa8d651) + height fix (938eec1) |
-| B10 | `taxa_ges_composition` | fig9_taxa_ges | resistome (or dedicated stage) | ⬜ pending — net-new in v2 spec, not in v1.1 doc |
+| B10 | `taxa_ges_composition` | (no slot) | — | 🗑 retired (2026-06-11) — no `fig9_taxa_ges` slot in v2 layout; cross-domain composition is covered by `fig9_network` + `fig10_multiomics_integration` (Sankey + Mantel + mobile-fraction). |
 
-Full emit specs for B1–B9 are in `docs/PIPELINE_V1.1_GAPS.md`. B10 is new in this doc and needs its own spec writeup before implementation.
+Full emit specs for B1–B9 are in `docs/PIPELINE_V1.1_GAPS.md`. B10 has been retired — see status note above.
 
 ---
 
@@ -414,7 +414,7 @@ This is the updated `journals/frontiers_microbiome.yaml` slot layout recommended
 ### Short-term (B-level, manifest v1.1, already specified)
 - [x] B1–B5, B7–B9 shipped fa8d651
 - [x] B6 species_count_genmap shipped 4422862
-- [ ] B10 taxa_ges_composition — deferred, needs spec writeup (no fig9_taxa_ges slot in v2 layout table)
+- [x] B10 taxa_ges_composition — retired 2026-06-11 (no v2 slot; coverage already provided by fig9_network + fig10_multiomics_integration)
 
 ### Medium-term (C-level, manifest v1.2)
 - [x] C1 `rarefaction_curves` (25a8438)
