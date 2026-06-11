@@ -34,5 +34,8 @@ Thumbs.db
 .idea/
 .vscode/
 
+# Local scratch / smoke tests (regenerable from R/ scripts)
+/scratch/
+
 # Claude Code local
 .claude/

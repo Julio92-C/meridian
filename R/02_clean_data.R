@@ -28,6 +28,21 @@ clean_data <- function(inputs, cfg) {
   # --- Kraken2 taxid → name lookup ----------------------------------------
   taxid_name <- dplyr::select(inputs$kraken2, taxid, name)
 
+  # --- Kraken2 taxid → ancestry lookup (phylum + genus) -------------------
+  # Standard kraken2 combined-report rows are in DFS pre-order, with
+  # `lvl_type` carrying the NCBI rank code (U / R / R1 / D / D1 / P / C /
+  # O / F / G / S / S1 / ...). Walking rows top-to-bottom and tracking the
+  # most recent P-rank and G-rank ancestors yields per-taxid ancestry
+  # columns that propagate onto `noncontaminants` → `abri_kraken2` →
+  # `merged`. Phylum feeds the C11 taxon→ARG→MGE Sankey (R/12); genus is
+  # the rank-aware source for C4 `genus_heatmap` (R/05) and the
+  # category-level Mantel rollup (R/12), replacing the rank-blind
+  # first-word string heuristic that previously leaked phyla / classes /
+  # orders / families into "genus" plots. Rows above each rank
+  # (Domain / Root / Unclassified for phylum; everything above G for
+  # genus) map to NA on that column.
+  taxid_ancestry <- build_taxid_ancestry(inputs$kraken2)
+
   # --- Re-centrifuge contaminant counts -----------------------------------
   # NOTE: the by-3 column slicing below is the original cleanData.R logic
   # and is known to be too coarse for the real Re-centrifuge layout (mixes
@@ -59,6 +74,8 @@ clean_data <- function(inputs, cfg) {
     fix_lookup <- setNames(inputs$taxid_fixes$name, inputs$taxid_fixes$taxid)
     rcf_named$name <- dplyr::coalesce(fix_lookup[rcf_named$taxid], rcf_named$name)
   }
+  taxid_ancestry$taxid <- as.character(taxid_ancestry$taxid)
+  rcf_named <- dplyr::left_join(rcf_named, taxid_ancestry, by = "taxid")
 
   # --- Split contaminant vs non-contaminant counts -------------------------
   # Negative controls are optional. Three cases:
@@ -96,7 +113,8 @@ clean_data <- function(inputs, cfg) {
   }
 
   sample_cols <- setdiff(colnames(rcf_named),
-                         c("taxid", "name", "Classifier", controls))
+                         c("taxid", "name", "phylum", "genus",
+                           "Classifier", controls))
 
   pivoted <- rcf_named |>
     tidyr::pivot_longer(cols = dplyr::all_of(sample_cols),
@@ -202,4 +220,51 @@ clean_data <- function(inputs, cfg) {
   list(noncontaminants = noncontaminants,
        abri_kraken2    = abri_kraken2,
        merged          = merged)
+}
+
+# Build a (taxid → phylum, genus) data frame from a kraken2 combined-report
+# frame. Relies on the report being in NCBI DFS pre-order with `lvl_type`
+# carrying rank codes — both standard for kraken2 combined-reports.
+#
+# For each ancestor rank we track a "current" value that is:
+#   - cleared (NA) when the row's rank is *strictly above* that ancestor,
+#   - set when the row's rank is exactly that ancestor (bare `P` / bare `G`),
+#   - carried forward when the row's rank is at or below that ancestor
+#     (so e.g. species rows inherit the genus their kraken2 lineage set).
+#
+# Reset uses the first letter of the rank code so sub-ranks (`P1`, `C1`,
+# `F1`, ...) reset their respective ancestor lookups correctly.
+build_taxid_ancestry <- function(kraken2) {
+  needed <- c("taxid", "name", "lvl_type")
+  miss <- setdiff(needed, colnames(kraken2))
+  if (length(miss) > 0) {
+    stop(sprintf(
+      "build_taxid_ancestry: kraken2 input missing column(s) %s",
+      paste(miss, collapse = ", ")
+    ))
+  }
+  rk <- as.character(kraken2$lvl_type)
+  nm <- trimws(as.character(kraken2$name))
+  td <- as.character(kraken2$taxid)
+
+  # Letters of rank codes that sit strictly above each ancestor we track.
+  phylum_reset <- c("U", "R", "D", "K")
+  genus_reset  <- c("U", "R", "D", "K", "P", "C", "O", "F")
+
+  phy <- character(length(rk))
+  gen <- character(length(rk))
+  cur_phy <- NA_character_
+  cur_gen <- NA_character_
+  for (i in seq_along(rk)) {
+    r <- rk[[i]]
+    first <- if (is.na(r)) NA_character_ else substr(r, 1L, 1L)
+    if (!is.na(first) && first %in% phylum_reset) cur_phy <- NA_character_
+    if (!is.na(first) && first %in% genus_reset)  cur_gen <- NA_character_
+    if (!is.na(r) && r == "P") cur_phy <- nm[[i]]
+    if (!is.na(r) && r == "G") cur_gen <- nm[[i]]
+    phy[[i]] <- cur_phy
+    gen[[i]] <- cur_gen
+  }
+  data.frame(taxid = td, phylum = phy, genus = gen,
+             stringsAsFactors = FALSE)
 }

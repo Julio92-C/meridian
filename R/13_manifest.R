@@ -565,7 +565,10 @@ build_stage_network <- function(cfg, stage_times) {
                   description = "Pairwise Mantel correlations (Spearman) between Bray-Curtis distance matrices of the 4 omics layers."),
       table_entry(cfg, ds_path(cfg, "network/mobile_arg_fraction_per_sample.csv"),
                   kind = "mobile_arg_fraction_per_sample",
-                  description = "Per-sample mobile vs non-mobile ARG TPM totals; an ARG is mobile when its contig co-harbours a PlasmidFinder hit.")
+                  description = "Per-sample mobile vs non-mobile ARG TPM totals; an ARG is mobile when its contig co-harbours a PlasmidFinder hit."),
+      table_entry(cfg, ds_path(cfg, "network/sankey_taxon_arg_mge_long.csv"),
+                  kind = "network_sankey_taxon_arg_mge_long",
+                  description = "Long-form (phylum, ARG drug class, MGE replicon family, weight) flow data for the taxon→ARG→MGE Sankey.")
     )),
     figures    = c(
       Filter(Negate(is.null), list(
@@ -598,7 +601,10 @@ build_stage_network <- function(cfg, stage_times) {
         figure_entry(cfg, fig_path(cfg, "network/mobile_arg_fraction_bar.png"),
                      kind = "mobile_fraction_bar",
                      groups = as.list(cfg_group_levels(cfg)),
-                     caption_seed = "Proportion of ARG TPM carried on predicted mobile contigs (co-harbouring a PlasmidFinder hit) by treatment group; Kruskal-Wallis annotated.")
+                     caption_seed = "Proportion of ARG TPM carried on predicted mobile contigs (co-harbouring a PlasmidFinder hit) by treatment group; Kruskal-Wallis annotated."),
+        figure_entry(cfg, fig_path(cfg, "network/sankey_taxon_arg_mge.png"),
+                     kind = "sankey_taxon_arg_mge",
+                     caption_seed = "Sankey of mobile-ARG flow from bacterial phylum to ARG drug class to MGE replicon family; ribbons weighted by CARD TPM summed over mobile contigs (CARD + PlasmidFinder co-occurrence).")
       )),
       lapply(project_glob(cfg, fig_path(cfg, "network/chord_*.png")), function(rel) {
         if (basename(rel) == "chord_overall.png") return(NULL)

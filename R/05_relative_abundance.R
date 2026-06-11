@@ -41,18 +41,6 @@ relab_palette <- function(n, cfg) {
   rep_len(pal, n)
 }
 
-# Genus extraction from a raw species name. Used by the v1.2 genus_heatmap
-# (PIPELINE_V2_GAPS C4). NCBI-style "[Genus] species" brackets are
-# normalised; "Candidatus Genus species" drops the Candidatus prefix; lone
-# words pass through unchanged. Returns NA for empty / NA input.
-ra_extract_genus <- function(name) {
-  s <- as.character(name)
-  s <- ifelse(is.na(s) | !nzchar(s), NA_character_, s)
-  s <- gsub("^\\[([^\\]]+)\\]\\s*", "\\1 ", s)
-  s <- gsub("^Candidatus\\s+",      "",     s)
-  stringr::word(s, 1L)
-}
-
 # Compact stacked-bar render for filtered species partitions (v1.1
 # unique/shared composition plots, Frontiers Fig S1/S2). Mirrors the
 # main 6a render in run_relative_abundance() but skips the plotly HTML
@@ -369,18 +357,20 @@ run_relative_abundance <- function(cleaned, cfg) {
   }
 
   # ---- 8. Top-30 genus heatmap (PIPELINE_V2_GAPS C4) ----------------------
-  # Genus rollup is derived from cleaned$noncontaminants$name's first word
-  # (the unabbreviated species column). Bracketed "[Genus] x" and Candidatus
-  # prefixes get normalised; lone-word taxa are kept verbatim. Heatmap
-  # values are log10(% + 0.01) for colour scale; clustering uses raw
-  # percentages with Bray-Curtis distance + complete linkage on both axes
-  # per the v1.2 spec.
+  # Genus rollup uses the kraken2-derived `genus` column attached in R/02
+  # via `build_taxid_ancestry` — every row's genus is the bare-G ancestor
+  # kraken2 placed it under. Higher-rank rows (phylum / class / order /
+  # family) and unclassified rows have genus = NA and are dropped here, so
+  # the heatmap shows only true kraken2 genera (no first-word string
+  # heuristics leaking phyla / families through). Heatmap values are
+  # log10(% + 0.01) for colour scale; clustering uses raw percentages with
+  # Bray-Curtis distance + complete linkage on both axes per the v1.2 spec.
   if (!isFALSE(ra_cfg$genus_heatmap %||% TRUE) &&
       requireNamespace("pheatmap", quietly = TRUE) &&
-      !is.null(cleaned$noncontaminants)) {
+      !is.null(cleaned$noncontaminants) &&
+      "genus" %in% colnames(cleaned$noncontaminants)) {
     raw <- cleaned$noncontaminants
     raw <- dplyr::filter(raw, !is.na(.data$name), .data$count > min_count)
-    raw$genus <- ra_extract_genus(raw$name)
     raw <- dplyr::filter(raw, !is.na(.data$genus), nzchar(.data$genus))
 
     meta_g <- tryCatch(

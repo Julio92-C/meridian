@@ -323,7 +323,7 @@ Emit one entry per comparison using the `pair` field:
 
 ### C11 — `sankey_taxon_arg_mge`
 
-> **Status (2026-06-10):** Deferred. R/02_clean_data.R drops the Re-centrifuge Rank/Name columns at line 42 as part of its known "too coarse" slicing — phylum information isn't currently exposed on `cleaned$noncontaminants`. Blocked on the R/02 rank-aware rewrite queued in `docs/pipeline_rework_scoping.md`. Reviving C11 should preserve the Rank/Name columns and build a (taxid → phylum) lookup downstream.
+> **Status (2026-06-11):** ✅ Shipped. Phylum surface delivered via a kraken2 pre-order tree walk in `R/02_clean_data.R::build_taxid_phylum`, sidestepping the rcf Rank/Name path — no R/02 rank-aware rewrite required (that rewrite stays queued in `docs/pipeline_rework_scoping.md` for the other rcf-slicing issues). C11 itself lives in `R/12_network.R::.network_build_sankey_taxon_arg_mge`; same CARD + PlasmidFinder co-occurrence definition as C12 `mobile_fraction_bar`. Skips cleanly on chicken_batch1 (no CARD+PF co-occurrence); render path verified with a synthetic three-contig fixture.
 
 
 **Literature basis:** Paper 8 (Fig 5 area) uses a Sankey/alluvial diagram for taxon → ARG class → MGE type flow. Paper 5 uses Circos for similar multi-omic flow. This is distinct from `sankey_png` (VF taxa-to-function) and `arg_circos` (drug classes only).
@@ -427,7 +427,7 @@ This is the updated `journals/frontiers_microbiome.yaml` slot layout recommended
 - [x] C8 `arg_circos` (13ba39e + circos label fix 087b5ab)
 - [x] C9 `vf_arg_corr_heatmap` (13ba39e)
 - [x] C10 `mantel_triangle` (4422862)
-- [ ] C11 `sankey_taxon_arg_mge` — deferred, blocked on R/02 rank-aware rewrite
+- [x] C11 `sankey_taxon_arg_mge` (2026-06-11; kraken2 pre-order phylum walk in R/02 + ggalluvial render in R/12; skips cleanly when no CARD+PF co-occurrence)
 - [x] C12 `mobile_fraction_bar` (4422862; fires only when contigs co-harbour CARD+PlasmidFinder)
 
 ### After C-level is emitted

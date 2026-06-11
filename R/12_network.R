@@ -77,6 +77,11 @@ run_network <- function(cleaned, cfg) {
     .network_build_mobile_fraction(cleaned, cfg, group, fig_dir, ds_dir)
   }
 
+  # --- Taxon → ARG → MGE sankey (PIPELINE_V2_GAPS C11) ------------------
+  if (!isFALSE(ncfg$sankey_taxon_arg_mge %||% TRUE)) {
+    .network_build_sankey_taxon_arg_mge(cleaned, cfg, fig_dir, ds_dir)
+  }
+
   invisible(NULL)
 }
 
@@ -956,12 +961,13 @@ run_network <- function(cleaned, cfg) {
 
   # ---- Taxonomy --------------------------------------------------------
   if (level == "category") {
-    # Genus rollup via first-word of species name (mirrors R/05's C4
-    # heatmap recipe). Avoids the species-level zero inflation that
-    # dominates per-OTU Bray-Curtis.
+    # Genus rollup uses the kraken2-derived `genus` column attached in
+    # R/02 (`build_taxid_ancestry`). Higher-rank rows (phylum / class /
+    # order / family) and unclassified rows have genus = NA and are
+    # dropped, so the Bray-Curtis distance is computed on true genera
+    # only — matches the C4 heatmap recipe in R/05.
     tx <- cleaned$noncontaminants
-    if (!is.null(tx) && nrow(tx) > 0) {
-      tx$genus <- ra_extract_genus(tx$name)
+    if (!is.null(tx) && nrow(tx) > 0 && "genus" %in% colnames(tx)) {
       tx <- dplyr::filter(tx, !is.na(.data$genus), nzchar(.data$genus))
       dists$Taxonomy <- build_dist(tx, "genus", "count", "Taxonomy")
     }
@@ -1242,6 +1248,199 @@ run_network <- function(cleaned, cfg) {
     "Mobile ARG fraction: %d samples, %d treatment groups, %d mobile contigs",
     nrow(per_sample), dplyr::n_distinct(per_sample[[group]]),
     nrow(mobile_contigs)
+  ))
+  invisible(NULL)
+}
+
+# ============================================================================
+# Taxon → ARG → MGE sankey (PIPELINE_V2_GAPS C11)
+# ============================================================================
+# Three-axis alluvial flow: bacterial phylum (left) → ARG drug class (centre)
+# → MGE replicon family (right). Uses the same CARD + PlasmidFinder
+# contig-co-occurrence join as `.network_build_mobile_fraction` to identify
+# mobile ARGs, then groups by the phylum the contig was assigned to (via
+# kraken2 taxid, carried on `cleaned$abri_kraken2` after the R/02 phylum
+# join). When `ge_load_norm_table` is available the ribbon weight is CARD
+# TPM summed per (phylum, drug, replicon); otherwise it falls back to the
+# Bracken sampleCount. Skips with a log line if no co-occurring contigs
+# exist (chicken_batch1 currently triggers this — same condition as
+# mobile_fraction).
+.network_build_sankey_taxon_arg_mge <- function(cleaned, cfg, fig_dir, ds_dir) {
+  if (is.null(cleaned$abri_kraken2)) {
+    pipeline_log(cfg,
+      "Taxon→ARG→MGE sankey: abri_kraken2 missing — skipping")
+    return(invisible(NULL))
+  }
+  required <- c("sample", "sequence", "DATABASE", "GENE",
+                "RESISTANCE", "phylum")
+  miss <- setdiff(required, colnames(cleaned$abri_kraken2))
+  if (length(miss) > 0) {
+    pipeline_log(cfg, sprintf(
+      "Taxon→ARG→MGE sankey: abri_kraken2 missing column(s) %s — skipping",
+      paste(miss, collapse = ", ")
+    ))
+    return(invisible(NULL))
+  }
+  if (!requireNamespace("ggalluvial", quietly = TRUE)) {
+    pipeline_log(cfg,
+      "Taxon→ARG→MGE sankey: ggalluvial not available — skipping")
+    return(invisible(NULL))
+  }
+
+  abri <- cleaned$abri_kraken2
+
+  # 1. Mobile contigs (same definition as mobile_fraction_bar).
+  contig_db <- abri |>
+    dplyr::filter(!is.na(.data$DATABASE), !is.na(.data$sequence)) |>
+    dplyr::mutate(db = tolower(.data$DATABASE)) |>
+    dplyr::distinct(.data$sample, .data$sequence, .data$db)
+
+  mobile_contigs <- contig_db |>
+    dplyr::group_by(.data$sample, .data$sequence) |>
+    dplyr::summarise(
+      has_card = any(.data$db == "card"),
+      has_pf   = any(.data$db == "plasmidfinder"),
+      .groups  = "drop"
+    ) |>
+    dplyr::filter(.data$has_card & .data$has_pf) |>
+    dplyr::select("sample", "sequence")
+
+  if (nrow(mobile_contigs) == 0) {
+    pipeline_log(cfg,
+      "Taxon→ARG→MGE sankey: no contigs co-harbouring CARD + PlasmidFinder — skipping")
+    return(invisible(NULL))
+  }
+
+  # 2. CARD hits on mobile contigs — annotate DRUG (via classify_resistance)
+  #    and inherit `phylum` from the R/02 kraken2-derived map.
+  mls_rollup <- isTRUE(cfg$network$sankey$mls_rollup %||% TRUE)
+  card_mobile <- abri |>
+    dplyr::filter(tolower(.data$DATABASE) == "card",
+                  !is.na(.data$sequence), !is.na(.data$GENE)) |>
+    dplyr::inner_join(mobile_contigs, by = c("sample", "sequence"))
+  if (nrow(card_mobile) == 0) {
+    pipeline_log(cfg,
+      "Taxon→ARG→MGE sankey: no CARD hits on mobile contigs — skipping")
+    return(invisible(NULL))
+  }
+  card_mobile$RESISTANCE <- as.character(card_mobile$RESISTANCE)
+  if (mls_rollup) {
+    card_mobile$RESISTANCE <- stringr::str_replace_all(
+      card_mobile$RESISTANCE,
+      "lincosamide|macrolide|streptogramin", "MLS"
+    )
+  }
+  card_mobile$DRUG <- vapply(card_mobile$RESISTANCE, classify_resistance,
+                              FUN.VALUE = character(1))
+
+  # 3. PlasmidFinder hits on mobile contigs — assign Replicon_Family then
+  #    pick the dominant family per (sample, sequence) so each contig
+  #    contributes one MGE-type edge instead of fanning out.
+  patterns <- cfg$mobilome$family_patterns %||% .default_replicon_patterns()
+  pf_mobile <- abri |>
+    dplyr::filter(tolower(.data$DATABASE) == "plasmidfinder",
+                  !is.na(.data$sequence), !is.na(.data$GENE)) |>
+    dplyr::inner_join(mobile_contigs, by = c("sample", "sequence")) |>
+    dplyr::mutate(Replicon_Family = classify_replicon_family(.data$GENE,
+                                                              patterns)) |>
+    dplyr::filter(!is.na(.data$Replicon_Family))
+  if (nrow(pf_mobile) == 0) {
+    pipeline_log(cfg,
+      "Taxon→ARG→MGE sankey: no classified PlasmidFinder hits on mobile contigs — skipping")
+    return(invisible(NULL))
+  }
+  pf_by_contig <- pf_mobile |>
+    dplyr::group_by(.data$sample, .data$sequence, .data$Replicon_Family) |>
+    dplyr::summarise(n = dplyr::n(), .groups = "drop") |>
+    dplyr::group_by(.data$sample, .data$sequence) |>
+    dplyr::slice_max(.data$n, n = 1, with_ties = FALSE) |>
+    dplyr::ungroup() |>
+    dplyr::select("sample", "sequence", "Replicon_Family")
+
+  # 4. Flow rows: (sample, sequence, phylum, DRUG, GENE, Replicon_Family).
+  flows <- card_mobile |>
+    dplyr::inner_join(pf_by_contig, by = c("sample", "sequence")) |>
+    dplyr::filter(!is.na(.data$phylum), !is.na(.data$DRUG),
+                  nzchar(.data$phylum), nzchar(.data$DRUG))
+  if (nrow(flows) == 0) {
+    pipeline_log(cfg,
+      "Taxon→ARG→MGE sankey: empty flow frame after phylum/drug filter — skipping")
+    return(invisible(NULL))
+  }
+
+  # 5. Weight ribbons by CARD TPM when normalisation is available; fall
+  #    back to Bracken `sampleCount` (always present on cleaned$abri_kraken2).
+  norm <- ge_load_norm_table(cfg, "Taxon→ARG→MGE sankey")
+  weight_source <- "sampleCount"
+  if (!is.null(norm) && all(c("sample", "GENE", "TPM", "DATABASE") %in%
+                              colnames(norm))) {
+    card_tpm <- norm |>
+      dplyr::filter(tolower(.data$DATABASE) == "card") |>
+      dplyr::select("sample", "GENE", "TPM")
+    flows <- dplyr::left_join(flows, card_tpm, by = c("sample", "GENE"))
+    if (any(!is.na(flows$TPM))) {
+      flows$weight <- ifelse(is.na(flows$TPM), 0, flows$TPM)
+      weight_source <- "TPM"
+    } else {
+      flows$weight <- as.numeric(flows$sampleCount %||% 1L)
+    }
+  } else {
+    flows$weight <- as.numeric(flows$sampleCount %||% 1L)
+  }
+
+  agg <- flows |>
+    dplyr::group_by(.data$phylum, .data$DRUG, .data$Replicon_Family) |>
+    dplyr::summarise(weight = sum(.data$weight, na.rm = TRUE),
+                     .groups = "drop") |>
+    dplyr::filter(.data$weight > 0)
+  if (nrow(agg) == 0) {
+    pipeline_log(cfg,
+      "Taxon→ARG→MGE sankey: zero-weight aggregate — skipping")
+    return(invisible(NULL))
+  }
+
+  readr::write_csv(agg,
+                    file.path(ds_dir, "sankey_taxon_arg_mge_long.csv"))
+
+  p <- ggplot2::ggplot(
+        agg,
+        ggplot2::aes(axis1 = .data$phylum,
+                     axis2 = .data$DRUG,
+                     axis3 = .data$Replicon_Family,
+                     y     = .data$weight)
+      ) +
+    ggalluvial::geom_alluvium(
+      ggplot2::aes(fill = .data$DRUG), alpha = 0.6, width = 1/8
+    ) +
+    ggalluvial::geom_stratum(width = 1/8, fill = "white", colour = "grey40") +
+    ggplot2::geom_text(
+      stat = ggalluvial::StatStratum,
+      ggplot2::aes(label = ggplot2::after_stat(stratum)),
+      size = 2.8
+    ) +
+    ggplot2::scale_x_discrete(
+      limits = c("Phylum", "ARG drug class", "MGE type"),
+      expand = ggplot2::expansion(mult = c(0.05, 0.05))
+    ) +
+    ggplot2::labs(x = NULL, y = NULL, fill = "Drug class") +
+    ggplot2::theme_minimal() +
+    ggplot2::theme(
+      axis.text.y     = ggplot2::element_blank(),
+      panel.grid      = ggplot2::element_blank(),
+      legend.position = "bottom",
+      text            = ggplot2::element_text(size = 11)
+    )
+
+  ph <- max(8, 0.35 * nrow(agg) + 5)
+  ggplot2::ggsave(
+    file.path(fig_dir, "sankey_taxon_arg_mge.png"),
+    p, width = 12, height = ph, dpi = 300, bg = "white"
+  )
+  pipeline_log(cfg, sprintf(
+    "Taxon→ARG→MGE sankey: %d flows, %d phyla, %d drug classes, %d MGE types (weight=%s)",
+    nrow(agg), dplyr::n_distinct(agg$phylum),
+    dplyr::n_distinct(agg$DRUG), dplyr::n_distinct(agg$Replicon_Family),
+    weight_source
   ))
   invisible(NULL)
 }
