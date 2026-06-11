@@ -237,6 +237,26 @@ run_alpha_diversity <- function(cleaned, cfg) {
   show_bar     <- ad_cfg$bar_plot %||% TRUE
   stats_lines  <- character()
 
+  # Pre-pass: run KW once per metric and collect raw p-values into one
+  # vector so we can family-adjust across all metrics (richness / Shannon
+  # / Simpson / Chao1 / ...) before annotating any plot. Without this the
+  # 9-metric grid effectively performs 9 uncorrected tests of the same
+  # "treatment shifted alpha diversity" claim. Method via
+  # cfg$stats$padjust_method (default BH; flip to BY for the
+  # arbitrary-dependence variant).
+  pad_method <- padjust_method(cfg)
+  kw_p_raw   <- setNames(rep(NA_real_, length(metrics)), metrics)
+  for (m in metrics) {
+    sub <- div[!is.na(div[[m]]), , drop = FALSE]
+    if (nrow(sub) < 2 || dplyr::n_distinct(sub[[group]]) < 2) next
+    kw <- tryCatch(
+      kruskal.test(reformulate(group, m), data = sub),
+      error = function(e) NULL
+    )
+    if (!is.null(kw)) kw_p_raw[[m]] <- kw$p.value
+  }
+  kw_p_adj <- padjust_p(kw_p_raw, cfg)
+
   for (m in metrics) {
     label <- pretty_labels[[m]] %||% m
     sub   <- div[!is.na(div[[m]]), , drop = FALSE]
@@ -244,15 +264,21 @@ run_alpha_diversity <- function(cleaned, cfg) {
       pipeline_log(cfg, sprintf("Alpha diversity: %s — not enough data for KW", label))
       next
     }
-    kw <- tryCatch(
-      kruskal.test(reformulate(group, m), data = sub),
-      error = function(e) NULL
+    p_val     <- kw_p_raw[[m]]
+    p_val_adj <- kw_p_adj[[m]]
+    label_kw <- sprintf(
+      "KW p = %s   |   p_adj (%s) = %s",
+      if (is.na(p_val))     "NA" else format(p_val,     digits = 3),
+      pad_method,
+      if (is.na(p_val_adj)) "NA" else format(p_val_adj, digits = 3)
     )
-    p_val <- if (is.null(kw)) NA_real_ else kw$p.value
-    label_kw <- sprintf("Kruskal-Wallis p = %s",
-                        if (is.na(p_val)) "NA" else format(p_val, digits = 3))
-    line <- sprintf("%s ~ %s: p = %s", label, group,
-                    if (is.na(p_val)) "NA" else format(p_val, digits = 4))
+    line <- sprintf(
+      "%s ~ %s: p_raw = %s, p_adj (%s) = %s",
+      label, group,
+      if (is.na(p_val))     "NA" else format(p_val,     digits = 4),
+      pad_method,
+      if (is.na(p_val_adj)) "NA" else format(p_val_adj, digits = 4)
+    )
     stats_lines <- c(stats_lines, line)
     pipeline_log(cfg, paste("Alpha diversity:", line))
 

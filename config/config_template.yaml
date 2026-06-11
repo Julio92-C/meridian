@@ -133,6 +133,14 @@ stats:
   permanova_permutations: 9999
   aldex_mc_samples:       128
   alpha: 0.05
+  # Multiple-testing correction applied to every multi-test family in the
+  # pipeline (ALDEx2 GLM, ALDEx2 pairwise, VF×ARG correlation, Mantel
+  # triangle, alpha-diversity Kruskal-Wallis across metrics, per-domain KW,
+  # PERMANOVA). Default "BH" is the field standard for compositional /
+  # abundance data (positive-dependence regime). Use "BY" for the more
+  # conservative arbitrary-dependence FDR control; "bonferroni" / "holm"
+  # for FWER; "none" to disable (raw p-values).
+  padjust_method: BH
 
 # --------------------------------------------------------------------------- #
 # Quarto dashboard display settings                                           #

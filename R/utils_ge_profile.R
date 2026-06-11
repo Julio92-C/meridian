@@ -108,6 +108,11 @@ ge_compute_alpha <- function(df, group, value_col = "TPM") {
 
 # Kruskal-Wallis test of `metric` ~ `group` on the alpha table. Returns NULL
 # (and skips logging) if the metric is missing or there's only one group.
+# Also appends the raw p-value to the cross-module accumulator (surface =
+# "ge_alpha_kw") with `family = metric`, so resistome / virulome / mobilome
+# per-metric KW tests can be family-adjusted across domains by
+# `padj_summary_finalise(cfg, "ge_alpha_kw")` once all GE-side modules
+# have run.
 ge_alpha_kw <- function(alpha, group, metric, cfg, log_label) {
   if (!metric %in% colnames(alpha)) {
     pipeline_log(cfg, sprintf("%s alpha: metric '%s' not found",
@@ -123,6 +128,12 @@ ge_alpha_kw <- function(alpha, group, metric, cfg, log_label) {
   if (!is.null(res)) {
     pipeline_log(cfg, sprintf("%s alpha %s ~ %s KW p = %.4g",
                               log_label, metric, group, res$p.value))
+    tryCatch(
+      padj_summary_record(cfg, surface = "ge_alpha_kw",
+                          family = metric, key = log_label,
+                          raw_p  = res$p.value),
+      error = function(e) NULL
+    )
   }
   res
 }

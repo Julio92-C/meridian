@@ -43,6 +43,11 @@ fmt_duration <- function(secs) {
 pipeline_start <- Sys.time()
 pipeline_log(cfg, sprintf("Starting pipeline for study '%s'", cfg$study$id))
 
+# Cross-module stats accumulators: clear at startup so re-runs don't
+# append to stale rows. Each surface is filled by ge_alpha_kw / similar
+# helpers and finalised by R/13 when building the manifest.
+padj_summary_reset(cfg, "ge_alpha_kw")
+
 # Build the ordered list of stages that will actually run, so we can show
 # "[i/n  pct%] stage_name" progress in the log as each one starts/finishes.
 enabled_names <- c(

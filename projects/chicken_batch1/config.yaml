@@ -52,6 +52,7 @@ stats:
   permanova_permutations: 9999
   aldex_mc_samples:       128
   alpha: 0.05
+  padjust_method: BH    # BH (default) | BY | bonferroni | holm | hochberg | none
 
 # Display caps for the Quarto dashboard. Statistics are always computed on
 # unfiltered data — these only limit what plots and reactable tables show

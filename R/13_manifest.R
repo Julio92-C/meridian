@@ -300,7 +300,13 @@ build_stage_beta_diversity <- function(cfg, stage_times) {
                   description = "PCoA scores from Bray-Curtis on the filtered relative-abundance table."),
       table_entry(cfg, ds_path(cfg, "beta_diversity_jaccard_pcoa.csv"),
                   kind = "beta_pcoa_scores",
-                  description = "PCoA scores from Jaccard (presence/absence) on the filtered relative-abundance table.")
+                  description = "PCoA scores from Jaccard (presence/absence) on the filtered relative-abundance table."),
+      table_entry(cfg, ds_path(cfg, "beta_diversity_padj_summary.csv"),
+                  kind = "beta_padj_summary",
+                  description = "Family-adjusted PERMANOVA + PERMDISP p-values for {Bray, Jaccard} via cfg$stats$padjust_method."),
+      table_entry(cfg, ds_path(cfg, "stats/ge_alpha_kw_padj_summary.csv"),
+                  kind = "ge_alpha_kw_padj_summary",
+                  description = "Cross-domain GE-side alpha-diversity KW p-values, family-adjusted per metric across resistome / virulome / mobilome via cfg$stats$padjust_method.")
     )),
     figures    = Filter(Negate(is.null), list(
       figure_entry(cfg, fig_path(cfg, "beta_diversity/pcoa.png"),
@@ -563,6 +569,9 @@ build_stage_network <- function(cfg, stage_times) {
       table_entry(cfg, ds_path(cfg, "network/mantel_correlation_triangle.csv"),
                   kind = "mantel_triangle_matrix",
                   description = "Pairwise Mantel correlations (Spearman) between Bray-Curtis distance matrices of the 4 omics layers."),
+      table_entry(cfg, ds_path(cfg, "network/mantel_pairwise_padj.csv"),
+                  kind = "mantel_pairwise_padj",
+                  description = "Per-pair Mantel r, raw permutation p, family-adjusted p (via cfg$stats$padjust_method), and adjustment method name."),
       table_entry(cfg, ds_path(cfg, "network/mobile_arg_fraction_per_sample.csv"),
                   kind = "mobile_arg_fraction_per_sample",
                   description = "Per-sample mobile vs non-mobile ARG TPM totals; an ARG is mobile when its contig co-harbours a PlasmidFinder hit."),
@@ -665,6 +674,12 @@ write_manifest <- function(cfg,
     return(invisible(NULL))
   }
   pipeline_log(cfg, "Writing manifest.json")
+
+  # Cross-module padj accumulators get finalised once, here, after every
+  # GE-side module has had a chance to append. Currently surfaces the
+  # ge_alpha_kw family — per-metric KW p-values across resistome /
+  # virulome / mobilome adjusted within each metric.
+  padj_summary_finalise(cfg, "ge_alpha_kw")
 
   meta_path <- file.path(cfg$project_root, cfg$metadata$file)
   meta <- tryCatch(

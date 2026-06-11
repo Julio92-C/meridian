@@ -149,7 +149,8 @@ run_beta_diversity <- function(cleaned, cfg) {
                         file = file.path(fig_dir, "permanova.txt"))
   r2_val <- permanova$R2[1]
   p_val  <- permanova$`Pr(>F)`[1]
-  pipeline_log(cfg, sprintf("PERMANOVA %s: R2 = %.3f, p = %.4g", group, r2_val, p_val))
+  pipeline_log(cfg, sprintf("PERMANOVA %s: R2 = %.3f, p_raw = %.4g",
+                            group, r2_val, p_val))
 
   # ---- 8. PERMDISP (homogeneity of dispersion) --------------------------
   betadisp <- vegan::betadisper(d, factor(meta_aligned[[group]]))
@@ -160,19 +161,108 @@ run_beta_diversity <- function(cleaned, cfg) {
   utils::capture.output(betadisp_test,
                         file = file.path(fig_dir, "permdisp.txt"))
   permdisp_p <- betadisp_test$tab$`Pr(>F)`[1]
-  pipeline_log(cfg, sprintf("PERMDISP %s: p = %.4g", group, permdisp_p))
+  pipeline_log(cfg, sprintf("PERMDISP %s: p_raw = %.4g", group, permdisp_p))
 
   # ---- 9. PCoA scatter + ellipses --------------------------------------
+  # Bray rendering is deferred until after the Jaccard branch runs so we
+  # can family-adjust Bray + Jaccard PERMANOVA p-values (and likewise
+  # PERMDISP) together before annotating either panel. Bray-only
+  # adjustment is degenerate when Jaccard is disabled; we still surface
+  # the raw p so the title stays readable.
   group_levels  <- sort(unique(scores[[group]]))
   pal           <- beta_palette(group_levels, cfg)
   ellipse_type  <- bd_cfg$ellipse_type     %||% "norm"
   ellipse_line  <- bd_cfg$ellipse_linetype %||% "dashed"
 
+  # ---- 9.5. Jaccard PERMANOVA + PERMDISP (computed BEFORE rendering) -----
+  # Compute Jaccard stats up front so the {Bray, Jaccard} PERMANOVA pair
+  # (and the {Bray, Jaccard} PERMDISP pair) can be family-adjusted with
+  # cfg$stats$padjust_method before either PCoA gets annotated.
+  has_jac <- !isFALSE(bd_cfg$jaccard %||% TRUE)
+  scores_j <- NULL; var_j <- NULL
+  p_j <- NA_real_; r2_j <- NA_real_; permdisp_j_p <- NA_real_
+  if (has_jac) {
+    mat_pa  <- vegan::decostand(mat, method = "pa")
+    d_jac   <- vegan::vegdist(mat_pa, method = "jaccard", binary = TRUE)
+    pcoa_j  <- stats::cmdscale(d_jac, eig = TRUE, k = 2)
+    var_j   <- pcoa_j$eig / sum(pcoa_j$eig[pcoa_j$eig > 0]) * 100
+    scores_j <- data.frame(
+      sample = rownames(mat_pa),
+      PC1    = pcoa_j$points[, 1],
+      PC2    = pcoa_j$points[, 2]
+    )
+    scores_j$sample <- as.character(scores_j$sample)
+    scores_j <- dplyr::inner_join(scores_j, meta, by = c("sample" = sid))
+    scores_j[[group]] <- as.character(scores_j[[group]])
+    readr::write_csv(scores_j,
+                     file.path(out_dir, "beta_diversity_jaccard_pcoa.csv"))
+
+    perm_j <- vegan::adonis2(
+      stats::reformulate(group, "d_jac"),
+      data         = meta_aligned,
+      permutations = cfg$stats$permanova_permutations %||% 9999
+    )
+    utils::capture.output(perm_j,
+                          file = file.path(fig_dir, "jaccard_permanova.txt"))
+    r2_j <- perm_j$R2[1]
+    p_j  <- perm_j$`Pr(>F)`[1]
+    pipeline_log(cfg, sprintf("PERMANOVA Jaccard %s: R2 = %.3f, p_raw = %.4g",
+                              group, r2_j, p_j))
+
+    bd_j      <- vegan::betadisper(d_jac, factor(meta_aligned[[group]]))
+    bd_j_test <- vegan::permutest(
+      bd_j, permutations = cfg$stats$permanova_permutations %||% 9999
+    )
+    utils::capture.output(bd_j_test,
+                          file = file.path(fig_dir, "jaccard_permdisp.txt"))
+    permdisp_j_p <- bd_j_test$tab$`Pr(>F)`[1]
+    pipeline_log(cfg, sprintf("PERMDISP Jaccard %s: p_raw = %.4g",
+                              group, permdisp_j_p))
+  }
+
+  # ---- 9.6. Family-adjust PERMANOVA + PERMDISP pairs ---------------------
+  pad_method <- padjust_method(cfg)
+  if (has_jac) {
+    permanova_padj <- padjust_p(c(bray = p_val, jaccard = p_j), cfg)
+    permdisp_padj  <- padjust_p(c(bray = permdisp_p,
+                                   jaccard = permdisp_j_p), cfg)
+  } else {
+    permanova_padj <- c(bray = p_val,    jaccard = NA_real_)
+    permdisp_padj  <- c(bray = permdisp_p, jaccard = NA_real_)
+  }
+  p_val_adj        <- permanova_padj[["bray"]]
+  permdisp_p_adj   <- permdisp_padj[["bray"]]
+  p_j_adj          <- permanova_padj[["jaccard"]]
+  permdisp_j_p_adj <- permdisp_padj[["jaccard"]]
+
+  beta_padj_summary <- data.frame(
+    distance = c("bray-curtis", "jaccard"),
+    test     = rep(c("PERMANOVA", "PERMDISP"), each = 1),
+    stringsAsFactors = FALSE
+  )
+  beta_padj_summary <- rbind(
+    data.frame(distance = "bray-curtis", test = "PERMANOVA",
+               r2 = r2_val, p_raw = p_val, p_adj = p_val_adj,
+               method = pad_method, stringsAsFactors = FALSE),
+    data.frame(distance = "bray-curtis", test = "PERMDISP",
+               r2 = NA_real_, p_raw = permdisp_p, p_adj = permdisp_p_adj,
+               method = pad_method, stringsAsFactors = FALSE),
+    data.frame(distance = "jaccard",     test = "PERMANOVA",
+               r2 = r2_j, p_raw = p_j, p_adj = p_j_adj,
+               method = pad_method, stringsAsFactors = FALSE),
+    data.frame(distance = "jaccard",     test = "PERMDISP",
+               r2 = NA_real_, p_raw = permdisp_j_p, p_adj = permdisp_j_p_adj,
+               method = pad_method, stringsAsFactors = FALSE)
+  )
+  readr::write_csv(beta_padj_summary,
+                    file.path(out_dir, "beta_diversity_padj_summary.csv"))
+
   annot_label <- sprintf(
-    "PERMANOVA R² = %.3f, p = %.4g\nPERMDISP p = %.4g",
-    r2_val, p_val, permdisp_p
+    "PERMANOVA R² = %.3f, p_adj (%s) = %.4g\nPERMDISP p_adj = %.4g",
+    r2_val, pad_method, p_val_adj, permdisp_p_adj
   )
 
+  # ---- 9. Bray-Curtis PCoA scatter + ellipses --------------------------
   p <- ggplot2::ggplot(scores,
         ggplot2::aes(x = PC1, y = PC2, colour = .data[[group]])) +
     ggplot2::geom_point(size = 3) +
@@ -213,52 +303,13 @@ run_beta_diversity <- function(cleaned, cfg) {
   }
 
   # ---- 10. Jaccard PCoA (PIPELINE_V2_GAPS C3) -----------------------------
-  # Presence/absence distance captures rare-biosphere structure that
-  # Bray-Curtis can miss when a handful of abundant taxa dominate. Same
-  # pipeline (PCoA + adonis2 + betadisper + ellipses) but on a binarised
-  # matrix, written to its own filenames so the Bray-Curtis panel stays
-  # untouched. Skip by setting cfg$beta_diversity$jaccard: false.
-  if (!isFALSE(bd_cfg$jaccard %||% TRUE)) {
-    mat_pa  <- vegan::decostand(mat, method = "pa")
-    d_jac   <- vegan::vegdist(mat_pa, method = "jaccard", binary = TRUE)
-    pcoa_j  <- stats::cmdscale(d_jac, eig = TRUE, k = 2)
-    var_j   <- pcoa_j$eig / sum(pcoa_j$eig[pcoa_j$eig > 0]) * 100
-    scores_j <- data.frame(
-      sample = rownames(mat_pa),
-      PC1    = pcoa_j$points[, 1],
-      PC2    = pcoa_j$points[, 2]
-    )
-    scores_j$sample <- as.character(scores_j$sample)
-    scores_j <- dplyr::inner_join(scores_j, meta, by = c("sample" = sid))
-    scores_j[[group]] <- as.character(scores_j[[group]])
-    readr::write_csv(scores_j,
-                     file.path(out_dir, "beta_diversity_jaccard_pcoa.csv"))
-
-    perm_j <- vegan::adonis2(
-      stats::reformulate(group, "d_jac"),
-      data         = meta_aligned,
-      permutations = cfg$stats$permanova_permutations %||% 9999
-    )
-    utils::capture.output(perm_j,
-                          file = file.path(fig_dir, "jaccard_permanova.txt"))
-    r2_j <- perm_j$R2[1]
-    p_j  <- perm_j$`Pr(>F)`[1]
-    pipeline_log(cfg, sprintf("PERMANOVA Jaccard %s: R2 = %.3f, p = %.4g",
-                              group, r2_j, p_j))
-
-    bd_j      <- vegan::betadisper(d_jac, factor(meta_aligned[[group]]))
-    bd_j_test <- vegan::permutest(
-      bd_j, permutations = cfg$stats$permanova_permutations %||% 9999
-    )
-    utils::capture.output(bd_j_test,
-                          file = file.path(fig_dir, "jaccard_permdisp.txt"))
-    permdisp_j_p <- bd_j_test$tab$`Pr(>F)`[1]
-    pipeline_log(cfg, sprintf("PERMDISP Jaccard %s: p = %.4g",
-                              group, permdisp_j_p))
-
+  # Render using family-adjusted PERMANOVA / PERMDISP p-values computed
+  # above. Presence/absence distance captures rare-biosphere structure that
+  # Bray-Curtis can miss when a handful of abundant taxa dominate.
+  if (has_jac) {
     annot_j <- sprintf(
-      "PERMANOVA R² = %.3f, p = %.4g\nPERMDISP p = %.4g",
-      r2_j, p_j, permdisp_j_p
+      "PERMANOVA R² = %.3f, p_adj (%s) = %.4g\nPERMDISP p_adj = %.4g",
+      r2_j, pad_method, p_j_adj, permdisp_j_p_adj
     )
     p_jac <- ggplot2::ggplot(scores_j,
               ggplot2::aes(x = PC1, y = PC2, colour = .data[[group]])) +

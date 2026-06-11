@@ -179,7 +179,9 @@ da_run_glm <- function(level, mat, meta_use, sid, design_str,
     reads = mat, conds = mm, mc.samples = mc,
     denom = denom, verbose = FALSE
   )
-  res <- ALDEx2::aldex.glm(clr, mm, fdr.method = "BH")
+  # ALDEx2::aldex.glm passes `fdr.method` straight to stats::p.adjust, so
+  # the configured family-wide knob (default BH) flows through unmodified.
+  res <- ALDEx2::aldex.glm(clr, mm, fdr.method = padjust_method(cfg))
   res_df <- tibble::rownames_to_column(as.data.frame(res), feature_col)
   readr::write_tsv(res_df, file.path(ds_dir, "glm_results.tsv"))
   pipeline_log(cfg, sprintf("DA[%s] glm → glm_results.tsv (%d features)",
@@ -676,7 +678,24 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
     # embed it as fig5 panel D.
     if (level == "taxa" && length(effect_cols) > 0) {
       alpha_dt  <- cfg$stats$alpha %||% 0.05
-      padj_cols <- grep("_(we|wi)\\.eBH$", colnames(merged), value = TRUE)
+      pad_method <- padjust_method(cfg)
+
+      # ALDEx2 bakes BH into we.eBH/wi.eBH. Re-adjust the raw we.ep/wi.ep
+      # columns using the configured family-wide method so the dot plot
+      # honors cfg$stats$padjust_method (BH by default; flip to BY for the
+      # conservative arbitrary-dependence variant). Columns added next to
+      # the originals so downstream CSVs keep both.
+      rawp_cols <- grep("_(we|wi)\\.ep$", colnames(merged), value = TRUE)
+      for (rc in rawp_cols) {
+        adj_col <- sub("\\.ep$", ".eAdj", rc)
+        merged[[adj_col]] <- padjust_p(merged[[rc]], cfg)
+      }
+
+      padj_cols <- grep("_(we|wi)\\.eAdj$", colnames(merged), value = TRUE)
+      if (length(padj_cols) == 0) {
+        # No raw ep columns available — fall back to ALDEx2's baked eBH.
+        padj_cols <- grep("_(we|wi)\\.eBH$", colnames(merged), value = TRUE)
+      }
       if (length(padj_cols) > 0) {
         sig_mat <- as.matrix(merged[, padj_cols, drop = FALSE]) < alpha_dt
         sig_mat[is.na(sig_mat)] <- FALSE
@@ -693,7 +712,9 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
 
         long_parts <- lapply(effect_cols, function(ec) {
           cn       <- sub("_effect$", "", ec)
-          padj_col <- intersect(c(paste0(cn, "_we.eBH"),
+          padj_col <- intersect(c(paste0(cn, "_we.eAdj"),
+                                  paste0(cn, "_wi.eAdj"),
+                                  paste0(cn, "_we.eBH"),
                                   paste0(cn, "_wi.eBH")),
                                 colnames(sub_m))[1]
           data.frame(

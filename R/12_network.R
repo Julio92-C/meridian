@@ -1060,16 +1060,47 @@ run_network <- function(cleaned, cfg) {
   }
   diag(r_mat) <- 1
 
-  # Save the matrix as CSV for downstream consumption.
+  # Family-wide multiple-testing correction for the upper-triangle pairs
+  # (one test per omics pair, 6 tests for k = 4 layers). Mantel p-values
+  # for omics layers built from the same samples are clearly dependent —
+  # cfg$stats$padjust_method drives this (default BH; BY is the
+  # arbitrary-dependence-safe choice if you want to be conservative).
+  pad_method <- padjust_method(cfg)
+  upper_idx  <- which(upper.tri(p_mat))
+  raw_p      <- p_mat[upper_idx]
+  if (any(!is.na(raw_p))) {
+    adj_p <- padjust_p(raw_p, cfg)
+    padj_mat <- p_mat
+    padj_mat[upper_idx] <- adj_p
+    padj_mat[lower.tri(padj_mat)] <- t(padj_mat)[lower.tri(padj_mat)]
+  } else {
+    padj_mat <- p_mat
+  }
+
+  # Save both the r matrix and the (raw + adjusted) pair-wise p-values.
   out_df <- cbind(data.frame(domain = dom_names),
                   as.data.frame(round(r_mat, 4)))
   readr::write_csv(out_df,
                     file.path(ds_dir, "mantel_correlation_triangle.csv"))
+  if (length(upper_idx) > 0) {
+    pair_idx <- which(upper.tri(p_mat), arr.ind = TRUE)
+    pairs_df <- data.frame(
+      domain_a = dom_names[pair_idx[, 1]],
+      domain_b = dom_names[pair_idx[, 2]],
+      mantel_r = round(r_mat[upper_idx], 4),
+      p_raw    = signif(p_mat[upper_idx], 4),
+      p_adj    = signif(padj_mat[upper_idx], 4),
+      method   = pad_method,
+      stringsAsFactors = FALSE
+    )
+    readr::write_csv(pairs_df,
+                      file.path(ds_dir, "mantel_pairwise_padj.csv"))
+  }
 
-  stars <- ifelse(is.na(p_mat), "",
-    ifelse(p_mat < 0.001, "***",
-    ifelse(p_mat < 0.01,  "**",
-    ifelse(p_mat < 0.05,  "*", ""))))
+  stars <- ifelse(is.na(padj_mat), "",
+    ifelse(padj_mat < 0.001, "***",
+    ifelse(padj_mat < 0.01,  "**",
+    ifelse(padj_mat < 0.05,  "*", ""))))
   labels <- ifelse(is.na(r_mat), "",
                    paste0(sprintf("%.2f", r_mat), stars))
   diag(labels) <- "—"
@@ -1085,14 +1116,16 @@ run_network <- function(cleaned, cfg) {
     fontsize_number = 13,
     border_color    = "grey70",
     fontsize_row = 12, fontsize_col = 12, fontsize = 11,
-    main = sprintf("Mantel triangle (Spearman, %s-level, %d perms)",
-                   level, perms),
+    main = sprintf(
+      "Mantel triangle (Spearman, %s-level, %d perms, p adj %s)",
+      level, perms, pad_method
+    ),
     filename = file.path(fig_dir, "mantel_correlation_triangle.png"),
     width = 7, height = 6
   )
   pipeline_log(cfg, sprintf(
-    "Mantel triangle: %d domains x %d, %d pairs computed",
-    k, k, sum(!is.na(r_mat[upper.tri(r_mat)]))
+    "Mantel triangle: %d domains x %d, %d pairs computed, p adjusted via %s",
+    k, k, sum(!is.na(r_mat[upper.tri(r_mat)])), pad_method
   ))
   invisible(NULL)
 }

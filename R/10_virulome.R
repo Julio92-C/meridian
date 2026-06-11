@@ -267,7 +267,10 @@ run_virulome <- function(cleaned, cfg) {
           p_mat[i, j] <- ct$p.value
         }
       }
-      padj <- matrix(stats::p.adjust(as.vector(p_mat), method = "BH"),
+      # Flatten + adjust across ALL (VF category × drug class) cells as
+      # one family. Family-wide method comes from cfg$stats$padjust_method
+      # (default BH; flip to BY for arbitrary-dependence FDR).
+      padj <- matrix(padjust_p(as.vector(p_mat), cfg),
                      nrow = nrow(p_mat), ncol = ncol(p_mat),
                      dimnames = dimnames(p_mat))
       stars <- ifelse(is.na(padj), "",
