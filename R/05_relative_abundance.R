@@ -304,8 +304,20 @@ run_relative_abundance <- function(cleaned, cfg) {
     )
     # Per-rank streamgraph companion. Uses the per-rank df_rank (already
     # rolled up to (sample, rank_value) and with facet_by attached) so
-    # the rank stream matches the rank stacked bar exactly.
+    # the rank stream matches the rank stacked bar exactly. Palette is
+    # built per rank via relab_palette (the project core palette) so
+    # colours are consistent with the rest of the pipeline.
     if (!is.null(facet_by) && facet_by %in% colnames(df_rank)) {
+      rank_levels_ordered <- df_rank |>
+        dplyr::group_by(.data$name) |>
+        dplyr::summarise(total = sum(.data$count, na.rm = TRUE),
+                         .groups = "drop") |>
+        dplyr::arrange(dplyr::desc(.data$total)) |>
+        dplyr::pull(.data$name)
+      rank_palette <- setNames(
+        relab_palette(length(rank_levels_ordered) + 1L, cfg),
+        c(rank_levels_ordered, "Others")
+      )
       save_stream_composition(
         df_rank,
         file.path(fig_dir,
@@ -313,7 +325,7 @@ run_relative_abundance <- function(cleaned, cfg) {
         category_col = "name",
         group_col    = facet_by,
         value_col    = "count",
-        palette      = NULL,  # rank-level palettes not pre-built; defaults OK
+        palette      = rank_palette,
         title        = sprintf("Composition by treatment (%s level)", rank_col)
       )
     }
