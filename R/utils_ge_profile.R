@@ -232,9 +232,15 @@ ge_plot_alpha_bar <- function(alpha, group, metric, kw, pal_group, file,
   ggplot2::ggsave(file, p, width = bw, height = 5, dpi = 300)
 }
 
-# Per-(sample, gene) log(value + 1) violin + box + jitter coloured by group,
-# with Kruskal-Wallis annotation. Complements the richness-based alpha plot
-# by showing per-feature abundance distribution differences across groups.
+# Per-(sample, gene) log(value + 1) abundance plot coloured by group,
+# with Kruskal-Wallis global p annotated in the upper-right corner AND
+# pairwise Wilcoxon comparisons bracketed above the boxplots
+# (asterisks: * p<0.05, ** p<0.01, *** p<0.001, **** p<0.0001).
+#
+# Style: box + jittered dots (no violin envelope) — same as alpha-side
+# polish 2026-06-12. Pairwise comparisons run via ggpubr::compare_means
+# with cfg$stats$padjust_method applied across all pairs in the family.
+# Skipped silently when ggpubr isn't available or < 2 groups present.
 ge_plot_abundance_violin <- function(df, group, pal_group, file,
                                       title, log_label, cfg,
                                       value_col = "TPM",
@@ -264,10 +270,8 @@ ge_plot_abundance_violin <- function(df, group, pal_group, file,
   p <- ggplot2::ggplot(v,
         ggplot2::aes(x = .data[[group]], y = .data$log_val,
                      fill = .data[[group]])) +
-    ggplot2::geom_violin(trim = FALSE, scale = "width", alpha = 0.6) +
-    ggplot2::geom_boxplot(width = 0.12, outlier.shape = NA,
-                          position = ggplot2::position_dodge(0.9)) +
-    ggplot2::geom_jitter(width = 0.08, size = 0.7, alpha = 0.35) +
+    ggplot2::geom_boxplot(width = 0.55, outlier.shape = NA, alpha = 0.55) +
+    ggplot2::geom_jitter(width = 0.12, size = 0.6, alpha = 0.3) +
     ggplot2::scale_fill_manual(values = pal_group) +
     ggplot2::labs(x = group, y = y_label, title = title) +
     ggplot2::theme_classic() +
@@ -284,6 +288,34 @@ ge_plot_abundance_violin <- function(df, group, pal_group, file,
       label = sprintf("Kruskal-Wallis p = %.2g", kw$p.value),
       hjust = 1.05, vjust = 1.4, size = 4.2, colour = "black"
     )
+  }
+  # Pairwise Wilcoxon comparisons with bracketed asterisks. Uses
+  # ggpubr::stat_compare_means when available; family-adjustment method
+  # comes from cfg$stats$padjust_method. y-positions for the brackets
+  # auto-computed above the box-plot stack so they don't overlap the
+  # KW annotation in the corner.
+  group_levels <- sort(unique(as.character(v[[group]])))
+  if (requireNamespace("ggpubr", quietly = TRUE) &&
+      length(group_levels) >= 2) {
+    pairs <- utils::combn(group_levels, 2, simplify = FALSE)
+    pad_method <- padjust_method(cfg)
+    y_top  <- max(v$log_val, na.rm = TRUE)
+    y_rng  <- diff(range(v$log_val, na.rm = TRUE))
+    steps  <- y_rng * 0.08
+    label_ys <- y_top + steps * seq_along(pairs)
+    p <- p + ggpubr::stat_compare_means(
+      comparisons       = pairs,
+      method            = "wilcox.test",
+      label             = "p.signif",
+      p.adjust.method   = pad_method,
+      hide.ns           = FALSE,
+      tip.length        = 0.015,
+      step.increase     = 0.08,
+      vjust             = 0.4,
+      size              = 5
+    )
+    # Headroom so the highest bracket clears the panel top.
+    p <- p + ggplot2::expand_limits(y = y_top + steps * (length(pairs) + 1))
   }
   ggplot2::ggsave(file, p, width = 7, height = 5.5, dpi = 300)
 }
