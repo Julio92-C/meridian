@@ -47,6 +47,7 @@ stages:
   mobilome:               true
   network:                true
   report:                 true
+  panels:                 true
 
 stats:
   permanova_permutations: 9999

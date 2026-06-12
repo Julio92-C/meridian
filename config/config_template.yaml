@@ -125,6 +125,7 @@ stages:
   mobilome:               true
   network:                true
   report:                 true
+  panels:                 true     # Publication panels + supplementary XLSX
 
 # --------------------------------------------------------------------------- #
 # Statistical parameters (methods match Chicken batch 1 manuscript)           #

@@ -64,7 +64,8 @@ enabled_names <- c(
   if (isTRUE(cfg$stages$mobilome))               "mobilome",
   if (isTRUE(cfg$stages$network))                "network",
   if (isTRUE(cfg$stages$report))                 "report",
-  if (isTRUE(cfg$stages$manifest %||% TRUE))     "manifest"
+  if (isTRUE(cfg$stages$manifest %||% TRUE))     "manifest",
+  if (isTRUE(cfg$stages$panels   %||% TRUE))     "panels"
 )
 total_stages <- length(enabled_names)
 stage_idx    <- 0L
@@ -146,6 +147,11 @@ run_stage("manifest", function() {
     pipeline_repo_root = repo_root
   )
 })
+
+# Publication panels + supplementary tables XLSX. Runs AFTER manifest so
+# it can read the kind-tagged manifest.json directly; gated by
+# cfg$stages$panels (default TRUE).
+run_stage("panels", function() run_panels(cfg))
 
 total_elapsed <- as.numeric(difftime(Sys.time(), pipeline_start, units = "secs"))
 pipeline_log(cfg, sprintf("Pipeline finished — %d/%d stages complete in %s",
