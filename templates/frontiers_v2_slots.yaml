@@ -280,17 +280,25 @@ supplementary:
   #   D abundance log(TPM) box+jitter w/ pairwise asterisks
   #   E heatmap (drug class / VF function / replicon family)
 
+  # 3-row x 2-col layout (5 panels A-E, last cell blank) per the
+  # 2026-06-12 follow-up. Panel B switched from TPM x Prevalence dot
+  # plot to the simpler Total TPM horizontal bar (drug_total_count /
+  # vf_total_count / mge_total_count) which reads more cleanly at
+  # the smaller composite cell. Venns use GENE-level kinds for all
+  # three domains so "values in each sector correspond to counts of
+  # unique/shared GENES" stays consistent.
+
   figS_diet_effects_arg:
     title: "Diet effects on antibiotic resistance genes (ARGs) across treatments"
-    rows: 5
-    cols: 1
+    rows: 3
+    cols: 2
     labels: true
     panels:
       - tag: A
         kind: ge_drug_relative_abundance
         domain: resistome
       - tag: B
-        kind: ge_drug_count_prevalence
+        kind: ge_drug_total_count
         domain: resistome
       - tag: C
         kind: ge_venn_args
@@ -304,18 +312,21 @@ supplementary:
 
   figS_diet_effects_vf:
     title: "Diet effects on virulence factors (VFs) across treatments"
-    rows: 5
-    cols: 1
+    rows: 3
+    cols: 2
     labels: true
     panels:
       - tag: A
         kind: ge_vf_relative_abundance
         domain: virulome
       - tag: B
-        kind: ge_vf_count_prevalence
+        kind: ge_vf_total_count
         domain: virulome
       - tag: C
-        kind: ge_venn_vf_functions
+        # Gene-level Venn (kind ge_venn_vfs, added 2026-06-12 to R/10).
+        # Function-level ge_venn_vf_functions stays available for other
+        # layouts.
+        kind: ge_venn_vfs
         domain: virulome
       - tag: D
         kind: ge_vf_abundance_violin
@@ -326,15 +337,15 @@ supplementary:
 
   figS_diet_effects_mge:
     title: "Diet effects on plasmid replicons (MGEs) across treatments"
-    rows: 5
-    cols: 1
+    rows: 3
+    cols: 2
     labels: true
     panels:
       - tag: A
         kind: ge_mge_relative_abundance
         domain: mobilome
       - tag: B
-        kind: ge_mge_count_prevalence
+        kind: ge_mge_total_count
         domain: mobilome
       - tag: C
         kind: ge_venn_replicons

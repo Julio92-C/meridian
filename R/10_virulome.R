@@ -131,6 +131,16 @@ run_virulome <- function(cleaned, cfg) {
     main_title = sprintf("VF functions shared across %s groups", group),
     log_label = label, cfg = cfg
   )
+  # Gene-level VF Venn — added 2026-06-12 for the diet-effects
+  # supplementary which wants treatment-overlap of individual VF genes
+  # (matching the ARG and MGE rows which already operate at GENE level).
+  # Falls through R/13's auto-classifier as kind `ge_venn_vfs`.
+  ge_plot_category_venn(
+    vfdb, category_col = "GENE", group = group, pal_group = pal_group,
+    file = file.path(fig_dir, "venn_vfs.png"),
+    main_title = sprintf("VF genes shared across %s groups", group),
+    log_label = label, cfg = cfg
+  )
 
   # VF UpSet (gene-level) — UpSet counterpart to the function-level Venn.
   ge_plot_category_upset(
