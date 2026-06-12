@@ -3,6 +3,8 @@
 Literature-grounded punch-list for [`Metagenomics_pipeline_automation`](https://github.com/Julio92-C/Metagenomics_pipeline_automation).
 Derived from systematic review of 8 published shotgun-metagenomics papers on poultry gut microbiome (2022–2025, primarily Frontiers in Microbiology) using the `metaomics-scribe` literature agent (session 2026-06-10).
 
+> **Related**: see [`docs/STATISTICS.md`](STATISTICS.md) for the family-wide multiple-testing correction system (`cfg$stats$padjust_method`, default BH, optional BY) and a per-surface map of where it applies.
+
 **Comparator papers consulted:**
 - Yang et al. 2023, PMC10222538 — broiler resistome + virulome + correlations
 - Dierikx et al. 2022, fmicb.2022.833790 — chicken gut resistome, Frontiers Microbiology
