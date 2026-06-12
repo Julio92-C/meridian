@@ -222,112 +222,68 @@ supplementary:
   #   D abundance log(TPM) box+jitter w/ pairwise asterisks
   #   E heatmap (drug class / VF function / replicon family)
 
-  # Sectioned layout (Option G, 2026-06-12 follow-up):
-  #   Section 1: A relative-abundance bar — full row (wide aspect)
-  #   Section 2: B + C + D side-by-side in one row (square-ish each)
-  #   Section 3: E heatmap — full row (wide aspect)
-  # Wide-aspect panels (A and E) get their own row so the per-sample
-  # stacked bar above and the drug-class × sample heatmap below have
-  # the full canvas width to render legibly. B (total TPM), C (Venn),
-  # and D (abundance + pairwise) share the middle row evenly.
+  # 2x2 flat layout (2026-06-12 follow-up). The Venn was dropped from
+  # this composite — treatment overlap is also visible in the main
+  # composite UpSet panels, and removing it lets the remaining four
+  # panels each occupy a full quadrant.
 
   figS_diet_effects_arg:
     title: "Diet effects on antibiotic resistance genes (ARGs) across treatments"
+    rows: 2
+    cols: 2
     labels: true
-    sections:
-      - rows: 1
-        cols: 1
-        rel_height: 0.25
-        panels:
-          - tag: A
-            kind: ge_drug_relative_abundance
-            domain: resistome
-      - rows: 1
-        cols: 3
-        rel_height: 0.35
-        panels:
-          - tag: B
-            kind: ge_drug_total_count
-            domain: resistome
-          - tag: C
-            kind: ge_venn_args
-            domain: resistome
-          - tag: D
-            kind: ge_arg_abundance_violin
-            domain: resistome
-      - rows: 1
-        cols: 1
-        rel_height: 0.40
-        panels:
-          - tag: E
-            kind: ge_pheatmap_drug_classes
-            domain: resistome
+    panels:
+      - tag: A
+        kind: ge_drug_relative_abundance
+        domain: resistome
+      - tag: B
+        kind: ge_drug_total_count
+        domain: resistome
+      - tag: C
+        kind: ge_arg_abundance_violin
+        domain: resistome
+      - tag: D
+        kind: ge_pheatmap_drug_classes
+        domain: resistome
 
   figS_diet_effects_vf:
     title: "Diet effects on virulence factors (VFs) across treatments"
+    rows: 2
+    cols: 2
     labels: true
-    sections:
-      - rows: 1
-        cols: 1
-        rel_height: 0.25
-        panels:
-          - tag: A
-            kind: ge_vf_relative_abundance
-            domain: virulome
-      - rows: 1
-        cols: 3
-        rel_height: 0.35
-        panels:
-          - tag: B
-            kind: ge_vf_total_count
-            domain: virulome
-          - tag: C
-            # Gene-level Venn (kind ge_venn_vfs, added 2026-06-12 to R/10).
-            kind: ge_venn_vfs
-            domain: virulome
-          - tag: D
-            kind: ge_vf_abundance_violin
-            domain: virulome
-      - rows: 1
-        cols: 1
-        rel_height: 0.40
-        panels:
-          - tag: E
-            kind: ge_pheatmap_functions
-            domain: virulome
+    panels:
+      - tag: A
+        kind: ge_vf_relative_abundance
+        domain: virulome
+      - tag: B
+        kind: ge_vf_total_count
+        domain: virulome
+      - tag: C
+        kind: ge_vf_abundance_violin
+        domain: virulome
+      - tag: D
+        kind: ge_pheatmap_functions
+        domain: virulome
 
   figS_diet_effects_mge:
     title: "Diet effects on plasmid replicons (MGEs) across treatments"
+    rows: 2
+    cols: 2
     labels: true
-    sections:
-      - rows: 1
-        cols: 1
-        rel_height: 0.25
-        panels:
-          - tag: A
-            kind: ge_mge_relative_abundance
-            domain: mobilome
-      - rows: 1
-        cols: 3
-        rel_height: 0.35
-        panels:
-          - tag: B
-            kind: ge_mge_total_count
-            domain: mobilome
-          - tag: C
-            kind: ge_venn_replicons
-            domain: mobilome
-          - tag: D
-            kind: ge_mge_abundance_violin
-            domain: mobilome
-      - rows: 1
-        cols: 1
-        rel_height: 0.40
-        panels:
-          - tag: E
-            # Gene-level heatmap per the 2026-06-12 MGE design call.
-            kind: ge_pheatmap_genes
-            domain: mobilome
+    panels:
+      - tag: A
+        kind: ge_mge_relative_abundance
+        domain: mobilome
+      - tag: B
+        kind: ge_mge_total_count
+        domain: mobilome
+      - tag: C
+        kind: ge_mge_abundance_violin
+        domain: mobilome
+      - tag: D
+        # Gene-level heatmap per the 2026-06-12 MGE design call.
+        kind: ge_pheatmap_genes
+        domain: mobilome
 
   # =============================================================
   # Gene-level pheatmaps (legacy supplementary slots) — full-detail
