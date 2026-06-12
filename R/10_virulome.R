@@ -165,7 +165,12 @@ run_virulome <- function(cleaned, cfg) {
   # ---- (3) Gene-level pheatmap with Function row annotation ------------
   if (requireNamespace("pheatmap", quietly = TRUE)) {
     gene_renames <- vcfg$gene_renames %||% list()
+    # Restrict to genes with a recognised Functions assignment so the
+    # row annotation sidebar always renders (genes whose PRODUCT didn't
+    # match any of the function patterns get filtered out — they'd
+    # produce an unlabelled row and an empty palette entry otherwise).
     vfdb_r <- vfdb |>
+      dplyr::filter(!is.na(.data$Functions), nzchar(.data$Functions)) |>
       dplyr::mutate(GENE = ge_apply_literal_renames(.data$GENE, gene_renames))
     ge_plot_gene_heatmap(
       vfdb_r, group, pal_group, pal_function,
@@ -174,7 +179,7 @@ run_virulome <- function(cleaned, cfg) {
       palette = vcfg$gene_heatmap_palette %||% c("#0612bd", "#bbbbbd", "#bd0606"),
       top_n   = vcfg$top_n_genes %||% 30L,
       rank_by = vcfg$gene_rank_by %||% "prevalence",
-      fontsize_row = 6, row_height_factor = 0.14, min_height = 7
+      fontsize_row = 8, row_height_factor = 0.18, min_height = 7
     )
   } else {
     pipeline_log(cfg, "Virulome: pheatmap not available — heatmaps skipped")

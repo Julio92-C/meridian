@@ -140,12 +140,23 @@ ge_alpha_kw <- function(alpha, group, metric, cfg, log_label) {
 
 # Min-max scale each column of a matrix independently to [0, 1]. Columns
 # with zero range collapse to all-zero. Matches the GT pheatmap recipe.
+#
+# Explicitly re-attaches dimnames after apply() — when any column has zero
+# range and FUN returns an unnamed rep(0, n), apply silently strips ALL
+# rownames from the assembled matrix (because consistency of names across
+# columns can't be guaranteed). That break manifested in the VF gene
+# heatmap as missing row labels + a dropped annotation_row sidebar (rownames
+# = NULL meant cat_per_gene[rownames(.), ] aligned to nothing).
 ge_minmax_per_col <- function(mat) {
-  apply(mat, 2, function(x) {
+  result <- apply(mat, 2, function(x) {
     rng <- range(x, na.rm = TRUE)
     if (diff(rng) == 0) return(rep(0, length(x)))
     (x - rng[1]) / diff(rng)
   })
+  if (is.matrix(result) && all(dim(result) == dim(mat))) {
+    dimnames(result) <- dimnames(mat)
+  }
+  result
 }
 
 # Boxplot + jittered dots of `metric` ~ `group`, fill by group. Violin
@@ -508,9 +519,14 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
     cluster_cols = FALSE,
     color = grDevices::colorRampPalette(palette)(100),
     border_color      = NA,
+    show_rownames     = TRUE,
+    show_colnames     = TRUE,
     annotation_row    = cat_per_gene,
     annotation_col    = sample_group,
     annotation_colors = if (length(ann_colors) > 0) ann_colors else NA,
+    annotation_legend = TRUE,
+    annotation_names_row = FALSE,
+    annotation_names_col = FALSE,
     gaps_col          = gaps_col,
     fontsize_row = fontsize_row, fontsize_col = 9, fontsize = 10,
     filename = file,
