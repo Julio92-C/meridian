@@ -1,0 +1,354 @@
+# Publication panel layout — Frontiers in Microbiology v2 layout.
+# Codified from the v2 layout table in docs/PIPELINE_V2_GAPS.md.
+#
+# Schema:
+#   main / supplementary:
+#     <slot_slug>:
+#       title:  one-line title rendered above the composed figure
+#       rows:   grid rows
+#       cols:   grid cols
+#       panels: ordered list (left-to-right, top-to-bottom)
+#         - tag:    "A" | "B" | "C" | "D" (auto-assigned if omitted)
+#           kind:   manifest `kind` to match
+#           domain: optional filter (e.g. "resistome" / "virulome" / "mobilome" / "taxa")
+#           metric: optional filter for alpha_violin / alpha_bar
+#           pair:   optional 2-element list filter for aldex2_maplot
+#           organism: optional filter for species_count_genmap
+#           rank:   optional taxonomic rank filter
+#           required: true (default) — slot skipped if missing; false — panel just absent
+#
+# Resolution rule: the first manifest entry matching all specified
+# (kind, domain, metric, pair, organism, rank) filters wins. Filters
+# that aren't specified are wildcards.
+
+main:
+  fig01_study_overview:
+    title: "Study overview and QC"
+    rows: 1
+    cols: 2
+    panels:
+      - tag: A
+        kind: study_design_schematic
+        required: false
+      - tag: B
+        kind: rarefaction_curves
+
+  fig02_alpha_diversity:
+    title: "Alpha diversity across treatments"
+    rows: 2
+    cols: 2
+    panels:
+      - tag: A
+        kind: alpha_violin
+        metric: "Richness"
+      - tag: B
+        kind: alpha_violin
+        metric: "Shannon diversity index"
+      - tag: C
+        kind: alpha_violin
+        metric: "Chao1 estimator"
+      - tag: D
+        kind: alpha_violin
+        metric: "Simpson's index"
+
+  fig03_beta_diversity:
+    title: "Beta diversity and community structure"
+    rows: 1
+    cols: 2
+    panels:
+      - tag: A
+        kind: pcoa_scatter
+      - tag: B
+        kind: pcoa_jaccard
+
+  fig04_taxa_composition:
+    title: "Taxonomic composition"
+    rows: 2
+    cols: 2
+    panels:
+      - tag: A
+        kind: composition_stacked_bar
+      - tag: B
+        kind: taxa_heatmap
+        required: false
+      - tag: C
+        kind: genus_heatmap
+
+  fig05_differential_abundance:
+    title: "Differential abundance (ALDEx2)"
+    rows: 2
+    cols: 2
+    panels:
+      - tag: A
+        kind: aldex2_maplot
+        domain: taxa
+        pair: ["Dulce", "Reference_diet"]
+        required: false
+      - tag: B
+        kind: aldex2_maplot
+        domain: taxa
+        pair: ["Dulce", "Soyabean_meal"]
+        required: false
+      - tag: C
+        kind: aldex2_maplot
+        domain: taxa
+        pair: ["Reference_diet", "Soyabean_meal"]
+        required: false
+      - tag: D
+        kind: aldex2_dotplot
+        required: false
+
+  fig06_resistome_diversity:
+    title: "Resistome diversity and ordination"
+    rows: 2
+    cols: 2
+    panels:
+      - tag: A
+        kind: ge_alpha_richness_violin
+        domain: resistome
+      - tag: B
+        kind: ge_alpha_shannon_violin
+        domain: resistome
+      - tag: C
+        kind: ge_drug_total_count
+        domain: resistome
+      - tag: D
+        kind: ge_pcoa
+        domain: resistome
+
+  fig07_resistome_composition:
+    title: "Resistome composition"
+    rows: 2
+    cols: 2
+    panels:
+      - tag: A
+        kind: ge_pheatmap_genes
+        domain: resistome
+      - tag: B
+        kind: arg_upset
+      - tag: C
+        kind: arg_circos
+
+  fig08_virulome_mobilome:
+    title: "Virulome and mobilome profiles"
+    rows: 2
+    cols: 2
+    panels:
+      - tag: A
+        kind: ge_vf_total_count
+        domain: virulome
+      - tag: B
+        kind: ge_mge_family_total_count
+        domain: mobilome
+      - tag: C
+        kind: ge_mge_relative_abundance
+        domain: mobilome
+      - tag: D
+        kind: vf_arg_corr_heatmap
+
+  fig09_network:
+    title: "ARG–taxa co-occurrence network"
+    rows: 1
+    cols: 2
+    panels:
+      - tag: A
+        kind: network_graph
+      - tag: B
+        kind: degree_distribution
+
+  fig10_multiomics_integration:
+    title: "Multi-omic integration"
+    rows: 2
+    cols: 2
+    panels:
+      - tag: A
+        kind: sankey_taxon_arg_mge
+        required: false
+      - tag: B
+        kind: mantel_triangle
+      - tag: C
+        kind: mobile_fraction_bar
+        required: false
+
+supplementary:
+  figS01_rarefaction:
+    title: "Rarefaction curves"
+    rows: 1
+    cols: 1
+    panels:
+      - tag: A
+        kind: rarefaction_curves
+
+  figS02_unique_sp:
+    title: "Unique-species composition"
+    rows: 1
+    cols: 1
+    panels:
+      - tag: A
+        kind: composition_unique_species
+
+  figS03_shared_sp:
+    title: "Shared-species composition"
+    rows: 1
+    cols: 1
+    panels:
+      - tag: A
+        kind: composition_shared_species
+
+  # figS04_taxa_levels: per-rank composition stacked bars. Currently
+  # disabled — R/05 only emits a single composition_stacked_bar (no
+  # rank breakdown). Re-enable once the pipeline emits per-rank
+  # variants with a `rank` field; resolver matches on the field
+  # automatically.
+  # figS04_taxa_levels:
+  #   title: "Full taxonomic breakdown"
+  #   rows: 2
+  #   cols: 2
+  #   panels:
+  #     - { tag: A, kind: composition_stacked_bar, rank: class,   required: false }
+  #     - { tag: B, kind: composition_stacked_bar, rank: order,   required: false }
+  #     - { tag: C, kind: composition_stacked_bar, rank: family,  required: false }
+  #     - { tag: D, kind: composition_stacked_bar, rank: species, required: false }
+
+  figS05_top30_daa:
+    title: "Top-30 DAA heatmap"
+    rows: 1
+    cols: 1
+    panels:
+      - tag: A
+        kind: taxa_daa_heatmap
+
+  figS06_arg_alpha:
+    title: "ARG alpha diversity"
+    rows: 1
+    cols: 2
+    panels:
+      - tag: A
+        kind: ge_alpha_richness_bar
+        domain: resistome
+      - tag: B
+        kind: ge_alpha_shannon_bar
+        domain: resistome
+
+  figS07_arg_pheatmap:
+    title: "Full ARG gene heatmap"
+    rows: 1
+    cols: 1
+    panels:
+      - tag: A
+        kind: ge_pheatmap_genes
+        domain: resistome
+
+  figS08_arg_beta:
+    title: "ARG beta diversity (extended)"
+    rows: 1
+    cols: 2
+    panels:
+      - tag: A
+        kind: ge_pcoa
+        domain: resistome
+      - tag: B
+        kind: nmds_scatter
+        required: false
+
+  figS09_vf_alpha:
+    title: "VF alpha diversity"
+    rows: 1
+    cols: 2
+    panels:
+      - tag: A
+        kind: ge_alpha_richness_bar
+        domain: virulome
+      - tag: B
+        kind: ge_alpha_shannon_bar
+        domain: virulome
+
+  figS10_vf_pheatmap:
+    title: "VF function heatmap"
+    rows: 1
+    cols: 1
+    panels:
+      - tag: A
+        kind: ge_pheatmap_functions
+        domain: virulome
+
+  figS11_vf_all_pheatmap:
+    title: "All-VF gene heatmap"
+    rows: 1
+    cols: 1
+    panels:
+      - tag: A
+        kind: ge_pheatmap_genes
+        domain: virulome
+
+  figS12_vf_sankey:
+    title: "VF taxa-to-function sankey"
+    rows: 1
+    cols: 1
+    panels:
+      - tag: A
+        kind: sankey_png
+
+  figS13_cdiff_genmap:
+    title: "Clostridioides difficile count + gene map"
+    rows: 1
+    cols: 2
+    panels:
+      - tag: A
+        kind: species_count_genmap
+        organism: "Clostridioides difficile"
+        required: false
+      - tag: B
+        kind: species_count_genmap
+        organism: "Clostridioides difficile"
+        required: false
+
+  figS14_entero_genmap:
+    title: "Enterobacteriaceae count + gene map"
+    rows: 1
+    cols: 2
+    panels:
+      - tag: A
+        kind: species_count_genmap
+        organism: "Enterobacteriaceae"
+        required: false
+      - tag: B
+        kind: species_count_genmap
+        organism: "Enterobacteriaceae"
+        required: false
+
+  figS15_mge_alpha:
+    title: "MGE alpha diversity"
+    rows: 1
+    cols: 2
+    panels:
+      - tag: A
+        kind: ge_alpha_richness_bar
+        domain: mobilome
+      - tag: B
+        kind: ge_alpha_shannon_bar
+        domain: mobilome
+
+  figS16_connectivity:
+    title: "Cross-domain connectivity"
+    rows: 2
+    cols: 2
+    panels:
+      - tag: A
+        kind: connectivity_venn_taxa
+      - tag: B
+        kind: connectivity_venn_genesets
+      - tag: C
+        kind: ge_arg_abundance_violin
+        domain: resistome
+      - tag: D
+        kind: ge_pcoa
+        domain: resistome
+
+  figS17_corr_extended:
+    title: "Extended correlation matrices"
+    rows: 1
+    cols: 1
+    panels:
+      - tag: A
+        kind: vf_arg_corr_heatmap

@@ -55,6 +55,16 @@ run_panels <- function(cfg) {
   dir.create(file.path(fig_root, "supplementary"), recursive = TRUE,
              showWarnings = FALSE)
 
+  # Wipe any stale panel PNGs from previous runs / previous YAML versions
+  # so the directory only ever reflects the current slot layout. Without
+  # this, renaming a slot or moving one between main/supplementary leaves
+  # an orphaned file behind.
+  for (sub in c("main", "supplementary")) {
+    stale <- list.files(file.path(fig_root, sub),
+                         pattern = "\\.(png|pdf)$", full.names = TRUE)
+    if (length(stale) > 0) file.remove(stale)
+  }
+
   built_main <- character()
   for (slug in names(slots$main %||% list())) {
     out_path <- file.path(fig_root, "main", paste0(slug, ".png"))
@@ -214,9 +224,14 @@ run_panels <- function(cfg) {
     rows <- ceiling(length(plots) / cols)
   }
 
+  # Standalone "no-label" slots (`labels: false` in YAML) get a single
+  # full-width composition with no A/B/C tag overlay — the slot title at
+  # the top is the only annotation. Used for relative-abundance stacked
+  # bars, heatmaps, chord, sankey, network.
+  use_labels <- !identical(spec$labels, FALSE)
   composed <- cowplot::plot_grid(
     plotlist = plots,
-    labels   = tags,
+    labels   = if (use_labels) tags else NULL,
     label_size = 16,
     label_fontface = "bold",
     nrow = rows, ncol = cols
