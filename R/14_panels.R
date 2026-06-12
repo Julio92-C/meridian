@@ -157,85 +157,54 @@ run_panels <- function(cfg) {
     ))
     return(NULL)
   }
-  panels <- spec$panels %||% list()
-  if (length(panels) == 0) return(NULL)
 
-  resolved <- vector("list", length(panels))
-  missing_required <- character()
-  for (i in seq_along(panels)) {
-    p <- panels[[i]]
-    hit <- .panels_find_match(p, figures_index, cfg)
-    if (is.null(hit)) {
-      if (isFALSE(p$required %||% TRUE)) {
-        resolved[[i]] <- NULL  # optional panel just absent
-      } else {
-        missing_required <- c(
-          missing_required,
-          sprintf("%s (kind=%s)", p$tag %||% LETTERS[i], p$kind)
-        )
-      }
-    } else {
-      resolved[[i]] <- list(panel = p, entry = hit)
-    }
-  }
-  if (length(missing_required) > 0) {
-    pipeline_log(cfg, sprintf(
-      "Panels[%s]: missing required panels %s — slot skipped",
-      slug, paste(missing_required, collapse = ", ")
-    ))
-    return(NULL)
-  }
-  resolved <- Filter(Negate(is.null), resolved)
-  if (length(resolved) == 0) {
-    pipeline_log(cfg, sprintf(
-      "Panels[%s]: no usable panels — slot skipped", slug
-    ))
-    return(NULL)
-  }
-
-  plots <- list()
-  tags  <- character()
-  for (item in resolved) {
-    abs_path <- .panels_resolve_path(cfg, item$entry$path)
-    if (!file.exists(abs_path)) {
-      pipeline_log(cfg, sprintf(
-        "Panels[%s]: PNG missing on disk (%s) — slot skipped",
-        slug, abs_path
-      ))
-      return(NULL)
-    }
-    img <- tryCatch(magick::image_read(abs_path), error = function(e) NULL)
-    if (is.null(img)) {
-      pipeline_log(cfg, sprintf(
-        "Panels[%s]: failed to read %s — slot skipped", slug, abs_path
-      ))
-      return(NULL)
-    }
-    plots[[length(plots) + 1]] <- cowplot::ggdraw() +
-      cowplot::draw_image(img)
-    tags <- c(tags, item$panel$tag %||% LETTERS[length(plots)])
-  }
-
-  rows <- max(1L, as.integer(spec$rows %||% 1L))
-  cols <- max(1L, as.integer(spec$cols %||% length(plots)))
-  # cowplot tiles plots in row-major order. We allow rows*cols < length(plots)
-  # by overflowing to extra rows (rare; only when slot YAML is misconfigured).
-  if (rows * cols < length(plots)) {
-    rows <- ceiling(length(plots) / cols)
-  }
-
-  # Standalone "no-label" slots (`labels: false` in YAML) get a single
-  # full-width composition with no A/B/C tag overlay — the slot title at
-  # the top is the only annotation. Used for relative-abundance stacked
-  # bars, heatmaps, chord, sankey, network.
   use_labels <- !identical(spec$labels, FALSE)
-  composed <- cowplot::plot_grid(
-    plotlist = plots,
-    labels   = if (use_labels) tags else NULL,
-    label_size = 16,
-    label_fontface = "bold",
-    nrow = rows, ncol = cols
-  )
+
+  # Two layout modes:
+  # 1. Flat (legacy)  — spec$panels + spec$rows + spec$cols. Single grid.
+  # 2. Sections (new) — spec$sections is a list of {panels, rows, cols,
+  #    rel_height} groups stacked vertically. Used when one panel needs
+  #    to span the full row width above a sub-grid (e.g. the diet-effects
+  #    supplementaries: A on top, B-E in 2x2 below).
+  if (!is.null(spec$sections) && length(spec$sections) > 0) {
+    section_blocks <- list()
+    section_rel    <- numeric()
+    section_rows   <- integer()
+    total_cols     <- 1L
+    total_panels   <- 0L
+    for (i in seq_along(spec$sections)) {
+      sec    <- spec$sections[[i]]
+      block  <- .panels_build_section_grid(slug, sec, figures_index, cfg,
+                                            use_labels, sprintf("sec%d", i))
+      if (is.null(block)) return(NULL)
+      section_blocks[[length(section_blocks) + 1]] <- block$grid
+      section_rel <- c(section_rel,
+                       as.numeric(sec$rel_height %||% block$rows))
+      section_rows <- c(section_rows, block$rows)
+      total_cols   <- max(total_cols, as.integer(block$cols))
+      total_panels <- total_panels + block$n_panels
+    }
+    composed <- cowplot::plot_grid(
+      plotlist     = section_blocks,
+      ncol         = 1,
+      rel_heights  = section_rel
+    )
+    # Sum the *actual* row counts across sections so the output canvas
+    # gets enough vertical room (rel_height is a relative split within
+    # the canvas, NOT a row-count substitute). For 1+2x2 layout this
+    # gives rows_eq = 3, matching the legacy 3x2 layout footprint.
+    rows_eq <- sum(section_rows)
+    cols    <- total_cols
+    n_panels_for_log <- total_panels
+  } else {
+    block <- .panels_build_section_grid(slug, spec, figures_index, cfg,
+                                         use_labels, "main")
+    if (is.null(block)) return(NULL)
+    composed         <- block$grid
+    rows_eq          <- block$rows
+    cols             <- block$cols
+    n_panels_for_log <- block$n_panels
+  }
 
   title <- spec$title %||% slug
   composed_with_title <- cowplot::plot_grid(
@@ -248,7 +217,7 @@ run_panels <- function(cfg) {
 
   dpi    <- cfg$panels$dpi    %||% 300
   width  <- cfg$panels$width  %||% (5.5 * cols)
-  height <- cfg$panels$height %||% (4.5 * rows + 0.4)
+  height <- cfg$panels$height %||% (4.5 * rows_eq + 0.4)
 
   ggplot2::ggsave(out_path, composed_with_title,
                    width = width, height = height,
@@ -263,9 +232,91 @@ run_panels <- function(cfg) {
 
   pipeline_log(cfg, sprintf(
     "Panels[%s]: %d panel(s) assembled -> %s",
-    slug, length(plots), basename(out_path)
+    slug, n_panels_for_log, basename(out_path)
   ))
   out_path
+}
+
+# Build a single panel grid from a `panels` spec block. Used by both the
+# legacy flat layout and the new section-based layout. Returns a list of
+# (grid, rows, cols, n_panels) on success, NULL on failure / empty.
+.panels_build_section_grid <- function(slug, sec_spec, figures_index, cfg,
+                                        use_labels, sec_id) {
+  panels <- sec_spec$panels %||% list()
+  if (length(panels) == 0) return(NULL)
+
+  resolved <- vector("list", length(panels))
+  missing_required <- character()
+  for (i in seq_along(panels)) {
+    p <- panels[[i]]
+    hit <- .panels_find_match(p, figures_index, cfg)
+    if (is.null(hit)) {
+      if (isFALSE(p$required %||% TRUE)) {
+        resolved[[i]] <- NULL
+      } else {
+        missing_required <- c(
+          missing_required,
+          sprintf("%s (kind=%s)", p$tag %||% LETTERS[i], p$kind)
+        )
+      }
+    } else {
+      resolved[[i]] <- list(panel = p, entry = hit)
+    }
+  }
+  if (length(missing_required) > 0) {
+    pipeline_log(cfg, sprintf(
+      "Panels[%s/%s]: missing required panels %s — slot skipped",
+      slug, sec_id, paste(missing_required, collapse = ", ")
+    ))
+    return(NULL)
+  }
+  resolved <- Filter(Negate(is.null), resolved)
+  if (length(resolved) == 0) {
+    pipeline_log(cfg, sprintf(
+      "Panels[%s/%s]: no usable panels — section skipped", slug, sec_id
+    ))
+    return(NULL)
+  }
+
+  plots <- list()
+  tags  <- character()
+  for (item in resolved) {
+    abs_path <- .panels_resolve_path(cfg, item$entry$path)
+    if (!file.exists(abs_path)) {
+      pipeline_log(cfg, sprintf(
+        "Panels[%s/%s]: PNG missing on disk (%s) — slot skipped",
+        slug, sec_id, abs_path
+      ))
+      return(NULL)
+    }
+    img <- tryCatch(magick::image_read(abs_path), error = function(e) NULL)
+    if (is.null(img)) {
+      pipeline_log(cfg, sprintf(
+        "Panels[%s/%s]: failed to read %s — slot skipped",
+        slug, sec_id, abs_path
+      ))
+      return(NULL)
+    }
+    plots[[length(plots) + 1]] <- cowplot::ggdraw() +
+      cowplot::draw_image(img)
+    tags <- c(tags, item$panel$tag %||% LETTERS[length(plots)])
+  }
+
+  rows <- max(1L, as.integer(sec_spec$rows %||% 1L))
+  cols <- max(1L, as.integer(sec_spec$cols %||% length(plots)))
+  if (rows * cols < length(plots)) {
+    rows <- ceiling(length(plots) / cols)
+  }
+
+  grid <- cowplot::plot_grid(
+    plotlist       = plots,
+    labels         = if (use_labels) tags else NULL,
+    label_size     = 16,
+    label_fontface = "bold",
+    nrow           = rows,
+    ncol           = cols
+  )
+  list(grid = grid, rows = rows, cols = cols, n_panels = length(plots))
 }
 
 # ---------------------------------------------------------------------------
