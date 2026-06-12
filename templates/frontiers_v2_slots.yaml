@@ -209,6 +209,14 @@ main:
     panels:
       - kind: network_graph
 
+  fig10_vf_arg_correlation:
+    title: "Cross-domain VF × ARG correlation heatmap"
+    rows: 1
+    cols: 1
+    labels: false
+    panels:
+      - kind: vf_arg_corr_heatmap
+
 supplementary:
 
   # =============================================================
@@ -297,6 +305,14 @@ supplementary:
     labels: false
     panels:
       - kind: taxa_heatmap
+
+  figS00b_network_degree_distribution:
+    title: "Network degree distribution"
+    rows: 1
+    cols: 1
+    labels: false
+    panels:
+      - kind: degree_distribution
 
   figS01_heatmap_arg_genes:
     title: "Heatmap — individual ARG genes"
