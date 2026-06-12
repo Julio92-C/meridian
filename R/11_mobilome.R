@@ -165,7 +165,8 @@ run_mobilome <- function(cleaned, cfg) {
       category_col = "Replicon_Family",
       file    = file.path(fig_dir, "pheatmap_genes.png"),
       palette = mcfg$gene_heatmap_palette %||% c("#ebc3c0", "#bd0606", "#d98c07"),
-      top_n   = mcfg$top_n_genes,
+      top_n   = mcfg$top_n_genes %||% 30L,
+      rank_by = mcfg$gene_rank_by %||% "prevalence",
       fontsize_row = 10, row_height_factor = 0.32, min_height = 5
     )
   } else {

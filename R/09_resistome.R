@@ -184,7 +184,8 @@ run_resistome <- function(cleaned, cfg) {
       category_col = "DRUG",
       file    = file.path(fig_dir, "pheatmap_genes.png"),
       palette = rcfg$gene_heatmap_palette %||% c("#0612bd", "#bbbbbd", "#bd0606"),
-      top_n   = rcfg$top_n_genes,
+      top_n   = rcfg$top_n_genes %||% 30L,
+      rank_by = rcfg$gene_rank_by %||% "prevalence",
       fontsize_row = 8, row_height_factor = 0.18, min_height = 7
     )
   } else {

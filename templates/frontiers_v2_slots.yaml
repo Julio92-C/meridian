@@ -314,6 +314,14 @@ supplementary:
     panels:
       - kind: degree_distribution
 
+  figS00c_rarefaction_curves:
+    title: "Rarefaction curves"
+    rows: 1
+    cols: 1
+    labels: false
+    panels:
+      - kind: rarefaction_curves
+
   figS01_heatmap_arg_genes:
     title: "Heatmap — individual ARG genes"
     rows: 1

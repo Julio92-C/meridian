@@ -172,7 +172,8 @@ run_virulome <- function(cleaned, cfg) {
       category_col = "Functions",
       file    = file.path(fig_dir, "pheatmap_genes.png"),
       palette = vcfg$gene_heatmap_palette %||% c("#0612bd", "#bbbbbd", "#bd0606"),
-      top_n   = vcfg$top_n_genes,
+      top_n   = vcfg$top_n_genes %||% 30L,
+      rank_by = vcfg$gene_rank_by %||% "prevalence",
       fontsize_row = 6, row_height_factor = 0.14, min_height = 7
     )
   } else {
@@ -278,10 +279,36 @@ run_virulome <- function(cleaned, cfg) {
       tibble::column_to_rownames("sample") |>
       as.matrix()
 
-    common <- intersect(rownames(vf_mat), rownames(arg_mat))
+    # Backfill missing samples with zero abundance on both sides so the
+    # correlation is computed across the full metadata sample set
+    # (rather than the smaller intersect of "samples with detections in
+    # both domains"). Zero = "no detection" which is itself the relevant
+    # signal for omics correlation, and consistent N across cross-domain
+    # analyses is the methodological norm.
+    sid_col   <- cfg$metadata$sample_id_col
+    meta_full <- tryCatch(
+      readr::read_csv(file.path(cfg$project_root, cfg$metadata$file),
+                       show_col_types = FALSE, progress = FALSE),
+      error = function(e) NULL
+    )
+    controls  <- cfg$metadata$controls %||% character(0)
+    all_samples <- if (!is.null(meta_full)) {
+      s <- as.character(meta_full[[sid_col]])
+      sort(setdiff(s, controls))
+    } else {
+      sort(union(rownames(vf_mat), rownames(arg_mat)))
+    }
+    .reindex_zero <- function(mat, samples) {
+      out <- matrix(0, nrow = length(samples), ncol = ncol(mat),
+                     dimnames = list(samples, colnames(mat)))
+      hit <- intersect(samples, rownames(mat))
+      if (length(hit) > 0) out[hit, ] <- mat[hit, , drop = FALSE]
+      out
+    }
+    vf_mat  <- .reindex_zero(vf_mat,  all_samples)
+    arg_mat <- .reindex_zero(arg_mat, all_samples)
+    common <- all_samples
     if (length(common) >= 3 && ncol(vf_mat) >= 2 && ncol(arg_mat) >= 2) {
-      vf_mat  <- vf_mat[common, , drop = FALSE]
-      arg_mat <- arg_mat[common, , drop = FALSE]
 
       r_mat <- matrix(NA_real_, nrow = ncol(vf_mat), ncol = ncol(arg_mat),
                       dimnames = list(colnames(vf_mat), colnames(arg_mat)))

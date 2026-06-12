@@ -437,6 +437,7 @@ ge_plot_category_venn <- function(df, category_col, group, pal_group,
 ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
                                   category_col, file, palette,
                                   top_n             = NULL,
+                                  rank_by           = "abundance",
                                   fontsize_row      = 8,
                                   row_height_factor = 0.18,
                                   min_height        = 7) {
@@ -447,8 +448,18 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
                        values_fill = 0) |>
     tibble::column_to_rownames("GENE") |>
     as.matrix()
-  gene_wide <- gene_wide[order(rowSums(gene_wide), decreasing = TRUE), ,
-                          drop = FALSE]
+  # Row ordering / top_n ranking strategy:
+  #   abundance               (default) sum(TPM) across samples
+  #   prevalence              count of samples where TPM > 0
+  #   prevalence_x_abundance  composite — handles dominant-but-rare AND
+  #                           widespread-but-low cases evenly
+  rank_score <- switch(rank_by,
+    abundance              = rowSums(gene_wide),
+    prevalence             = rowSums(gene_wide > 0),
+    prevalence_x_abundance = rowSums(gene_wide > 0) * rowSums(gene_wide),
+    rowSums(gene_wide)
+  )
+  gene_wide <- gene_wide[order(rank_score, decreasing = TRUE), , drop = FALSE]
   if (!is.null(top_n) && nrow(gene_wide) > top_n) {
     gene_wide <- gene_wide[seq_len(top_n), , drop = FALSE]
   }
@@ -474,10 +485,20 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
   } else NULL
 
   ann_colors <- list()
-  ann_colors[[group]] <- pal_group[grp_lvls]
+  grp_palette <- pal_group[intersect(names(pal_group), grp_lvls)]
+  if (length(grp_palette) > 0) {
+    ann_colors[[group]] <- grp_palette
+  }
   cat_levels <- unique(stats::na.omit(cat_per_gene[[category_col]]))
-  ann_colors[[category_col]] <- pal_category[intersect(names(pal_category),
-                                                       cat_levels)]
+  cat_in_pal <- intersect(names(pal_category), cat_levels)
+  if (length(cat_in_pal) > 0) {
+    ann_colors[[category_col]] <- pal_category[cat_in_pal]
+  } else {
+    # Top-N subset had no genes with a recognised category (e.g. all
+    # NA Functions on the VF side after prevalence ranking). Drop the
+    # row annotation rather than crashing pheatmap with a 0-length gpar.
+    cat_per_gene <- NA
+  }
 
   hm_height <- max(min_height, row_height_factor * nrow(gene_scaled) + 3)
   hm_width  <- max(8, 0.4 * ncol(gene_scaled) + 4)
@@ -489,7 +510,7 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
     border_color      = NA,
     annotation_row    = cat_per_gene,
     annotation_col    = sample_group,
-    annotation_colors = ann_colors,
+    annotation_colors = if (length(ann_colors) > 0) ann_colors else NA,
     gaps_col          = gaps_col,
     fontsize_row = fontsize_row, fontsize_col = 9, fontsize = 10,
     filename = file,
