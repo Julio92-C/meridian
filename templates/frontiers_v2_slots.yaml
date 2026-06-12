@@ -171,17 +171,12 @@ main:
   # main as the taxa story doesn't have a diet-effects supplementary
   # of its own.
 
-  # --- Species heatmap (taxa only) -------------------------------------
-  fig06_heatmap_species:
-    title: "Heatmap — top species"
-    rows: 1
-    cols: 1
-    labels: false
-    panels:
-      - kind: taxa_heatmap
+  # Taxa species heatmap moved to supplementary 2026-06-12 (sits beside
+  # the gene-level heatmaps there). The taxa diversity / composition
+  # story in main is carried by fig01 composite + fig05 species RA.
 
   # --- Chord, Sankey, Network ------------------------------------------
-  fig07_chord:
+  fig06_chord:
     title: "Chord diagram — overall ARG–taxa flow"
     rows: 1
     cols: 1
@@ -189,7 +184,7 @@ main:
     panels:
       - kind: chord
 
-  fig08_sankey_vf:
+  fig07_sankey_vf:
     title: "Sankey — VF taxa-to-function flow"
     rows: 1
     cols: 1
@@ -197,7 +192,7 @@ main:
     panels:
       - kind: sankey_png
 
-  fig09_sankey_taxon_arg_mge:
+  fig08_sankey_taxon_arg_mge:
     title: "Sankey — phylum → ARG drug class → MGE replicon family"
     rows: 1
     cols: 1
@@ -206,7 +201,7 @@ main:
       - kind: sankey_taxon_arg_mge
         required: false
 
-  fig10_network:
+  fig09_network:
     title: "Tripartite network — sample × taxon × gene element"
     rows: 1
     cols: 1
@@ -325,6 +320,15 @@ supplementary:
   # Gene-level pheatmaps (legacy supplementary slots) — full-detail
   # per-gene rendering. Moved here from main 2026-06-12.
   # =============================================================
+
+  figS00_heatmap_species:
+    title: "Heatmap — top species"
+    rows: 1
+    cols: 1
+    labels: false
+    panels:
+      - kind: taxa_heatmap
+
   figS01_heatmap_arg_genes:
     title: "Heatmap — individual ARG genes"
     rows: 1
