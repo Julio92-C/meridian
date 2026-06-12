@@ -91,9 +91,10 @@ build_count_prevalence <- function(df,
                         linetype = "dashed", colour = "grey40") +
     ggplot2::geom_hline(yintercept = tpm_cutoff_log,
                         linetype = "dashed", colour = "grey40") +
-    ggplot2::geom_point(size = 3, alpha = 0.85) +
-    ggplot2::scale_x_continuous(limits = c(0, 100),
-                                 breaks = seq(0, 100, by = 25)) +
+    ggplot2::geom_point(size = 4, alpha = 0.85) +
+    ggplot2::scale_x_continuous(limits = c(0, 105),
+                                 breaks = seq(0, 100, by = 25),
+                                 expand = ggplot2::expansion(mult = 0.02)) +
     ggplot2::labs(
       x      = "Prevalence (%)",
       y      = expression(log[10] ~ "Average TPM"),
@@ -101,8 +102,14 @@ build_count_prevalence <- function(df,
     ) +
     ggplot2::theme_classic() +
     ggplot2::theme(
-      legend.position = "right",
-      text = ggplot2::element_text(size = 12)
+      # Legend off by default — the standalone relative-abundance plot
+      # sharing the same palette already carries the category legend,
+      # so duplicating it here just shrinks the plotting area. Caller
+      # can re-enable via cfg-driven theming if a panel needs it
+      # standalone without a paired RA bar.
+      legend.position = "none",
+      text            = ggplot2::element_text(size = 13),
+      axis.title      = ggplot2::element_text(size = 14)
     )
 
   if (!is.null(palette)) {
@@ -110,26 +117,44 @@ build_count_prevalence <- function(df,
                                             na.value = "grey60")
   }
 
-  # Plain geom_text rather than ggrepel — ggrepel's viewport-bound
-  # placement crashes ("Viewport has zero dimension(s)") on log-scaled
-  # y-axes with extreme dynamic range. hjust/vjust offsets keep labels
-  # off the dots; small size keeps them legible even when categories
-  # cluster in the upper-right quadrant.
+  # ggrepel for non-overlapping labels — earlier "Viewport has zero
+  # dimension(s)" crash was caused by max.overlaps = Inf combined with
+  # log10(small TPM) -> extreme y bounds. Capping max.overlaps + bounding
+  # the y data to a sensible range keeps the layout engine happy.
   if (nrow(to_label) > 0) {
-    p <- p + ggplot2::geom_text(
-      data = to_label,
-      ggplot2::aes(label = .data[[category_col]]),
-      hjust = -0.12, vjust = -0.4, size = 3.0,
-      check_overlap = TRUE, show.legend = FALSE
-    )
+    if (requireNamespace("ggrepel", quietly = TRUE)) {
+      p <- p + ggrepel::geom_text_repel(
+        data = to_label,
+        ggplot2::aes(label = .data[[category_col]]),
+        size              = 3.6,
+        force             = 1.2,
+        force_pull        = 0.3,
+        max.overlaps      = 20,
+        min.segment.length = 0,
+        segment.colour    = "grey60",
+        segment.size      = 0.3,
+        box.padding       = 0.4,
+        point.padding     = 0.2,
+        seed              = 42L,
+        show.legend       = FALSE
+      )
+    } else {
+      p <- p + ggplot2::geom_text(
+        data = to_label,
+        ggplot2::aes(label = .data[[category_col]]),
+        hjust = -0.12, vjust = -0.5, size = 3.6,
+        check_overlap = TRUE, show.legend = FALSE
+      )
+    }
   }
 
   p
 }
 
 # Convenience wrapper: build + ggsave in one call. Returns the file path on
-# success, NULL when the data is empty.
-save_count_prevalence <- function(df, png_path, ..., width = 9, height = 6,
+# success, NULL when the data is empty. Default canvas widened to 12x7
+# (was 9x6) so labels and quadrant lines stay legible standalone.
+save_count_prevalence <- function(df, png_path, ..., width = 12, height = 7,
                                    dpi = 300) {
   p <- build_count_prevalence(df, ...)
   if (is.null(p)) return(NULL)

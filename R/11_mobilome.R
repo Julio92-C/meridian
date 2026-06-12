@@ -182,9 +182,21 @@ run_mobilome <- function(cleaned, cfg) {
     ds_file  = file.path(ds_dir,  "mge_total_TPM.csv"),
     fill_label = "Plasmid replicon"
   )
-  # Streamgraph companion (2026-06-12 polish) — per-treatment view for
-  # composite panel D. Replicon family stream below mirrors the family
-  # stacked bar in (6).
+  # Streamgraph companions (2026-06-12 polish) — per-treatment view for
+  # the MGE composite. The user asked 2026-06-12 to use plasmid replicon
+  # GENES (IncF, IncX, ColE1 ...) rather than the family rollup for the
+  # main MGE panels, so we emit both: the gene-level stream is what the
+  # YAML targets in fig04 / fig08, the family stream stays for
+  # supplementary or alternative layouts.
+  save_stream_composition(
+    pfdb,
+    file.path(fig_dir, "mge_stream_abundance.png"),
+    category_col = "GENE",
+    group_col    = group,
+    value_col    = "TPM",
+    palette      = pal_gene,
+    title        = "MGE plasmid replicon (gene) composition by treatment"
+  )
   save_stream_composition(
     pfdb_fam,
     file.path(fig_dir, "mge_family_stream_abundance.png"),

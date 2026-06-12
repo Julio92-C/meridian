@@ -60,18 +60,18 @@ main:
       - tag: C
         kind: pcoa_scatter
       - tag: D
-        # Per-treatment smoothed area at species level — readable at small
-        # composite scale where the per-sample stacked bar in fig05 isn't.
-        kind: composition_stream
-        rank: species
-      - tag: E
-        kind: species_prevalence
-        required: false
-      - tag: F
         # Venn (3-set treatment) replaces UpSet for taxa per 2026-06-12
         # design call — taxa has no UpSet kind, and Venn reads cleanly with
         # 3 treatment groups.
         kind: venn
+      - tag: E
+        kind: species_prevalence
+        required: false
+      - tag: F
+        # Per-treatment smoothed area at species level — readable at small
+        # composite scale where the per-sample stacked bar in fig05 isn't.
+        kind: composition_stream
+        rank: species
 
   fig02_resistome_overview:
     title: "Resistome (ARG) diversity overview"
@@ -89,13 +89,13 @@ main:
         kind: ge_pcoa
         domain: resistome
       - tag: D
-        kind: ge_drug_stream_abundance
-        domain: resistome
+        kind: arg_upset
       - tag: E
         kind: ge_drug_count_prevalence
         domain: resistome
       - tag: F
-        kind: arg_upset
+        kind: ge_drug_stream_abundance
+        domain: resistome
 
   fig03_virulome_overview:
     title: "Virulome (VF) diversity overview"
@@ -113,16 +113,16 @@ main:
         kind: ge_pcoa
         domain: virulome
       - tag: D
-        kind: ge_vf_stream_abundance
-        domain: virulome
+        kind: vf_upset
       - tag: E
         kind: ge_vf_count_prevalence
         domain: virulome
       - tag: F
-        kind: vf_upset
+        kind: ge_vf_stream_abundance
+        domain: virulome
 
   fig04_mobilome_overview:
-    title: "Mobilome (MGE) diversity overview"
+    title: "Mobilome (plasmid replicon) diversity overview"
     rows: 2
     cols: 3
     labels: true
@@ -137,13 +137,15 @@ main:
         kind: ge_pcoa
         domain: mobilome
       - tag: D
-        kind: ge_mge_family_stream_abundance
-        domain: mobilome
+        kind: mge_upset
       - tag: E
-        kind: ge_mge_family_count_prevalence
+        # Gene-level prevalence (IncF, IncX, ColE1, ...) per the 2026-06-12
+        # design call. Family-level kept for supplementary if needed.
+        kind: ge_mge_count_prevalence
         domain: mobilome
       - tag: F
-        kind: mge_upset
+        kind: ge_mge_stream_abundance
+        domain: mobilome
 
   # ---------------------------------------------------------------------
   # Standalone panels — no A/B/C tags, single full-width figure each.
@@ -177,8 +179,8 @@ main:
       - kind: ge_vf_relative_abundance
         domain: virulome
 
-  fig08_relative_abundance_mge_family:
-    title: "Relative abundance — MGE replicon families"
+  fig08_relative_abundance_mge_genes:
+    title: "Relative abundance — plasmid replicon genes"
     rows: 1
     cols: 1
     labels: false
@@ -214,12 +216,15 @@ main:
         domain: virulome
 
   fig12_heatmap_mge_replicon:
-    title: "Heatmap — MGE replicon families"
+    title: "Heatmap — plasmid replicon genes"
     rows: 1
     cols: 1
     labels: false
     panels:
-      - kind: ge_pheatmap_replicon_families
+      # Gene-level (individual IncF/IncX/Col... entries). Family-level
+      # heatmap remains available via `ge_pheatmap_replicon_families` if
+      # a supplementary slot wants it.
+      - kind: ge_pheatmap_genes
         domain: mobilome
 
   # Gene-level heatmaps moved to supplementary 2026-06-12 — they take a
@@ -283,11 +288,7 @@ supplementary:
       - kind: ge_pheatmap_genes
         domain: virulome
 
-  figS03_heatmap_mge_genes:
-    title: "Heatmap — individual MGE genes"
-    rows: 1
-    cols: 1
-    labels: false
-    panels:
-      - kind: ge_pheatmap_genes
-        domain: mobilome
+  # figS03_heatmap_mge_genes removed 2026-06-12 — fig12_heatmap_mge_replicon
+  # in main: now covers the plasmid-replicon gene heatmap. The family-level
+  # heatmap (ge_pheatmap_replicon_families) is still emitted by R/11 and
+  # available if a future supplementary slot wants it.

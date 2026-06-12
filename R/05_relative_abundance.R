@@ -248,17 +248,23 @@ run_relative_abundance <- function(cleaned, cfg) {
   # ---- 6a-stream. Per-treatment streamgraph (2026-06-12 polish) ---------
   # Mirrors templates/panels_ref/relativate_abundace.png — per-(treatment,
   # category) mean % as a smoothed stacked area. Lives in composite panel
-  # D where the small panel size makes the per-sample stacked bar above
+  # F where the small panel size makes the per-sample stacked bar above
   # hard to read. Species-level here; per-rank streams emitted in the
   # 6a-bis loop below.
+  #
+  # Palette: project-wide relab_palette keyed by taxon name so the stream
+  # colors match the standalone stacked bar exactly. Categories outside
+  # the top_n (and the Others bin) still get a colour via the named
+  # vector — scale_fill_manual ignores extras.
   if (!is.null(facet_by)) {
+    stream_palette <- setNames(palette, taxa_levels)
     save_stream_composition(
       df,
       file.path(fig_dir, "relative_abundance_stream.png"),
       category_col = "name",
       group_col    = facet_by,
       value_col    = "count",
-      palette      = NULL,
+      palette      = stream_palette,
       title        = "Species composition by treatment"
     )
   }
