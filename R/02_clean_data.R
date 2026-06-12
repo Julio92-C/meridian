@@ -113,7 +113,8 @@ clean_data <- function(inputs, cfg) {
   }
 
   sample_cols <- setdiff(colnames(rcf_named),
-                         c("taxid", "name", "phylum", "genus",
+                         c("taxid", "name",
+                           "phylum", "class", "order", "family", "genus",
                            "Classifier", controls))
 
   pivoted <- rcf_named |>
@@ -222,15 +223,19 @@ clean_data <- function(inputs, cfg) {
        merged          = merged)
 }
 
-# Build a (taxid → phylum, genus) data frame from a kraken2 combined-report
-# frame. Relies on the report being in NCBI DFS pre-order with `lvl_type`
-# carrying rank codes — both standard for kraken2 combined-reports.
+# Build a per-taxid ancestry data frame from a kraken2 combined-report
+# frame. Tracks every NCBI rank above species (phylum, class, order,
+# family, genus). Relies on the report being in NCBI DFS pre-order with
+# `lvl_type` carrying rank codes — both standard for kraken2
+# combined-reports.
 #
 # For each ancestor rank we track a "current" value that is:
 #   - cleared (NA) when the row's rank is *strictly above* that ancestor,
-#   - set when the row's rank is exactly that ancestor (bare `P` / bare `G`),
+#   - set when the row's rank is exactly that ancestor (bare `P`, `C`,
+#     `O`, `F`, or `G`),
 #   - carried forward when the row's rank is at or below that ancestor
-#     (so e.g. species rows inherit the genus their kraken2 lineage set).
+#     (so e.g. species rows inherit the genus, family, order, class, and
+#     phylum their kraken2 lineage set).
 #
 # Reset uses the first letter of the rank code so sub-ranks (`P1`, `C1`,
 # `F1`, ...) reset their respective ancestor lookups correctly.
@@ -247,24 +252,42 @@ build_taxid_ancestry <- function(kraken2) {
   nm <- trimws(as.character(kraken2$name))
   td <- as.character(kraken2$taxid)
 
-  # Letters of rank codes that sit strictly above each ancestor we track.
-  phylum_reset <- c("U", "R", "D", "K")
-  genus_reset  <- c("U", "R", "D", "K", "P", "C", "O", "F")
+  # Rank codes that sit strictly above each ancestor we track. Mapping
+  # is hierarchical: phylum-reset is the strictest (only U/R/D/K above),
+  # each subsequent rank adds the parent ranks above it.
+  rank_resets <- list(
+    phylum = c("U", "R", "D", "K"),
+    class  = c("U", "R", "D", "K", "P"),
+    order  = c("U", "R", "D", "K", "P", "C"),
+    family = c("U", "R", "D", "K", "P", "C", "O"),
+    genus  = c("U", "R", "D", "K", "P", "C", "O", "F")
+  )
+  rank_set_code <- c(phylum = "P", class = "C", order = "O",
+                     family = "F", genus  = "G")
 
-  phy <- character(length(rk))
-  gen <- character(length(rk))
-  cur_phy <- NA_character_
-  cur_gen <- NA_character_
+  cols <- lapply(names(rank_resets), function(r) character(length(rk)))
+  names(cols) <- names(rank_resets)
+  cur <- setNames(rep(NA_character_, length(rank_resets)),
+                  names(rank_resets))
+
   for (i in seq_along(rk)) {
     r <- rk[[i]]
     first <- if (is.na(r)) NA_character_ else substr(r, 1L, 1L)
-    if (!is.na(first) && first %in% phylum_reset) cur_phy <- NA_character_
-    if (!is.na(first) && first %in% genus_reset)  cur_gen <- NA_character_
-    if (!is.na(r) && r == "P") cur_phy <- nm[[i]]
-    if (!is.na(r) && r == "G") cur_gen <- nm[[i]]
-    phy[[i]] <- cur_phy
-    gen[[i]] <- cur_gen
+    for (rk_name in names(rank_resets)) {
+      if (!is.na(first) && first %in% rank_resets[[rk_name]]) {
+        cur[[rk_name]] <- NA_character_
+      }
+      if (!is.na(r) && r == rank_set_code[[rk_name]]) {
+        cur[[rk_name]] <- nm[[i]]
+      }
+      cols[[rk_name]][[i]] <- cur[[rk_name]]
+    }
   }
-  data.frame(taxid = td, phylum = phy, genus = gen,
+  data.frame(taxid  = td,
+             phylum = cols$phylum,
+             class  = cols$class,
+             order  = cols$order,
+             family = cols$family,
+             genus  = cols$genus,
              stringsAsFactors = FALSE)
 }

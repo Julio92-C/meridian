@@ -182,6 +182,18 @@ run_mobilome <- function(cleaned, cfg) {
     ds_file  = file.path(ds_dir,  "mge_total_TPM.csv"),
     fill_label = "Plasmid replicon"
   )
+  # Streamgraph companion (2026-06-12 polish) — per-treatment view for
+  # composite panel D. Replicon family stream below mirrors the family
+  # stacked bar in (6).
+  save_stream_composition(
+    pfdb_fam,
+    file.path(fig_dir, "mge_family_stream_abundance.png"),
+    category_col = "Replicon_Family",
+    group_col    = group,
+    value_col    = "TPM",
+    palette      = pal_family,
+    title        = "MGE replicon family composition by treatment"
+  )
   ge_plot_total_bar(
     gene_totals, category_col = "GENE", value_col = "Total_TPM",
     palette = pal_gene,

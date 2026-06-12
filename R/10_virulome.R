@@ -190,6 +190,17 @@ run_virulome <- function(cleaned, cfg) {
       ds_file  = file.path(ds_dir,  "vf_total_TPM.csv"),
       fill_label = "Virulent function"
     )
+    # Streamgraph companion (2026-06-12 polish) — per-treatment view for
+    # composite panel D.
+    save_stream_composition(
+      vfdb_fun,
+      file.path(fig_dir, "vf_stream_abundance.png"),
+      category_col = "Functions",
+      group_col    = group,
+      value_col    = "TPM",
+      palette      = pal_function,
+      title        = "VF function composition by treatment"
+    )
     ge_plot_total_bar(
       vf_totals, category_col = "Functions", value_col = "Total_TPM",
       palette = pal_function,

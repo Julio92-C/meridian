@@ -245,6 +245,59 @@ run_relative_abundance <- function(cleaned, cfg) {
   ggplot2::ggsave(file.path(fig_dir, "relative_abundance.png"), p,
                   width = pw, height = ph, dpi = 300)
 
+  # ---- 6a-stream. Per-treatment streamgraph (2026-06-12 polish) ---------
+  # Mirrors templates/panels_ref/relativate_abundace.png — per-(treatment,
+  # category) mean % as a smoothed stacked area. Lives in composite panel
+  # D where the small panel size makes the per-sample stacked bar above
+  # hard to read. Species-level here; per-rank streams emitted in the
+  # 6a-bis loop below.
+  if (!is.null(facet_by)) {
+    save_stream_composition(
+      df,
+      file.path(fig_dir, "relative_abundance_stream.png"),
+      category_col = "name",
+      group_col    = facet_by,
+      value_col    = "count",
+      palette      = NULL,
+      title        = "Species composition by treatment"
+    )
+  }
+
+  # ---- 6a-bis. Per-rank composition stacked bars (2026-06-12 polish) ----
+  # Roll up the species-level df to class / order / family / genus via the
+  # kraken2 ancestry columns now carried on cleaned$noncontaminants
+  # (build_taxid_ancestry, R/02). Each rank gets its own
+  # relative_abundance_<rank>.png plus an entry in the manifest tagged
+  # with `rank = <rank>` so the panels stage can resolve a specific rank
+  # for the composite-D streamgraph or for figS4-style breakdowns.
+  for (rank_col in c("class", "order", "family", "genus")) {
+    if (!rank_col %in% colnames(df)) next
+    df_rank <- df |>
+      dplyr::filter(!is.na(.data[[rank_col]]),
+                    nzchar(as.character(.data[[rank_col]]))) |>
+      dplyr::group_by(sample, .data[[rank_col]],
+                       dplyr::across(dplyr::any_of(facet_by))) |>
+      dplyr::summarise(count = sum(.data$count, na.rm = TRUE),
+                       .groups = "drop") |>
+      dplyr::rename(name = !!rank_col)
+    if (nrow(df_rank) == 0 ||
+        dplyr::n_distinct(df_rank$name) < 2) {
+      pipeline_log(cfg, sprintf(
+        "Relative abundance (%s): not enough categories — skipping", rank_col
+      ))
+      next
+    }
+    ra_render_stacked_bar(
+      df_rank,
+      facet_by = facet_by,
+      ra_cfg   = ra_cfg,
+      cfg      = cfg,
+      file_path = file.path(fig_dir,
+                             sprintf("relative_abundance_%s.png", rank_col)),
+      log_label = sprintf("Relative abundance (%s)", rank_col)
+    )
+  }
+
   if (requireNamespace("plotly", quietly = TRUE) &&
       requireNamespace("htmlwidgets", quietly = TRUE)) {
     # selfcontained=TRUE still extracts plotly assets into <name>_files/ during

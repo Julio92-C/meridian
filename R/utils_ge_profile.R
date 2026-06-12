@@ -148,18 +148,18 @@ ge_minmax_per_col <- function(mat) {
   })
 }
 
-# Violin + boxplot + jitter of `metric` ~ `group`, fill by group. KW
-# annotation drawn in the upper-right corner when `kw` is non-NULL, so the
-# label doesn't collide with the violin distributions.
+# Boxplot + jittered dots of `metric` ~ `group`, fill by group. Violin
+# was removed 2026-06-12 — the per-sample dots already communicate the
+# distribution shape, and the box + dot combo is the reviewer-preferred
+# style for small-N alpha-diversity comparisons. KW annotation drawn in
+# the upper-right corner when `kw` is non-NULL.
 ge_plot_alpha_violin <- function(alpha, group, metric, kw, pal_group, file) {
   if (!metric %in% colnames(alpha)) return(invisible(NULL))
   p <- ggplot2::ggplot(alpha,
         ggplot2::aes(x = .data[[group]], y = .data[[metric]],
                      fill = .data[[group]])) +
-    ggplot2::geom_violin(trim = FALSE, scale = "width", alpha = 0.6) +
-    ggplot2::geom_boxplot(width = 0.12, outlier.shape = NA,
-                          position = ggplot2::position_dodge(0.9)) +
-    ggplot2::geom_jitter(width = 0.08, size = 1.4, alpha = 0.8) +
+    ggplot2::geom_boxplot(width = 0.55, outlier.shape = NA, alpha = 0.55) +
+    ggplot2::geom_jitter(width = 0.12, size = 1.7, alpha = 0.85) +
     ggplot2::scale_fill_manual(values = pal_group) +
     ggplot2::labs(x = group, y = stringr::str_to_title(metric)) +
     ggplot2::theme_classic() +

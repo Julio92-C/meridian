@@ -209,6 +209,18 @@ run_resistome <- function(cleaned, cfg) {
       ds_file  = file.path(ds_dir,  "drug_total_TPM.csv"),
       fill_label = "Drug class"
     )
+    # Streamgraph companion (2026-06-12 polish) — per-treatment view for
+    # composite panel D. Stacked bar above stays for the per-sample
+    # standalone slot.
+    save_stream_composition(
+      card_drug,
+      file.path(fig_dir, "drug_stream_abundance.png"),
+      category_col = "DRUG",
+      group_col    = group,
+      value_col    = "TPM",
+      palette      = pal_drug,
+      title        = "Drug class composition by treatment"
+    )
     ge_plot_total_bar(
       drug_totals, category_col = "DRUG", value_col = "Total_TPM",
       palette = pal_drug,

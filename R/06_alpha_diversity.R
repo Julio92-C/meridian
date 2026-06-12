@@ -282,14 +282,14 @@ run_alpha_diversity <- function(cleaned, cfg) {
     stats_lines <- c(stats_lines, line)
     pipeline_log(cfg, paste("Alpha diversity:", line))
 
-    # Violin + inner boxplot. KW annotation parked in the upper-right
-    # corner with a small inset so it never overlaps the violin caps.
+    # Boxplot + jittered dots (violin removed per the 2026-06-12 polish
+    # spec — the per-sample dots already communicate distribution shape
+    # without the extra visual weight of the violin envelope). KW
+    # annotation parked in the upper-right corner with a small inset.
     p_violin <- ggplot2::ggplot(sub,
         ggplot2::aes(x = .data[[group]], y = .data[[m]], fill = .data[[group]])) +
-      ggplot2::geom_violin(trim = FALSE, scale = "width", alpha = 0.6) +
-      ggplot2::geom_boxplot(width = 0.12, outlier.shape = NA,
-                            position = ggplot2::position_dodge(0.9)) +
-      ggplot2::geom_jitter(width = 0.08, size = 1.4, alpha = 0.8) +
+      ggplot2::geom_boxplot(width = 0.55, outlier.shape = NA, alpha = 0.55) +
+      ggplot2::geom_jitter(width = 0.12, size = 1.7, alpha = 0.85) +
       ggplot2::scale_fill_manual(values = pal) +
       ggplot2::annotate("text", x = Inf, y = Inf, label = label_kw,
                         hjust = 1.05, vjust = 1.4,

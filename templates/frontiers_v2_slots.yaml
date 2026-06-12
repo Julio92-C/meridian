@@ -60,14 +60,18 @@ main:
       - tag: C
         kind: pcoa_scatter
       - tag: D
-        kind: composition_stacked_bar
+        # Per-treatment smoothed area at species level — readable at small
+        # composite scale where the per-sample stacked bar in fig05 isn't.
+        kind: composition_stream
+        rank: species
       - tag: E
         kind: species_prevalence
         required: false
       - tag: F
-        # No taxa UpSet kind currently emitted — slot composes A-E.
-        kind: taxa_upset
-        required: false
+        # Venn (3-set treatment) replaces UpSet for taxa per 2026-06-12
+        # design call — taxa has no UpSet kind, and Venn reads cleanly with
+        # 3 treatment groups.
+        kind: venn
 
   fig02_resistome_overview:
     title: "Resistome (ARG) diversity overview"
@@ -85,7 +89,7 @@ main:
         kind: ge_pcoa
         domain: resistome
       - tag: D
-        kind: ge_drug_relative_abundance
+        kind: ge_drug_stream_abundance
         domain: resistome
       - tag: E
         kind: ge_drug_count_prevalence
@@ -109,7 +113,7 @@ main:
         kind: ge_pcoa
         domain: virulome
       - tag: D
-        kind: ge_vf_relative_abundance
+        kind: ge_vf_stream_abundance
         domain: virulome
       - tag: E
         kind: ge_vf_count_prevalence
@@ -133,7 +137,7 @@ main:
         kind: ge_pcoa
         domain: mobilome
       - tag: D
-        kind: ge_mge_family_abundance
+        kind: ge_mge_family_stream_abundance
         domain: mobilome
       - tag: E
         kind: ge_mge_family_count_prevalence
@@ -218,35 +222,12 @@ main:
       - kind: ge_pheatmap_replicon_families
         domain: mobilome
 
-  fig13_heatmap_arg_genes:
-    title: "Heatmap — individual ARG genes"
-    rows: 1
-    cols: 1
-    labels: false
-    panels:
-      - kind: ge_pheatmap_genes
-        domain: resistome
-
-  fig14_heatmap_vf_genes:
-    title: "Heatmap — individual VF genes"
-    rows: 1
-    cols: 1
-    labels: false
-    panels:
-      - kind: ge_pheatmap_genes
-        domain: virulome
-
-  fig15_heatmap_mge_genes:
-    title: "Heatmap — individual MGE genes"
-    rows: 1
-    cols: 1
-    labels: false
-    panels:
-      - kind: ge_pheatmap_genes
-        domain: mobilome
+  # Gene-level heatmaps moved to supplementary 2026-06-12 — they take a
+  # full main slot each but reviewers usually want them as figS material,
+  # not main figures. Definitions live in the supplementary: section below.
 
   # --- Chord, Sankey, Network ------------------------------------------
-  fig16_chord:
+  fig13_chord:
     title: "Chord diagram — overall ARG–taxa flow"
     rows: 1
     cols: 1
@@ -254,7 +235,7 @@ main:
     panels:
       - kind: chord
 
-  fig17_sankey_vf:
+  fig14_sankey_vf:
     title: "Sankey — VF taxa-to-function flow"
     rows: 1
     cols: 1
@@ -262,7 +243,7 @@ main:
     panels:
       - kind: sankey_png
 
-  fig18_sankey_taxon_arg_mge:
+  fig15_sankey_taxon_arg_mge:
     title: "Sankey — phylum → ARG drug class → MGE replicon family"
     rows: 1
     cols: 1
@@ -271,7 +252,7 @@ main:
       - kind: sankey_taxon_arg_mge
         required: false
 
-  fig19_network:
+  fig16_network:
     title: "Tripartite network — sample × taxon × gene element"
     rows: 1
     cols: 1
@@ -279,6 +260,34 @@ main:
     panels:
       - kind: network_graph
 
-# Supplementary slots: deferred — to be designed in a follow-up pass.
-# The resolver tolerates an empty section.
-supplementary: {}
+supplementary:
+
+  # Gene-level pheatmaps — full-detail per-gene rendering, moved here from
+  # main 2026-06-12 because they're reviewer-supplementary material rather
+  # than main-figure material.
+  figS01_heatmap_arg_genes:
+    title: "Heatmap — individual ARG genes"
+    rows: 1
+    cols: 1
+    labels: false
+    panels:
+      - kind: ge_pheatmap_genes
+        domain: resistome
+
+  figS02_heatmap_vf_genes:
+    title: "Heatmap — individual VF genes"
+    rows: 1
+    cols: 1
+    labels: false
+    panels:
+      - kind: ge_pheatmap_genes
+        domain: virulome
+
+  figS03_heatmap_mge_genes:
+    title: "Heatmap — individual MGE genes"
+    rows: 1
+    cols: 1
+    labels: false
+    panels:
+      - kind: ge_pheatmap_genes
+        domain: mobilome
