@@ -222,13 +222,14 @@ supplementary:
   #   D abundance log(TPM) box+jitter w/ pairwise asterisks
   #   E heatmap (drug class / VF function / replicon family)
 
-  # Sectioned layout (2026-06-12 follow-up):
-  #   Section 1: panel A relative-abundance bar — full row width
-  #   Section 2: panels B, C, D, E in a 2x2 grid below
-  # The full-width RA bar above gives the per-sample composition room
-  # to breathe (where 18 samples in a half-width cell would crush);
-  # the 2x2 below carries the analytic complement (totals, overlap,
-  # abundance, heatmap).
+  # Sectioned layout (Option G, 2026-06-12 follow-up):
+  #   Section 1: A relative-abundance bar — full row (wide aspect)
+  #   Section 2: B + C + D side-by-side in one row (square-ish each)
+  #   Section 3: E heatmap — full row (wide aspect)
+  # Wide-aspect panels (A and E) get their own row so the per-sample
+  # stacked bar above and the drug-class × sample heatmap below have
+  # the full canvas width to render legibly. B (total TPM), C (Venn),
+  # and D (abundance + pairwise) share the middle row evenly.
 
   figS_diet_effects_arg:
     title: "Diet effects on antibiotic resistance genes (ARGs) across treatments"
@@ -236,14 +237,14 @@ supplementary:
     sections:
       - rows: 1
         cols: 1
-        rel_height: 0.30
+        rel_height: 0.25
         panels:
           - tag: A
             kind: ge_drug_relative_abundance
             domain: resistome
-      - rows: 2
-        cols: 2
-        rel_height: 0.70
+      - rows: 1
+        cols: 3
+        rel_height: 0.35
         panels:
           - tag: B
             kind: ge_drug_total_count
@@ -254,6 +255,10 @@ supplementary:
           - tag: D
             kind: ge_arg_abundance_violin
             domain: resistome
+      - rows: 1
+        cols: 1
+        rel_height: 0.40
+        panels:
           - tag: E
             kind: ge_pheatmap_drug_classes
             domain: resistome
@@ -264,14 +269,14 @@ supplementary:
     sections:
       - rows: 1
         cols: 1
-        rel_height: 0.30
+        rel_height: 0.25
         panels:
           - tag: A
             kind: ge_vf_relative_abundance
             domain: virulome
-      - rows: 2
-        cols: 2
-        rel_height: 0.70
+      - rows: 1
+        cols: 3
+        rel_height: 0.35
         panels:
           - tag: B
             kind: ge_vf_total_count
@@ -283,6 +288,10 @@ supplementary:
           - tag: D
             kind: ge_vf_abundance_violin
             domain: virulome
+      - rows: 1
+        cols: 1
+        rel_height: 0.40
+        panels:
           - tag: E
             kind: ge_pheatmap_functions
             domain: virulome
@@ -293,14 +302,14 @@ supplementary:
     sections:
       - rows: 1
         cols: 1
-        rel_height: 0.30
+        rel_height: 0.25
         panels:
           - tag: A
             kind: ge_mge_relative_abundance
             domain: mobilome
-      - rows: 2
-        cols: 2
-        rel_height: 0.70
+      - rows: 1
+        cols: 3
+        rel_height: 0.35
         panels:
           - tag: B
             kind: ge_mge_total_count
@@ -311,6 +320,10 @@ supplementary:
           - tag: D
             kind: ge_mge_abundance_violin
             domain: mobilome
+      - rows: 1
+        cols: 1
+        rel_height: 0.40
+        panels:
           - tag: E
             # Gene-level heatmap per the 2026-06-12 MGE design call.
             kind: ge_pheatmap_genes
