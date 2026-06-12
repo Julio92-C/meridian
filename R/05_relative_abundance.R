@@ -302,6 +302,21 @@ run_relative_abundance <- function(cleaned, cfg) {
                              sprintf("relative_abundance_%s.png", rank_col)),
       log_label = sprintf("Relative abundance (%s)", rank_col)
     )
+    # Per-rank streamgraph companion. Uses the per-rank df_rank (already
+    # rolled up to (sample, rank_value) and with facet_by attached) so
+    # the rank stream matches the rank stacked bar exactly.
+    if (!is.null(facet_by) && facet_by %in% colnames(df_rank)) {
+      save_stream_composition(
+        df_rank,
+        file.path(fig_dir,
+                   sprintf("relative_abundance_stream_%s.png", rank_col)),
+        category_col = "name",
+        group_col    = facet_by,
+        value_col    = "count",
+        palette      = NULL,  # rank-level palettes not pre-built; defaults OK
+        title        = sprintf("Composition by treatment (%s level)", rank_col)
+      )
+    }
   }
 
   if (requireNamespace("plotly", quietly = TRUE) &&

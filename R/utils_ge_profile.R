@@ -153,7 +153,8 @@ ge_minmax_per_col <- function(mat) {
 # distribution shape, and the box + dot combo is the reviewer-preferred
 # style for small-N alpha-diversity comparisons. KW annotation drawn in
 # the upper-right corner when `kw` is non-NULL.
-ge_plot_alpha_violin <- function(alpha, group, metric, kw, pal_group, file) {
+ge_plot_alpha_violin <- function(alpha, group, metric, kw, pal_group, file,
+                                  p_adj = NULL, padj_method = "BH") {
   if (!metric %in% colnames(alpha)) return(invisible(NULL))
   p <- ggplot2::ggplot(alpha,
         ggplot2::aes(x = .data[[group]], y = .data[[metric]],
@@ -166,23 +167,36 @@ ge_plot_alpha_violin <- function(alpha, group, metric, kw, pal_group, file) {
     ggplot2::theme(legend.position = "none",
                    text = ggplot2::element_text(size = 13))
   if (!is.null(kw)) {
+    label_str <- if (!is.null(p_adj) && !is.na(p_adj)) {
+      sprintf("KW p = %.2g   |   p_adj (%s) = %.2g",
+              kw$p.value, padj_method, p_adj)
+    } else {
+      sprintf("Kruskal-Wallis p = %.2g", kw$p.value)
+    }
     p <- p + ggplot2::annotate(
       "text", x = Inf, y = Inf,
-      label = sprintf("Kruskal-Wallis p = %.2g", kw$p.value),
+      label = label_str,
       hjust = 1.05, vjust = 1.4, size = 4.2, colour = "black"
     )
   }
   ggplot2::ggsave(file, p, width = 7, height = 5, dpi = 300)
 }
 
-ge_plot_alpha_bar <- function(alpha, group, metric, kw, pal_group, file) {
+ge_plot_alpha_bar <- function(alpha, group, metric, kw, pal_group, file,
+                               p_adj = NULL, padj_method = "BH") {
   if (!metric %in% colnames(alpha)) return(invisible(NULL))
   metric_label <- stringr::str_to_title(metric)
-  title <- if (!is.null(kw))
-    sprintf("%s by %s (Kruskal-Wallis p = %.3g)",
-            metric_label, group, kw$p.value)
-  else
+  title <- if (!is.null(kw)) {
+    if (!is.null(p_adj) && !is.na(p_adj)) {
+      sprintf("%s by %s (KW p = %.3g | p_adj (%s) = %.3g)",
+              metric_label, group, kw$p.value, padj_method, p_adj)
+    } else {
+      sprintf("%s by %s (Kruskal-Wallis p = %.3g)",
+              metric_label, group, kw$p.value)
+    }
+  } else {
     sprintf("%s by %s", metric_label, group)
+  }
   # Per-group means for the in-facet trend line (PIPELINE_V2_GAPS A1).
   # facet_wrap dispatches the geom by matching the group column, so a
   # tibble with one row per group draws one mean line per panel without
@@ -618,7 +632,7 @@ ge_plot_beta <- function(df, group, pal_group, opts, fig_file,
   utils::capture.output(permanova, file = ds_perm_file)
   r2 <- permanova$R2[1]
   pv <- permanova$`Pr(>F)`[1]
-  pipeline_log(cfg, sprintf("%s PERMANOVA %s: R2 = %.3f, p = %.4g",
+  pipeline_log(cfg, sprintf("%s PERMANOVA %s: R2 = %.3f, p_raw = %.4g",
                             log_label, group, r2, pv))
 
   bd_test <- tryCatch({
@@ -629,9 +643,23 @@ ge_plot_beta <- function(df, group, pal_group, opts, fig_file,
   if (!is.null(bd_test)) {
     utils::capture.output(bd_test, file = ds_disp_file)
     permdisp_p <- bd_test$tab$`Pr(>F)`[1]
-    pipeline_log(cfg, sprintf("%s PERMDISP %s: p = %.4g",
+    pipeline_log(cfg, sprintf("%s PERMDISP %s: p_raw = %.4g",
                               log_label, group, permdisp_p))
   }
+
+  # Family-adjust the (PERMANOVA, PERMDISP) pair within this domain. Both
+  # test beta-diversity differences (location vs dispersion); reporting
+  # adjusted alongside raw gives the reader the conservative reading
+  # without hiding the underlying numbers.
+  pad_method <- padjust_method(cfg)
+  raw_betas  <- c(permanova = pv, permdisp = permdisp_p)
+  adj_betas  <- padjust_p(raw_betas, cfg)
+  pv_adj         <- adj_betas[["permanova"]]
+  permdisp_p_adj <- adj_betas[["permdisp"]]
+  pipeline_log(cfg, sprintf(
+    "%s beta p_adj (%s): PERMANOVA = %.4g, PERMDISP = %.4g",
+    log_label, pad_method, pv_adj, permdisp_p_adj
+  ))
 
   pcoa <- stats::cmdscale(d, eig = TRUE, k = 2)
   var_expl <- pcoa$eig / sum(pcoa$eig[pcoa$eig > 0]) * 100
@@ -643,8 +671,10 @@ ge_plot_beta <- function(df, group, pal_group, opts, fig_file,
   scores <- dplyr::left_join(scores, meta, by = "sample")
   readr::write_csv(scores, ds_pcoa_file)
 
-  annot <- sprintf("PERMANOVA R² = %.3f, p = %.4g\nPERMDISP p = %.4g",
-                   r2, pv, permdisp_p)
+  annot <- sprintf(
+    "PERMANOVA R² = %.3f, p_adj (%s) = %.4g\nPERMDISP p_adj = %.4g",
+    r2, pad_method, pv_adj, permdisp_p_adj
+  )
   ellipse_type <- opts$ellipse_type     %||% "norm"
   ellipse_line <- opts$ellipse_linetype %||% "dashed"
 

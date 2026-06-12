@@ -68,10 +68,12 @@ main:
         kind: species_prevalence
         required: false
       - tag: F
-        # Per-treatment smoothed area at species level — readable at small
-        # composite scale where the per-sample stacked bar in fig05 isn't.
+        # Per-treatment smoothed area at CLASS level — coarser taxonomic
+        # rank reads cleaner at composite scale than species-level (where
+        # 50+ categories pile up). The standalone species stream lives
+        # in fig05.
         kind: composition_stream
-        rank: species
+        rank: class
 
   fig02_resistome_overview:
     title: "Resistome (ARG) diversity overview"

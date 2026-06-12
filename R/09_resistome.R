@@ -93,30 +93,38 @@ run_resistome <- function(cleaned, cfg) {
   alpha <- ge_compute_alpha(card, group)
   readr::write_csv(alpha, file.path(ds_dir, "alpha_diversity.csv"))
 
-  kw <- ge_alpha_kw(alpha, group, alpha_metric, cfg, label)
-  if (!is.null(kw)) {
-    capture.output(kw,
-                   file = file.path(ds_dir, sprintf("kw_%s.txt", alpha_metric)))
+  # Pre-pass: compute both per-metric KW p-values BEFORE rendering so we
+  # can family-adjust across {richness, shannon} within the domain. The
+  # plotters then annotate raw + adjusted p in the title / corner. The
+  # cross-module accumulator (R/00_setup.R) still records the raw values
+  # and finalises a cross-domain summary at manifest time.
+  kw_metrics  <- unique(c(alpha_metric, "shannon"))
+  kw_objects  <- setNames(vector("list", length(kw_metrics)), kw_metrics)
+  for (m in kw_metrics) {
+    kw_objects[[m]] <- ge_alpha_kw(alpha, group, m, cfg, label)
   }
-  ge_plot_alpha_violin(alpha, group, alpha_metric, kw, pal_group,
-                       file.path(fig_dir, sprintf("alpha_%s_violin.png",
-                                                  alpha_metric)))
-  ge_plot_alpha_bar(alpha, group, alpha_metric, kw, pal_group,
-                    file.path(fig_dir, sprintf("alpha_%s_bar.png",
-                                               alpha_metric)))
+  raw_ps <- vapply(kw_metrics, function(m) {
+    k <- kw_objects[[m]]
+    if (is.null(k)) NA_real_ else k$p.value
+  }, numeric(1))
+  pad_method <- padjust_method(cfg)
+  adj_ps     <- padjust_p(raw_ps, cfg)
 
-  # ge_compute_alpha returns both richness and shannon; always emit the
-  # shannon companion so the v1.1 manifest contract (ge_alpha_shannon_bar
-  # for Fig S4/S7/S12) doesn't depend on cfg$resistome$alpha_metric.
-  if (alpha_metric != "shannon") {
-    kw_sh <- ge_alpha_kw(alpha, group, "shannon", cfg, label)
-    if (!is.null(kw_sh)) {
-      capture.output(kw_sh, file = file.path(ds_dir, "kw_shannon.txt"))
+  for (m in kw_metrics) {
+    kw <- kw_objects[[m]]
+    if (!is.null(kw)) {
+      capture.output(kw, file = file.path(ds_dir, sprintf("kw_%s.txt", m)))
     }
-    ge_plot_alpha_violin(alpha, group, "shannon", kw_sh, pal_group,
-                         file.path(fig_dir, "alpha_shannon_violin.png"))
-    ge_plot_alpha_bar(alpha, group, "shannon", kw_sh, pal_group,
-                      file.path(fig_dir, "alpha_shannon_bar.png"))
+    ge_plot_alpha_violin(
+      alpha, group, m, kw, pal_group,
+      file.path(fig_dir, sprintf("alpha_%s_violin.png", m)),
+      p_adj = adj_ps[[m]], padj_method = pad_method
+    )
+    ge_plot_alpha_bar(
+      alpha, group, m, kw, pal_group,
+      file.path(fig_dir, sprintf("alpha_%s_bar.png", m)),
+      p_adj = adj_ps[[m]], padj_method = pad_method
+    )
   }
 
   # ---- (1b) ARG abundance per Treatment (log TPM violin) ---------------
