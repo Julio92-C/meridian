@@ -49,11 +49,31 @@ The workflow is a stand-alone R project, not an installable package. A single en
 
 ## 3 Application and Validation
 
-We are validating each module against a real long-read chicken gut microbiome dataset (`chicken_batch1`, internal project code PC_JC_2024-11-29) for which approximately 46 hand-edited R scripts and known-good figures and tables already exist. Each pipeline stage is compared, output-for-output, against the corresponding ground-truth artefact, with the configuration file set to reproduce the original analysis decisions. Two purpose-built validation scripts (`scripts/diff_normdata.R` and `scripts/probe_taxid_parse.R`) provide numerical-diff and regression checks on the most error-prone intermediates, and `run_pipeline.R` auto-instruments per-stage wall time and prints a slowest-first breakdown to the run log, mechanically populating the runtime column of the benchmark below.
+We are validating the pipeline against two real long-read chicken caecum metagenomics studies. `chicken_batch1` (PC_JC_2024-11-29; 18 samples; 3 dietary groups — Dulce, Reference diet, Soyabean meal) is the reference cohort: approximately 46 hand-edited R scripts and known-good figures and tables already exist for it, so each stage can be compared output-for-output against the corresponding ground-truth artefact. `chicken_batch2` (JC_FL_2025-05-20; 32 samples; 4-level composite `Treatment_Bird` grouping — Control_W4, Control_W5, Dulse_W4, Dulse_W5) is a scaling and feature-coverage cohort: it exercises a random effect (`block`, pens 1–8), two declared negative controls (CTRL1, CTRL2) subtracted in R/02, and a larger per-stage feature load. Two purpose-built validation scripts (`scripts/diff_normdata.R` and `scripts/probe_taxid_parse.R`) provide numerical-diff and regression checks on the most error-prone intermediates, and `run_pipeline.R` auto-instruments per-stage wall time and prints a slowest-first breakdown to the run log, mechanically populating the runtime columns of Table 1.
 
-{{TODO: insert benchmark table — stage × ground-truth artefact × pipeline output × agreement metric (e.g. row overlap, correlation of abundance values, identical figure rendering) × per-stage wall time. Numbers to be populated from validation runs.}}
+**Table 1.** Per-stage wall time and primary output for both validation cohorts on the same workstation (Windows 11, R 4.5, single thread); identical pipeline commit and identical statistical settings (PERMANOVA 9999 permutations; ALDEx2 `mc.samples` = 128). **B1** = chicken_batch1 (PC_JC_2024-11-29; n=18; 3 dietary groups). **B2** = chicken_batch2 (JC_FL_2025-05-20; n=32; 4-level `Treatment_Bird` grouping, `block` random effect, two declared negative controls). Sample sizes shown in some output cells refer to samples with non-zero hits at that stage.
 
-One expected and deliberate divergence concerns the resistome stage: the ground-truth `cleanData.R` mis-parses taxids carrying variant suffixes, dropping the corresponding ABRicate rows. R/02 fixes this parsing bug, so the pipeline retains approximately {{TODO: confirm exact count from a fresh validation run}} additional (sample, GENE) rows relative to the hand-edited output. We treat this as a correctness improvement rather than a failure to reproduce, and the validation table flags it accordingly. The Re-centrifuge column-slicing heuristic in R/02 is acknowledged as still coarse and is queued for rework; the §3 benchmark will be re-derived once that change lands.
+| Stage | B1 runtime | B1 primary output | B2 runtime | B2 primary output |
+| --- | --- | --- | --- | --- |
+| load_inputs | 0.8 s | 5 upstream tables parsed | 1.7 s | 5 upstream tables parsed |
+| clean_data | 2.0 s | `taxid_fixes.csv` applied; no controls declared | 6.0 s | no `taxid_fixes.csv`; 2 controls (CTRL1, CTRL2) subtracted |
+| normalisation | 0.2 s | gene-element TPM table written | 0.3 s | gene-element TPM table written |
+| taxonomy | 2.7 s | 2,971 / 11,196 (taxon, sample) rows kept (count ≥ 5) | 3.1 s | 5,570 / 6,549 (taxon, sample) rows kept |
+| relative_abundance | 6.5 s | 1,700 / 72,152 rows kept (count > 17); top-50 + Others | 10.9 s | 7,557 / 18,073 rows kept; top-50 + Others |
+| alpha_diversity | 12.1 s | 9 metrics × 18 samples; KW per metric | 19.8 s | 9 metrics × 32 samples; KW per metric |
+| beta_diversity | 3.5 s | PERMANOVA R² = 0.145, p = 0.22; PERMDISP p = 0.028 | 5.1 s | PERMANOVA R² = 0.121, p = 0.15; PERMDISP p = 0.056 |
+| differential_abundance | 1m 54s | 31 taxa + 157 gene features; 3 pairwise contrasts | 3m 27s | 53 taxa + 221 gene features; 6 pairwise contrasts |
+| resistome (CARD) | 9.0 s | 348 rows / 85 genes / 18 drug classes | 10.1 s | 648 rows / 99 genes / 20 drug classes |
+| virulome (VFDB) | 8.0 s | 320 rows / 140 genes / 6 VF functions (17 / 18 samples) | 9.7 s | 492 rows / 156 genes / 8 VF functions (26 / 32 samples) |
+| mobilome (PlasmidFinder) | 7.7 s | 65 rows / 10 replicons / 3 families | 10.1 s | 137 rows / 25 replicons / 5 families |
+| network | 33.4 s | 247 edges, 100 nodes (18 + 42 + 40); modularity = 0.30 | 1m 7s | 576 edges, 210 nodes (32 + 77 + 101); modularity = 0.40 |
+| report | 25.1 s | Quarto dashboard HTML (~14 MB) | 40.5 s | Quarto dashboard HTML (~18 MB) |
+| manifest | 0.5 s | `manifest.json` (47 kB) | 0.4 s | `manifest.json` (57 kB) |
+| **Total (14 stages)** | **3m 46s** | — | **6m 32s** | — |
+
+Differential abundance dominates wall time on both cohorts (≈50 %), driven by the ALDEx2 Monte-Carlo loop scaling with feature count, sample count and pairwise-contrast count; the network stage is next-most expensive because Sankey assembly iterates over every gene–category mapping. Across the 14 stages, doubling the sample count and pairwise-contrast count (B1 → B2) raises end-to-end runtime by ~73 %, suggesting near-linear scaling on the dominant ALDEx2 path. Tabulated PERMANOVA and PERMDISP statistics for the per-domain stages (resistome, virulome, mobilome), per-metric KW p-values for alpha diversity, and all DAA per-pair feature tables are surfaced in the Quarto dashboard rather than reproduced here. Peak memory is not yet auto-instrumented and is therefore omitted from Table 1; a separate `peakRAM`-based profiling pass is planned before submission.
+
+One expected and deliberate divergence concerns the resistome stage: the ground-truth `cleanData.R` mis-parses taxids carrying variant suffixes, dropping the corresponding ABRicate rows. R/02 fixes this parsing bug, so the pipeline retains approximately {{TODO: confirm exact count from a fresh validation run}} additional (sample, GENE) rows relative to the hand-edited output. We treat this as a correctness improvement rather than a failure to reproduce, and the validation log flags it accordingly. The Re-centrifuge column-slicing heuristic in R/02 is acknowledged as still coarse and is queued for rework; Table 1 will be re-derived once that change lands.
 
 ## 4 Conclusion
 
@@ -105,11 +125,13 @@ Resolved since first draft:
 - Quarto deliverable corrected from "HTML report" to "dashboard with per-domain panels".
 - Utility files surfaced (`utils_taxa.R`, `utils_ge_profile.R`, `utils_prevalence.R`).
 - §3 validation: auto-instrumented per-stage runtime + `scripts/diff_normdata.R` + `scripts/probe_taxid_parse.R` now cited; Re-centrifuge column-slicing caveat noted.
+- §3 Table 1 populated from the 2026-05-31 pipeline.log on both validation cohorts (chicken_batch1 PC_JC_2024-11-29 = 3m 46s; chicken_batch2 JC_FL_2025-05-20 = 6m 32s). Two-batch scaling table chosen over ground-truth-agreement table; agreement column deferred. Memory column intentionally omitted — instrumentation pending.
 
 Still open:
 
 - `{{TODO: ORCIDs for all authors}}` — eight ORCIDs to collect.
-- `{{TODO: insert benchmark table}}` — quantitative comparison of pipeline output vs hand-edited chicken_batch1 ground truth, per stage. Suggested columns: stage, ground-truth artefact, pipeline output, agreement metric, notes. Needs end-to-end runtime, peak memory, per-stage agreement, and the exact resistome row-count delta.
+- Ground-truth agreement column for chicken_batch1 — Table 1 currently reports per-batch runtime + primary output but does not yet quantify per-stage agreement (row overlap, abundance correlation, figure-by-figure identity) against the ~46 hand-edited scripts. Needs `scripts/diff_normdata.R` (and per-stage equivalents) run against the hand-edited baseline before submission.
+- Peak memory column — `run_pipeline.R` does not currently auto-instrument memory; needs a `peakRAM`-based pass on both cohorts before submission.
 - `{{TODO: confirm exact count}}` (resistome row delta) — memory says "~+110 (sample, GENE) rows". Confirm the precise number from the validation run before publication.
 - `{{TODO: acknowledgements}}`, `{{TODO: funding sources and grant numbers}}`, `{{TODO: declare conflicts}}`.
 - `{{TODO: verify ref}}` — remaining open items after PubMed verification on 2026-05-29:
