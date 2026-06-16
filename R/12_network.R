@@ -347,7 +347,7 @@ run_network <- function(cleaned, cfg) {
       axis.text.x = ggplot2::element_text(angle = 60, hjust = 1, size = 8),
       text        = ggplot2::element_text(size = 12)
     )
-  ggplot2::ggsave(file.path(fig_dir, "degree_distribution.png"),
+  save_panel_ggplot(file.path(fig_dir, "degree_distribution.png"),
                   dd, width = max(8, 0.18 * nrow(topo_top) + 4),
                   height = 5.5, dpi = 200, bg = "white")
 
@@ -384,9 +384,21 @@ run_network <- function(cleaned, cfg) {
   layout           <- ncfg$layout            %||% "fr"
   pt_size          <- ncfg$node_size         %||% 5
   label_size       <- ncfg$label_size        %||% 3
+  label_top_n      <- ncfg$label_top_n       %||% 30
   edge_width_range <- ncfg$edge_width_range  %||% c(0.3, 2.5)
   edge_alpha       <- ncfg$edge_alpha        %||% 0.2
   node_alpha       <- ncfg$node_alpha        %||% 0.75
+
+  # Limit labels to the top-N nodes by degree. With 100+ nodes from the
+  # tripartite (sample x taxon x gene) graph, labeling everything packs
+  # the centre into illegible mud. Top-N by degree keeps the most
+  # connected hubs visible and leaves the periphery as unlabelled dots.
+  deg_vec  <- igraph::degree(g)
+  n_label  <- min(as.integer(label_top_n), length(deg_vec))
+  top_nodes <- if (n_label > 0L) {
+    names(sort(deg_vec, decreasing = TRUE))[seq_len(n_label)]
+  } else character()
+  igraph::V(g)$label_show <- igraph::V(g)$name %in% top_nodes
 
   col_key <- ifelse(
     nodes$type == "gene",   as.character(nodes$geneCategory),
@@ -415,8 +427,8 @@ run_network <- function(cleaned, cfg) {
       size = pt_size, alpha = node_alpha
     ) +
     ggraph::geom_node_text(
-      ggplot2::aes(label = .data$name),
-      repel = TRUE, size = label_size, max.overlaps = Inf,
+      ggplot2::aes(label = ifelse(.data$label_show, .data$name, "")),
+      repel = TRUE, size = label_size, max.overlaps = 20,
       segment.color = "grey60", min.segment.length = 0.5
     ) +
     ggraph::scale_edge_width(range = edge_width_range) +
@@ -427,7 +439,7 @@ run_network <- function(cleaned, cfg) {
     ggplot2::theme_void() +
     ggplot2::theme(legend.position = "right")
 
-  ggplot2::ggsave(
+  save_panel_ggplot(
     file.path(fig_dir, "network.png"),
     p, width = 14, height = 12, dpi = 200, bg = "white"
   )
@@ -544,13 +556,17 @@ run_network <- function(cleaned, cfg) {
   )
   names(cols) <- cats
 
-  grDevices::png(png_path, width = 2400, height = 2400, res = 200, bg = "white")
+  grDevices::png(png_path, width = 3200, height = 3200, res = 300, bg = "white")
   on.exit(grDevices::dev.off(), add = TRUE)
   circlize::circos.clear()
+  # Drop canvas.xlim/ylim — they pin the canvas to the unit circle and
+  # clip any label that extends past r=1. circle.margin alone expands
+  # the canvas symmetrically (here ~45 % on each side) so even the long
+  # taxon / drug-class strings fit. 2026-06-16.
   circlize::circos.par(
     track.height = 0.1, start.degree = start_degree, gap.degree = 2,
-    canvas.xlim = c(-1, 1), canvas.ylim = c(-1, 1),
-    circle.margin = c(1, 1), unit.circle.segments = 500
+    circle.margin = c(0.30, 0.30, 0.30, 0.30),
+    unit.circle.segments = 500
   )
   circlize::chordDiagram(
     mat, transparency = 0.5, annotationTrack = "grid",
@@ -566,7 +582,7 @@ run_network <- function(cleaned, cfg) {
         circlize::get.cell.meta.data("xcenter"),
         circlize::get.cell.meta.data("ylim")[1],
         sector.index, facing = "clockwise", niceFacing = TRUE,
-        adj = c(0, 0.8), cex = 0.8
+        adj = c(0, 0.8), cex = 0.75
       )
     }, bg.border = NA
   )
@@ -737,7 +753,7 @@ run_network <- function(cleaned, cfg) {
   total_flows <- nrow(df_alluv)
   ph <- scfg$png_height %||% max(10, 0.07 * total_flows + 5)
   pw <- scfg$png_width  %||% 14
-  label_size <- scfg$png_label_size %||% 2.5
+  label_size <- scfg$png_label_size %||% 2.0
 
   p <- ggplot2::ggplot(
         df_alluv,
@@ -760,7 +776,10 @@ run_network <- function(cleaned, cfg) {
     ) +
     ggplot2::scale_x_discrete(
       limits = c("Sample", "Taxon", "Gene", "Category"),
-      expand = ggplot2::expansion(mult = c(0.05, 0.05))
+      # Extra right margin so long category labels like
+      # "Antimicrobial activity/Competitive advantage" don't clip the
+      # canvas edge after the Category stratum.
+      expand = ggplot2::expansion(mult = c(0.05, 0.20))
     ) +
     ggplot2::labs(x = NULL, y = NULL, fill = "Category") +
     ggplot2::theme_minimal() +
@@ -768,9 +787,14 @@ run_network <- function(cleaned, cfg) {
       axis.text.y     = ggplot2::element_blank(),
       panel.grid      = ggplot2::element_blank(),
       legend.position = "bottom",
+      legend.box.just = "left",
       text            = ggplot2::element_text(size = 11)
-    )
-  ggplot2::ggsave(png_path, p, width = pw, height = ph, dpi = 300, bg = "white")
+    ) +
+    # Wrap categories onto 2 rows so a long label like
+    # "Antimicrobial activity/Competitive advantage" doesn't push the
+    # last entry off-canvas in the composite cell.
+    ggplot2::guides(fill = ggplot2::guide_legend(nrow = 2, byrow = TRUE))
+  save_panel_ggplot(png_path, p, width = pw, height = ph, dpi = 300, bg = "white")
   pipeline_log(cfg, sprintf("Network sankey PNG: %s", basename(png_path)))
   invisible(NULL)
 }
@@ -1271,7 +1295,7 @@ run_network <- function(cleaned, cfg) {
       axis.text.x = ggplot2::element_text(angle = 25, hjust = 1),
       text        = ggplot2::element_text(size = 12)
     )
-  ggplot2::ggsave(
+  save_panel_ggplot(
     file.path(fig_dir, "mobile_arg_fraction_bar.png"),
     p,
     width  = max(7, 1.2 * dplyr::n_distinct(per_group_long[[group]]) + 4),
@@ -1465,7 +1489,7 @@ run_network <- function(cleaned, cfg) {
     )
 
   ph <- max(8, 0.35 * nrow(agg) + 5)
-  ggplot2::ggsave(
+  save_panel_ggplot(
     file.path(fig_dir, "sankey_taxon_arg_mge.png"),
     p, width = 12, height = ph, dpi = 300, bg = "white"
   )

@@ -265,20 +265,19 @@ run_resistome <- function(cleaned, cfg) {
         grid_col <- c(pal_drug[rownames(drug_grp_mat)],
                       pal_group[colnames(drug_grp_mat)])
         circos_png <- file.path(fig_dir, "arg_circos_drugclass.png")
-        # Bumped to 2600px @ 220dpi (~12in canvas) and circle.margin/canvas
-        # extents mirror R/12's chord pattern so the long drug-class labels
-        # (Aminocoumarin, Fluoroquinolone, Streptogramin, ...) don't clip
-        # at the figure edges.
-        grDevices::png(circos_png, width = 2600, height = 2600,
-                       res = 220, bg = "white")
+        # 3200px canvas + circle.margin only (no explicit canvas.xlim/ylim)
+        # mirrors R/12's per-treatment chord renderer so the long drug-class
+        # labels (Aminocoumarin, Fluoroquinolone, Streptogramin, ...) don't
+        # clip and the composite quadrant matches the chord panels.
+        # Retuned 2026-06-16.
+        grDevices::png(circos_png, width = 3200, height = 3200,
+                       res = 300, bg = "white")
         tryCatch({
           circlize::circos.clear()
           circlize::circos.par(
             start.degree   = 90,
             gap.degree     = 3,
-            canvas.xlim    = c(-1, 1),
-            canvas.ylim    = c(-1, 1),
-            circle.margin  = c(0.6, 0.6, 0.6, 0.6),
+            circle.margin  = c(0.30, 0.30, 0.30, 0.30),
             unit.circle.segments = 500
           )
           circlize::chordDiagram(
@@ -429,7 +428,7 @@ run_resistome <- function(cleaned, cfg) {
         text        = ggplot2::element_text(size = 11)
       )
     bw <- max(7, 0.5 * dplyr::n_distinct(per_sample$sample) + 3)
-    ggplot2::ggsave(
+    save_panel_ggplot(
       file.path(fig_dir, sprintf("%s_count_per_treatment.png", org$slug)),
       p_count, width = bw, height = 5, dpi = 300
     )
@@ -485,7 +484,7 @@ run_resistome <- function(cleaned, cfg) {
         text            = ggplot2::element_text(size = 11)
       )
     gh <- max(4, 0.35 * dplyr::n_distinct(abri_org$sample) + 2)
-    ggplot2::ggsave(
+    save_panel_ggplot(
       file.path(fig_dir, sprintf("%s_gene_map.png", org$slug)),
       p_genes, width = 12, height = gh, dpi = 300
     )

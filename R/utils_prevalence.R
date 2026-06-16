@@ -42,7 +42,7 @@ build_count_prevalence <- function(df,
                                     category_label  = NULL,
                                     prev_cutoff_pct = 80,
                                     tpm_cutoff_log  = 0,
-                                    top_n_labels    = 10,
+                                    top_n_labels    = 8,
                                     ...) {
   for (pkg in c("ggplot2", "dplyr")) {
     if (!requireNamespace(pkg, quietly = TRUE)) {
@@ -126,15 +126,15 @@ build_count_prevalence <- function(df,
       p <- p + ggrepel::geom_text_repel(
         data = to_label,
         ggplot2::aes(label = .data[[category_col]]),
-        size              = 3.6,
-        force             = 1.2,
-        force_pull        = 0.3,
-        max.overlaps      = 20,
+        size              = 2.8,
+        force             = 1.5,
+        force_pull        = 0.2,
+        max.overlaps      = 25,
         min.segment.length = 0,
         segment.colour    = "grey60",
         segment.size      = 0.3,
-        box.padding       = 0.4,
-        point.padding     = 0.2,
+        box.padding       = 0.3,
+        point.padding     = 0.15,
         seed              = 42L,
         show.legend       = FALSE
       )
@@ -158,7 +158,7 @@ save_count_prevalence <- function(df, png_path, ..., width = 12, height = 7,
                                    dpi = 300) {
   p <- build_count_prevalence(df, ...)
   if (is.null(p)) return(NULL)
-  ggplot2::ggsave(png_path, p, width = width, height = height, dpi = dpi,
+  save_panel_ggplot(png_path, p, width = width, height = height, dpi = dpi,
                   bg = "white")
   png_path
 }

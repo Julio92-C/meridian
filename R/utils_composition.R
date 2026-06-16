@@ -166,7 +166,7 @@ save_stream_composition <- function(df, png_path, ..., width = 9, height = 5.5,
                                      dpi = 300) {
   p <- build_stream_composition(df, ...)
   if (is.null(p)) return(NULL)
-  ggplot2::ggsave(png_path, p, width = width, height = height, dpi = dpi,
+  save_panel_ggplot(png_path, p, width = width, height = height, dpi = dpi,
                   bg = "white")
   png_path
 }

@@ -300,7 +300,7 @@ run_alpha_diversity <- function(cleaned, cfg) {
                      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
                      text       = ggplot2::element_text(size = 13))
 
-    ggplot2::ggsave(file.path(fig_dir, paste0(m, "_violin.png")),
+    save_panel_ggplot(file.path(fig_dir, paste0(m, "_violin.png")),
                     p_violin, width = 7, height = 5, dpi = 300)
 
     # Per-sample bar plot, faceted by group, with overall mean line +
@@ -341,7 +341,7 @@ run_alpha_diversity <- function(cleaned, cfg) {
         ggplot2::facet_wrap(stats::as.formula(paste("~", group)),
                             scales = "free_x", nrow = 1)
       bw <- max(8, 0.5 * nrow(sub) + 3)
-      ggplot2::ggsave(file.path(fig_dir, paste0(m, "_bar.png")),
+      save_panel_ggplot(file.path(fig_dir, paste0(m, "_bar.png")),
                       p_bar, width = bw, height = 5, dpi = 300)
     }
   }
@@ -395,7 +395,7 @@ run_alpha_diversity <- function(cleaned, cfg) {
           ggplot2::theme_classic() +
           ggplot2::theme(legend.position = "top",
                          text = ggplot2::element_text(size = 12))
-        ggplot2::ggsave(file.path(fig_dir, "rarefaction_curves.png"),
+        save_panel_ggplot(file.path(fig_dir, "rarefaction_curves.png"),
                         p_rc, width = 9, height = 6, dpi = 300)
         pipeline_log(cfg, sprintf(
           "Rarefaction curves: %d samples, step=%d reads",

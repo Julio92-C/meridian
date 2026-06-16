@@ -287,7 +287,7 @@ run_beta_diversity <- function(cleaned, cfg) {
     ggplot2::theme(text = ggplot2::element_text(size = 13),
                    plot.title = ggplot2::element_text(size = 12, hjust = 0.5))
 
-  ggplot2::ggsave(file.path(fig_dir, "pcoa.png"),
+  save_panel_ggplot(file.path(fig_dir, "pcoa.png"),
                   p, width = 7, height = 5.5, dpi = 300)
 
   if (requireNamespace("plotly", quietly = TRUE) &&
@@ -328,7 +328,7 @@ run_beta_diversity <- function(cleaned, cfg) {
       ggplot2::theme_classic() +
       ggplot2::theme(text = ggplot2::element_text(size = 13),
                      plot.title = ggplot2::element_text(size = 12, hjust = 0.5))
-    ggplot2::ggsave(file.path(fig_dir, "jaccard_pcoa.png"),
+    save_panel_ggplot(file.path(fig_dir, "jaccard_pcoa.png"),
                     p_jac, width = 7, height = 5.5, dpi = 300)
   }
 

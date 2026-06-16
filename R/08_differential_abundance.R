@@ -547,7 +547,7 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
       ggplot2::theme_classic() +
       ggplot2::theme(plot.title = ggplot2::element_text(hjust = 0.5, size = 12),
                      text = ggplot2::element_text(size = 12))
-    ggplot2::ggsave(file.path(fig_dir, paste0("volcano_", cn, ".png")),
+    save_panel_ggplot(file.path(fig_dir, paste0("volcano_", cn, ".png")),
                     p, width = 7, height = 5, dpi = 300)
   }
 
@@ -559,7 +559,7 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
     for (cn in names(raw_results)) {
       res_obj <- raw_results[[cn]]
       grDevices::png(file.path(fig_dir, paste0("aldex2_maplot_", cn, ".png")),
-                     width = 1800, height = 1400, res = 220, bg = "white")
+                     width = 1800, height = 1400, res = 300, bg = "white")
       tryCatch({
         graphics::par(mar = c(4, 4, 3, 1))
         ALDEx2::aldex.plot(res_obj, type = "MA", test = "welch",
@@ -770,7 +770,7 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
         nf <- nrow(sub_m)
         dh <- max(6, 0.28 * nf + 2.5)
         dw <- max(9, 3.5 * length(effect_cols) + 2)
-        ggplot2::ggsave(file.path(fig_dir, "aldex2_dotplot_summary.png"),
+        save_panel_ggplot(file.path(fig_dir, "aldex2_dotplot_summary.png"),
                         p_dot, width = dw, height = dh, dpi = 300)
         pipeline_log(cfg, sprintf(
           "DA[%s] aldex2_dotplot_summary.png (%d features x %d pairs)",

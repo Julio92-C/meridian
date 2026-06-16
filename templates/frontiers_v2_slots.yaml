@@ -160,6 +160,14 @@ main:
     rows: 1
     cols: 1
     labels: false
+    # Keep the 50-species legend at top but shrink hard: 5pt text + 0.2cm
+    # key swatch, 15 rows so it wraps to ~4 narrow columns and fits the
+    # 5.5" composite cell width without clipping names.
+    composite:
+      legend_position: top
+      legend_nrow: 15
+      legend_text_size: 5
+      legend_key_size_cm: 0.2
     panels:
       - kind: composition_stacked_bar
 
@@ -189,6 +197,13 @@ main:
     rows: 1
     cols: 1
     labels: false
+    # Shrink both legend and axis text further so all 7 categories fit on
+    # 2 rows and the "Sample/Taxon/Gene/Category" column heads stay
+    # readable at composite scale.
+    composite:
+      legend_text_size: 5
+      legend_key_size_cm: 0.25
+      axis_text_size: 7
     panels:
       - kind: sankey_png
 
@@ -244,6 +259,10 @@ supplementary:
       - tag: A
         kind: ge_drug_relative_abundance
         domain: resistome
+        # Panel B (right) labels every drug class on its y-axis with its
+        # Total TPM, so it already serves as a legend for panel A's bars.
+        composite:
+          legend_position: none
       - tag: B
         kind: ge_drug_total_count
         domain: resistome
@@ -263,6 +282,8 @@ supplementary:
       - tag: A
         kind: ge_vf_relative_abundance
         domain: virulome
+        composite:
+          legend_position: none
       - tag: B
         kind: ge_vf_total_count
         domain: virulome
@@ -282,6 +303,8 @@ supplementary:
       - tag: A
         kind: ge_mge_relative_abundance
         domain: mobilome
+        composite:
+          legend_position: none
       - tag: B
         kind: ge_mge_total_count
         domain: mobilome
@@ -311,6 +334,13 @@ supplementary:
     rows: 1
     cols: 1
     labels: false
+    # Legend on top frees horizontal canvas for the long x-axis label list;
+    # shrink the rotated taxon/gene names further so they don't run into
+    # each other at composite scale.
+    composite:
+      legend_position: top
+      legend_text_size: 7
+      axis_text_size: 2
     panels:
       - kind: degree_distribution
 
@@ -344,3 +374,28 @@ supplementary:
   # in main: now covers the plasmid-replicon gene heatmap. The family-level
   # heatmap (ge_pheatmap_replicon_families) is still emitted by R/11 and
   # available if a future supplementary slot wants it.
+
+  # =============================================================
+  # Circos (ARG drug class) + per-treatment chord diagrams.
+  # Added 2026-06-16 to free main of the per-treatment chord trio and
+  # the standalone ARG circos. fig06_chord (main) still carries the
+  # overall chord. 2x2 layout: circos top-left + 3 treatment chords.
+  # =============================================================
+  figS_circos_chord_by_treatment:
+    title: "ARG drug-class circos and per-treatment taxon co-occurrence chords"
+    rows: 2
+    cols: 2
+    labels: true
+    panels:
+      - tag: A
+        kind: arg_circos
+        domain: resistome
+      - tag: B
+        kind: chord
+        group: Dulce
+      - tag: C
+        kind: chord
+        group: Reference_diet
+      - tag: D
+        kind: chord
+        group: Soyabean_meal

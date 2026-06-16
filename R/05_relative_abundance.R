@@ -110,7 +110,7 @@ ra_render_stacked_bar <- function(df_in, facet_by, ra_cfg, cfg,
   n_samples <- length(unique(df_pct$sample))
   pw <- max(10, 0.5 * n_samples + 3)
   ph <- if (isTRUE(show_legend)) max(7, 6 + ceiling(n_levels / 10) * 0.4) else 6
-  ggplot2::ggsave(file_path, p, width = pw, height = ph, dpi = 300)
+  save_panel_ggplot(file_path, p, width = pw, height = ph, dpi = 300)
   pipeline_log(cfg, sprintf("%s: %d species, %d samples → %s",
                             log_label, dplyr::n_distinct(df_in$name),
                             n_samples, basename(file_path)))
@@ -216,7 +216,7 @@ run_relative_abundance <- function(cleaned, cfg) {
   ))
 
   # ---- 6a. Relative abundance stacked bar --------------------------------
-  show_legend <- ra_cfg$show_legend %||% TRUE
+  show_legend <- ra_cfg$show_species_legend %||% TRUE
   legend_pos  <- if (isTRUE(show_legend)) "top" else "none"
 
   p <- ggplot2::ggplot(df_pct,
@@ -242,7 +242,7 @@ run_relative_abundance <- function(cleaned, cfg) {
   pw <- max(10, 0.5 * n_samples + 3)
   ph <- if (isTRUE(show_legend)) max(7, 6 + ceiling(n_levels / 10) * 0.4) else 6
 
-  ggplot2::ggsave(file.path(fig_dir, "relative_abundance.png"), p,
+  save_panel_ggplot(file.path(fig_dir, "relative_abundance.png"), p,
                   width = pw, height = ph, dpi = 300)
 
   # ---- 6a-stream. Per-treatment streamgraph (2026-06-12 polish) ---------
@@ -382,7 +382,7 @@ run_relative_abundance <- function(cleaned, cfg) {
       ggplot2::coord_flip()
 
     sph <- max(5, 0.25 * nrow(df_species) + 2)
-    ggplot2::ggsave(file.path(fig_dir, "species_count.png"), sp,
+    save_panel_ggplot(file.path(fig_dir, "species_count.png"), sp,
                     width = 9, height = sph, dpi = 300)
 
     # ---- Paired count + prevalence (total | sample prevalence) ---------

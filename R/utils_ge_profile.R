@@ -9,6 +9,117 @@
 
 `%||%` <- function(a, b) if (is.null(a)) b else a
 
+# Build a single horizontal legend grob combining the heatmap colour scale
+# (continuous gradient) and any number of categorical annotation legends.
+# Used by .pheatmap_save_legend_top to replace pheatmap's vertical legends.
+.make_gradient_legend_grob <- function(palette, limits = c(0, 1),
+                                        title = "value") {
+  df <- data.frame(x = c(0, 1), v = limits)
+  p <- ggplot2::ggplot(df, ggplot2::aes(x = .data$x, y = .data$x,
+                                          fill = .data$v)) +
+    ggplot2::geom_tile() +
+    ggplot2::scale_fill_gradientn(
+      colours = palette,
+      limits  = limits,
+      name    = title,
+      guide   = ggplot2::guide_colorbar(
+        direction      = "horizontal",
+        title.position = "left",
+        title.vjust    = 0.85,
+        barwidth       = grid::unit(2.8, "cm"),
+        barheight      = grid::unit(0.3, "cm")
+      )
+    ) +
+    ggplot2::theme_void() +
+    ggplot2::theme(
+      legend.position = "top",
+      legend.text     = ggplot2::element_text(size = 8),
+      legend.title    = ggplot2::element_text(size = 9)
+    )
+  cowplot::get_legend(p)
+}
+
+.make_categorical_legend_grob <- function(pal, title) {
+  df <- data.frame(x = seq_along(pal), y = 1,
+                   cat = factor(names(pal), levels = names(pal)))
+  p <- ggplot2::ggplot(df, ggplot2::aes(x = .data$x, y = .data$y,
+                                          fill = .data$cat)) +
+    ggplot2::geom_tile() +
+    ggplot2::scale_fill_manual(
+      values = pal, name = title,
+      guide  = ggplot2::guide_legend(
+        direction      = "horizontal",
+        title.position = "left",
+        nrow           = 1,
+        keywidth       = grid::unit(0.45, "cm"),
+        keyheight      = grid::unit(0.35, "cm")
+      )
+    ) +
+    ggplot2::theme_void() +
+    ggplot2::theme(
+      legend.position = "top",
+      legend.text     = ggplot2::element_text(size = 8),
+      legend.title    = ggplot2::element_text(size = 9)
+    )
+  cowplot::get_legend(p)
+}
+
+# Render a pheatmap with the colour-scale + annotation-key legends laid out
+# horizontally on top, instead of pheatmap's default vertical stack on the
+# right. Frees horizontal canvas for the matrix body — needed for the
+# figS_diet_effects panel D supps (2026-06-16).
+#
+# Strategy: caller passes ph (from pheatmap with silent=TRUE) plus the
+# colour palette + ann_colors so we can rebuild the legends as proper
+# horizontal grobs via ggplot guides. We then gtable_filter pheatmap's
+# original (vertical) legends out of the body, stack our horizontal band
+# above the body, and grid::grid.draw onto a fresh PNG device.
+.pheatmap_save_legend_top <- function(ph, file, width_in, height_in,
+                                       palette, ann_colors,
+                                       dpi = 300) {
+  has_deps <- requireNamespace("gtable", quietly = TRUE) &&
+              requireNamespace("gridExtra", quietly = TRUE) &&
+              requireNamespace("cowplot", quietly = TRUE)
+  if (!has_deps) return(invisible(FALSE))
+
+  body <- gtable::gtable_filter(ph$gtable, "legend|annotation_legend",
+                                 invert = TRUE)
+
+  gradient_grob <- .make_gradient_legend_grob(palette, limits = c(0, 1),
+                                                title = "value")
+  cat_grobs <- lapply(names(ann_colors), function(nm) {
+    .make_categorical_legend_grob(ann_colors[[nm]], nm)
+  })
+
+  # Layout policy: gradient + ≤1 categorical → single row.
+  # gradient + ≥2 categorical → gradient on row 1, categoricals on row 2
+  # (avoids horizontal clipping on narrow canvases like the MGE panel D,
+  # which has both Treatment and Replicon_Family annotations).
+  if (length(cat_grobs) <= 1) {
+    top_band    <- gridExtra::arrangeGrob(grobs = c(list(gradient_grob),
+                                                     cat_grobs),
+                                            nrow  = 1)
+    top_band_cm <- 1.2
+  } else {
+    cat_row  <- gridExtra::arrangeGrob(grobs = cat_grobs, nrow = 1)
+    top_band <- gridExtra::arrangeGrob(gradient_grob, cat_row, ncol = 1)
+    top_band_cm <- 2.0
+  }
+
+  combined <- gridExtra::arrangeGrob(
+    top_band, body,
+    ncol    = 1,
+    heights = grid::unit.c(grid::unit(top_band_cm, "cm"),
+                            grid::unit(1, "null"))
+  )
+
+  grDevices::png(file, width = width_in, height = height_in,
+                 units = "in", res = dpi, bg = "white")
+  on.exit(grDevices::dev.off(), add = TRUE)
+  grid::grid.draw(combined)
+  invisible(TRUE)
+}
+
 # Read the TPM-normalised gene table produced by R/03. Returns NULL with a
 # log line when the file isn't on disk (e.g. cfg$stages$normalisation = false).
 ge_load_norm_table <- function(cfg, log_label) {
@@ -190,7 +301,7 @@ ge_plot_alpha_violin <- function(alpha, group, metric, kw, pal_group, file,
       hjust = 1.05, vjust = 1.4, size = 4.2, colour = "black"
     )
   }
-  ggplot2::ggsave(file, p, width = 7, height = 5, dpi = 300)
+  save_panel_ggplot(file, p, width = 7, height = 5, dpi = 300)
 }
 
 ge_plot_alpha_bar <- function(alpha, group, metric, kw, pal_group, file,
@@ -240,7 +351,7 @@ ge_plot_alpha_bar <- function(alpha, group, metric, kw, pal_group, file,
       text            = ggplot2::element_text(size = 13)
     )
   bw <- max(8, 0.5 * nrow(alpha) + 3)
-  ggplot2::ggsave(file, p, width = bw, height = 5, dpi = 300)
+  save_panel_ggplot(file, p, width = bw, height = 5, dpi = 300)
 }
 
 # Per-(sample, gene) log(value + 1) abundance plot coloured by group,
@@ -291,28 +402,35 @@ ge_plot_abundance_violin <- function(df, group, pal_group, file,
                                                        face = "bold",
                                                        size = 13),
                    text = ggplot2::element_text(size = 13))
-  # KW annotation in upper-right corner so it doesn't overlap the
-  # log(TPM+1) distributions (which often peak near the panel top).
+  # KW annotation in upper-LEFT corner. Right/centre collide with the
+  # pairwise significance brackets added below, which stack vertically
+  # above the box-plot from the centre x of each pair.
   if (!is.null(kw)) {
     p <- p + ggplot2::annotate(
-      "text", x = Inf, y = Inf,
+      "text", x = -Inf, y = Inf,
       label = sprintf("Kruskal-Wallis p = %.2g", kw$p.value),
-      hjust = 1.05, vjust = 1.4, size = 4.2, colour = "black"
+      hjust = -0.05, vjust = 1.4, size = 3.4, colour = "black"
     )
   }
   # Pairwise Wilcoxon comparisons with bracketed asterisks. Uses
   # ggpubr::stat_compare_means when available; family-adjustment method
-  # comes from cfg$stats$padjust_method. y-positions for the brackets
-  # auto-computed above the box-plot stack so they don't overlap the
-  # KW annotation in the corner.
+  # comes from cfg$stats$padjust_method. Brackets sit tight to the
+  # box-plot stack (small step) so they read as adjacent to the data,
+  # not floating above empty whitespace.
   group_levels <- sort(unique(as.character(v[[group]])))
   if (requireNamespace("ggpubr", quietly = TRUE) &&
       length(group_levels) >= 2) {
     pairs <- utils::combn(group_levels, 2, simplify = FALSE)
     pad_method <- padjust_method(cfg)
-    y_top  <- max(v$log_val, na.rm = TRUE)
+    # Anchor brackets to the per-group UPPER WHISKER (Q3 + 1.5*IQR), not
+    # max(v$log_val). Using the raw max means a single high outlier pushes
+    # brackets way above the box cloud, leaving a visible whitespace gap.
+    y_top <- max(tapply(v$log_val, v[[group]], function(x) {
+      q <- stats::quantile(x, c(0.25, 0.75), na.rm = TRUE)
+      as.numeric(q[2] + 1.5 * (q[2] - q[1]))
+    }), na.rm = TRUE)
     y_rng  <- diff(range(v$log_val, na.rm = TRUE))
-    steps  <- y_rng * 0.08
+    steps  <- y_rng * 0.01            # first bracket sits at +1% of range above max whisker
     label_ys <- y_top + steps * seq_along(pairs)
     p <- p + ggpubr::stat_compare_means(
       comparisons       = pairs,
@@ -320,15 +438,16 @@ ge_plot_abundance_violin <- function(df, group, pal_group, file,
       label             = "p.signif",
       p.adjust.method   = pad_method,
       hide.ns           = FALSE,
-      tip.length        = 0.015,
-      step.increase     = 0.08,
+      tip.length        = 0.005,
+      step.increase     = 0.02,
       vjust             = 0.4,
-      size              = 5
+      size              = 5,
+      label.y           = label_ys
     )
     # Headroom so the highest bracket clears the panel top.
     p <- p + ggplot2::expand_limits(y = y_top + steps * (length(pairs) + 1))
   }
-  ggplot2::ggsave(file, p, width = 7, height = 5.5, dpi = 300)
+  save_panel_ggplot(file, p, width = 7, height = 5.5, dpi = 300)
 }
 
 # UpSet plot of unique category values per group. Scales better than a
@@ -368,7 +487,7 @@ ge_plot_category_upset <- function(df, category_col, group, file,
       sets_bar_color <- aligned
     }
   }
-  grDevices::png(file, width = 2200, height = 1500, res = 220, bg = "white")
+  grDevices::png(file, width = 2200, height = 1500, res = 300, bg = "white")
   on.exit(grDevices::dev.off(), add = TRUE)
   print(UpSetR::upset(
     df_upset,
@@ -449,9 +568,12 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
                                   category_col, file, palette,
                                   top_n             = NULL,
                                   rank_by           = "abundance",
-                                  fontsize_row      = 8,
-                                  row_height_factor = 0.18,
-                                  min_height        = 7) {
+                                  fontsize_row      = 10,
+                                  row_height_factor = 0.15,
+                                  min_height        = 6,
+                                  width             = NULL,
+                                  height            = NULL,
+                                  legend_top        = FALSE) {
   gene_wide <- df |>
     dplyr::group_by(.data$GENE, .data$sample) |>
     dplyr::summarise(TPM = sum(.data$TPM, na.rm = TRUE), .groups = "drop") |>
@@ -511,13 +633,13 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
     cat_per_gene <- NA
   }
 
-  hm_height <- max(min_height, row_height_factor * nrow(gene_scaled) + 3)
-  hm_width  <- max(8, 0.4 * ncol(gene_scaled) + 4)
-  pheatmap::pheatmap(
-    gene_scaled,
-    cluster_rows = FALSE,
-    cluster_cols = FALSE,
-    color = grDevices::colorRampPalette(palette)(100),
+  hm_width  <- width  %||% max(6, 0.32 * ncol(gene_scaled) + 3)
+  hm_height <- height %||% max(min_height, row_height_factor * nrow(gene_scaled) + 2.5)
+  ph_args <- list(
+    mat               = gene_scaled,
+    cluster_rows      = FALSE,
+    cluster_cols      = FALSE,
+    color             = grDevices::colorRampPalette(palette)(100),
     border_color      = NA,
     show_rownames     = TRUE,
     show_colnames     = TRUE,
@@ -528,19 +650,38 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
     annotation_names_row = FALSE,
     annotation_names_col = FALSE,
     gaps_col          = gaps_col,
-    fontsize_row = fontsize_row, fontsize_col = 9, fontsize = 10,
-    filename = file,
-    width = hm_width, height = hm_height
+    fontsize_row = fontsize_row, fontsize_col = 11, fontsize = 12
   )
+  if (isTRUE(legend_top)) {
+    ph <- do.call(pheatmap::pheatmap, c(ph_args, list(silent = TRUE)))
+    .pheatmap_save_legend_top(ph, file, hm_width, hm_height,
+                               palette    = grDevices::colorRampPalette(palette)(100),
+                               ann_colors = if (length(ann_colors) > 0) ann_colors
+                                            else list())
+  } else {
+    do.call(pheatmap::pheatmap, c(ph_args,
+                                    list(filename = file,
+                                         width    = hm_width,
+                                         height   = hm_height)))
+  }
 }
 
 # Category-level pheatmap: rows aggregated by `category_col`, columns =
 # sample. Rows sorted by total TPM descending; columns sorted by group.
+#
+# Defaults retuned 2026-06-16 (option A — source-side shrink) so the raster
+# survives the ~3-4x downscale into figS_diet_effects panel D. Width/height
+# now locked to fixed defaults so the three panel D heatmaps render at
+# uniform composite size regardless of nrow. Pass non-NULL width/height
+# to override per caller.
 ge_plot_category_heatmap <- function(df, category_col, group, pal_group,
                                       file, palette,
-                                      fontsize_row      = 11,
-                                      row_height_factor = 0.32,
-                                      min_height        = 4) {
+                                      fontsize_row      = 14,
+                                      row_height_factor = 0.28,
+                                      min_height        = 4,
+                                      width             = 8.5,
+                                      height            = 6,
+                                      legend_top        = TRUE) {
   cat_wide <- df |>
     dplyr::group_by(.data[[category_col]], .data$sample) |>
     dplyr::summarise(TPM = sum(.data$TPM, na.rm = TRUE), .groups = "drop") |>
@@ -568,21 +709,30 @@ ge_plot_category_heatmap <- function(df, category_col, group, pal_group,
   ann_colors <- list()
   ann_colors[[group]] <- pal_group[grp_lvls]
 
-  hm_height <- max(min_height, row_height_factor * nrow(cat_scaled) + 3)
-  hm_width  <- max(8, 0.4 * ncol(cat_scaled) + 4)
-  pheatmap::pheatmap(
-    cat_scaled,
-    cluster_rows = FALSE,
-    cluster_cols = FALSE,
-    color = grDevices::colorRampPalette(palette)(100),
+  hm_width  <- width  %||% max(6, 0.32 * ncol(cat_scaled) + 3)
+  hm_height <- height %||% max(min_height, row_height_factor * nrow(cat_scaled) + 2.5)
+  ph_args <- list(
+    mat               = cat_scaled,
+    cluster_rows      = FALSE,
+    cluster_cols      = FALSE,
+    color             = grDevices::colorRampPalette(palette)(100),
     border_color      = NA,
     annotation_col    = sample_group,
     annotation_colors = ann_colors,
     gaps_col          = gaps_col,
-    fontsize_row = fontsize_row, fontsize_col = 10, fontsize = 11,
-    filename = file,
-    width = hm_width, height = hm_height
+    fontsize_row = fontsize_row, fontsize_col = 13, fontsize = 14
   )
+  if (isTRUE(legend_top)) {
+    ph <- do.call(pheatmap::pheatmap, c(ph_args, list(silent = TRUE)))
+    .pheatmap_save_legend_top(ph, file, hm_width, hm_height,
+                               palette = grDevices::colorRampPalette(palette)(100),
+                               ann_colors = ann_colors)
+  } else {
+    do.call(pheatmap::pheatmap, c(ph_args,
+                                    list(filename = file,
+                                         width    = hm_width,
+                                         height   = hm_height)))
+  }
 }
 
 # Stacked-bar relative abundance of `category_col` per sample, faceted by
@@ -613,7 +763,7 @@ ge_plot_category_relative_abundance <- function(df, category_col, group,
     ggplot2::theme(text = ggplot2::element_text(size = 13),
                    axis.text.x = ggplot2::element_text(angle = 45, hjust = 1))
   bw <- max(8, 0.55 * dplyr::n_distinct(share$sample) + 3)
-  ggplot2::ggsave(fig_file, p, width = bw, height = 6, dpi = 300)
+  save_panel_ggplot(fig_file, p, width = bw, height = 6, dpi = 300)
 
   totals <- df |>
     dplyr::group_by(.data[[category_col]]) |>
@@ -654,7 +804,7 @@ ge_plot_total_bar <- function(totals, category_col, value_col, palette,
                    axis.text.y = ggplot2::element_text(size = 11),
                    text = ggplot2::element_text(size = 13)) +
     ggplot2::coord_flip()
-  ggplot2::ggsave(file, p, width = width, height = height, dpi = 300)
+  save_panel_ggplot(file, p, width = width, height = height, dpi = 300)
 }
 
 # Gene-level PCoA + PERMANOVA + PERMDISP on a TPM profile, matching the
@@ -768,7 +918,7 @@ ge_plot_beta <- function(df, group, pal_group, opts, fig_file,
       text = ggplot2::element_text(size = 13),
       plot.title = ggplot2::element_text(size = 12, hjust = 0.5)
     )
-  ggplot2::ggsave(fig_file, p, width = 7, height = 5.5, dpi = 300)
+  save_panel_ggplot(fig_file, p, width = 7, height = 5.5, dpi = 300)
 
   invisible(list(scores = scores, permanova = permanova,
                  permdisp = bd_test, var_explained = var_expl[1:2]))

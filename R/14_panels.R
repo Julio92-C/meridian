@@ -113,6 +113,117 @@ run_panels <- function(cfg) {
 }
 
 # ---------------------------------------------------------------------------
+# Composite theme override
+# ---------------------------------------------------------------------------
+
+# Applied to every ggplot we re-render natively from .rds. Per-stage plots
+# are tuned for standalone viewing (12pt base text, full-size legend); in
+# a composite cell those defaults overlap with neighbours. This override
+# shrinks text + legend, drops the per-plot title (the composite uses
+# A/B/C tags instead), and adds a small plot margin.
+#
+# Knobs (all optional, sensible defaults):
+#   cfg$panels$composite_base_size    (default 9)   base text pt
+#   cfg$panels$composite_legend_size  (default 7)   legend text pt
+#   cfg$panels$composite_margin_pt    (default 6)   plot margin pt on all sides
+#   cfg$panels$strip_plot_title       (default TRUE) drop per-plot title
+.panels_composite_theme <- function(cfg) {
+  base <- cfg$panels$composite_base_size   %||% 9
+  legd <- cfg$panels$composite_legend_size %||% 7
+  marg <- cfg$panels$composite_margin_pt   %||% 6
+  strip_title <- isTRUE(cfg$panels$strip_plot_title %||% TRUE)
+  th <- ggplot2::theme(
+    text           = ggplot2::element_text(size = base),
+    axis.text      = ggplot2::element_text(size = max(6, base - 1)),
+    axis.title     = ggplot2::element_text(size = base),
+    legend.text    = ggplot2::element_text(size = legd),
+    legend.title   = ggplot2::element_text(size = legd + 1),
+    legend.key.size  = grid::unit(0.4, "cm"),
+    legend.spacing   = grid::unit(0.15, "cm"),
+    legend.box.margin = ggplot2::margin(0, 0, 0, 0),
+    plot.margin    = ggplot2::margin(marg, marg, marg, marg, "pt")
+  )
+  if (strip_title) {
+    th <- th + ggplot2::theme(
+      plot.title    = ggplot2::element_blank(),
+      plot.subtitle = ggplot2::element_blank()
+    )
+  }
+  th
+}
+
+# ---------------------------------------------------------------------------
+# Per-slot / per-panel composite overrides (from the slots YAML)
+# ---------------------------------------------------------------------------
+
+# Recognised keys in a slot's `composite:` block (or a panel's `composite:`
+# block). Panel-level beats slot-level when both are set.
+#
+#   legend_position : "right" | "left" | "top" | "bottom" | "none"
+#   legend_ncol     : integer  (forces guide_legend ncol)
+#   legend_nrow     : integer  (forces guide_legend nrow)
+#   axis_text_size  : numeric  pt size override for axis.text
+#   strip_axis_text : "x" | "y" | "both" | "none"   (drop labels entirely)
+#
+# Anything not present is left untouched so the global theme override and
+# the .rds's own theme apply.
+
+.panels_merge_composite <- function(slot_block, panel_block) {
+  base <- if (is.null(slot_block)) list() else slot_block
+  over <- if (is.null(panel_block)) list() else panel_block
+  modifyList(base, over)
+}
+
+.panels_apply_overrides <- function(plot_obj, overrides) {
+  if (length(overrides) == 0) return(plot_obj)
+
+  th <- list()
+  if (!is.null(overrides$legend_position)) {
+    th$legend.position <- overrides$legend_position
+  }
+  if (!is.null(overrides$legend_text_size)) {
+    th$legend.text  <- ggplot2::element_text(
+      size = as.numeric(overrides$legend_text_size)
+    )
+    th$legend.title <- ggplot2::element_text(
+      size = as.numeric(overrides$legend_text_size) + 1
+    )
+  }
+  if (!is.null(overrides$legend_key_size_cm)) {
+    th$legend.key.size <- grid::unit(
+      as.numeric(overrides$legend_key_size_cm), "cm"
+    )
+  }
+  if (!is.null(overrides$axis_text_size)) {
+    th$axis.text <- ggplot2::element_text(
+      size = as.numeric(overrides$axis_text_size)
+    )
+  }
+  if (!is.null(overrides$strip_axis_text)) {
+    s <- tolower(overrides$strip_axis_text)
+    if (s %in% c("x", "both")) {
+      th$axis.text.x <- ggplot2::element_blank()
+    }
+    if (s %in% c("y", "both")) {
+      th$axis.text.y <- ggplot2::element_blank()
+    }
+  }
+  if (length(th) > 0) {
+    plot_obj <- plot_obj + do.call(ggplot2::theme, th)
+  }
+
+  if (!is.null(overrides$legend_ncol) || !is.null(overrides$legend_nrow)) {
+    plot_obj <- plot_obj + ggplot2::guides(
+      fill   = ggplot2::guide_legend(ncol = overrides$legend_ncol,
+                                       nrow = overrides$legend_nrow),
+      colour = ggplot2::guide_legend(ncol = overrides$legend_ncol,
+                                       nrow = overrides$legend_nrow)
+    )
+  }
+  plot_obj
+}
+
+# ---------------------------------------------------------------------------
 # Manifest indexing
 # ---------------------------------------------------------------------------
 
@@ -206,26 +317,34 @@ run_panels <- function(cfg) {
     n_panels_for_log <- block$n_panels
   }
 
-  title <- spec$title %||% slug
-  composed_with_title <- cowplot::plot_grid(
-    cowplot::ggdraw() + cowplot::draw_label(title, fontface = "italic",
-                                              size = 13),
-    composed,
-    ncol = 1,
-    rel_heights = c(0.05, 0.95)
-  )
+  # Slot title is opt-in (default off). Journal figures get a caption,
+  # not a baked-in italic title; including one steals canvas height and
+  # clashes with the panel labels (A/B/C/...). Re-enable via
+  # cfg$panels$show_title = TRUE.
+  if (isTRUE(cfg$panels$show_title %||% FALSE)) {
+    title <- spec$title %||% slug
+    composed_final <- cowplot::plot_grid(
+      cowplot::ggdraw() + cowplot::draw_label(title, fontface = "italic",
+                                                size = 13),
+      composed,
+      ncol = 1,
+      rel_heights = c(0.05, 0.95)
+    )
+  } else {
+    composed_final <- composed
+  }
 
   dpi    <- cfg$panels$dpi    %||% 300
   width  <- cfg$panels$width  %||% (5.5 * cols)
   height <- cfg$panels$height %||% (4.5 * rows_eq + 0.4)
 
-  ggplot2::ggsave(out_path, composed_with_title,
+  ggplot2::ggsave(out_path, composed_final,
                    width = width, height = height,
                    dpi = dpi, bg = "white")
 
   if (isTRUE(cfg$panels$pdf %||% FALSE)) {
     pdf_path <- sub("\\.png$", ".pdf", out_path)
-    ggplot2::ggsave(pdf_path, composed_with_title,
+    ggplot2::ggsave(pdf_path, composed_final,
                      width = width, height = height,
                      device = grDevices::cairo_pdf)
   }
@@ -280,6 +399,8 @@ run_panels <- function(cfg) {
 
   plots <- list()
   tags  <- character()
+  n_native <- 0L
+  n_raster <- 0L
   for (item in resolved) {
     abs_path <- .panels_resolve_path(cfg, item$entry$path)
     if (!file.exists(abs_path)) {
@@ -289,17 +410,51 @@ run_panels <- function(cfg) {
       ))
       return(NULL)
     }
-    img <- tryCatch(magick::image_read(abs_path), error = function(e) NULL)
-    if (is.null(img)) {
-      pipeline_log(cfg, sprintf(
-        "Panels[%s/%s]: failed to read %s — slot skipped",
-        slug, sec_id, abs_path
-      ))
-      return(NULL)
+    # Prefer a sibling .rds containing the original ggplot object so we can
+    # re-render at the composite canvas resolution. Fall back to reading the
+    # PNG via magick when no .rds is available (non-ggplot outputs like
+    # pheatmap / circlize / UpSet are still raster).
+    rds_path <- sub("\\.(png|pdf)$", ".rds", abs_path,
+                    ignore.case = TRUE)
+    plot_obj <- NULL
+    if (rds_path != abs_path && file.exists(rds_path)) {
+      plot_obj <- tryCatch(readRDS(rds_path), error = function(e) NULL)
+      if (is.null(plot_obj) || !inherits(plot_obj, "ggplot")) {
+        plot_obj <- NULL  # fall through to raster
+      }
     }
-    plots[[length(plots) + 1]] <- cowplot::ggdraw() +
-      cowplot::draw_image(img)
+    if (is.null(plot_obj)) {
+      img <- tryCatch(magick::image_read(abs_path), error = function(e) NULL)
+      if (is.null(img)) {
+        pipeline_log(cfg, sprintf(
+          "Panels[%s/%s]: failed to read %s — slot skipped",
+          slug, sec_id, abs_path
+        ))
+        return(NULL)
+      }
+      plot_obj <- cowplot::ggdraw() + cowplot::draw_image(img)
+      n_raster <- n_raster + 1L
+    } else {
+      # Apply the composite theme override so per-stage plots tuned for
+      # standalone viewing (12pt text, big legend) shrink to fit cleanly
+      # at composite scale.
+      plot_obj <- plot_obj + .panels_composite_theme(cfg)
+      # Per-slot or per-panel composite overrides from the slots YAML
+      # (e.g. legend_position: right, legend_ncol: 2). Slot-level applies
+      # to every panel in the slot; panel-level wins when both are set.
+      overrides <- .panels_merge_composite(sec_spec$composite,
+                                            item$panel$composite)
+      plot_obj <- .panels_apply_overrides(plot_obj, overrides)
+      n_native <- n_native + 1L
+    }
+    plots[[length(plots) + 1]] <- plot_obj
     tags <- c(tags, item$panel$tag %||% LETTERS[length(plots)])
+  }
+  if (n_native + n_raster > 0) {
+    pipeline_log(cfg, sprintf(
+      "Panels[%s/%s]: %d native (.rds) + %d raster (.png)",
+      slug, sec_id, n_native, n_raster
+    ))
   }
 
   rows <- max(1L, as.integer(sec_spec$rows %||% 1L))
@@ -327,7 +482,7 @@ run_panels <- function(cfg) {
 # domain, metric, pair, organism, rank). First match wins.
 .panels_find_match <- function(panel_spec, figures_index, cfg) {
   filters <- panel_spec[setdiff(names(panel_spec),
-                                 c("tag", "required"))]
+                                 c("tag", "required", "composite"))]
   if (is.null(filters$kind)) return(NULL)
   for (entry in figures_index) {
     match <- TRUE
