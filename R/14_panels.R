@@ -126,18 +126,28 @@ run_panels <- function(cfg) {
 #   cfg$panels$composite_base_size    (default 9)   base text pt
 #   cfg$panels$composite_legend_size  (default 7)   legend text pt
 #   cfg$panels$composite_margin_pt    (default 6)   plot margin pt on all sides
+#   cfg$panels$composite_unified      (default FALSE) when TRUE, force axis.text =
+#                                                    axis.title = base and legend.title =
+#                                                    legend.text (no ±1pt offsets), so every
+#                                                    glyph in a ggplot panel renders at one of
+#                                                    just two sizes (base / legend).
 #   cfg$panels$strip_plot_title       (default TRUE) drop per-plot title
 .panels_composite_theme <- function(cfg) {
   base <- cfg$panels$composite_base_size   %||% 9
   legd <- cfg$panels$composite_legend_size %||% 7
   marg <- cfg$panels$composite_margin_pt   %||% 6
+  unified <- isTRUE(cfg$panels$composite_unified %||% FALSE)
   strip_title <- isTRUE(cfg$panels$strip_plot_title %||% TRUE)
+  axis_text_size  <- if (unified) base else max(6, base - 1)
+  legend_title_sz <- if (unified) legd else legd + 1
   th <- ggplot2::theme(
     text           = ggplot2::element_text(size = base),
-    axis.text      = ggplot2::element_text(size = max(6, base - 1)),
+    axis.text      = ggplot2::element_text(size = axis_text_size),
     axis.title     = ggplot2::element_text(size = base),
+    strip.text     = ggplot2::element_text(size = base),
+    plot.tag       = ggplot2::element_text(size = base),
     legend.text    = ggplot2::element_text(size = legd),
-    legend.title   = ggplot2::element_text(size = legd + 1),
+    legend.title   = ggplot2::element_text(size = legend_title_sz),
     legend.key.size  = grid::unit(0.4, "cm"),
     legend.spacing   = grid::unit(0.15, "cm"),
     legend.box.margin = ggplot2::margin(0, 0, 0, 0),

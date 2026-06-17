@@ -134,11 +134,11 @@ run_taxonomy <- function(cleaned, cfg) {
       resolution = 300,
       fill = unname(fill_pal),
       alpha = 0.5,
-      cat.cex = 1.3,
+      cat.cex = 1.0,
       cat.fontface = "bold",
-      cex = 1.5,
+      cex = 1.0,
       main = "Shared species across treatment groups",
-      main.cex = 1.4,
+      main.cex = 1.0,
       margin = 0.08,
       disable.logging = TRUE
     )
@@ -210,9 +210,9 @@ run_taxonomy <- function(cleaned, cfg) {
     gaps_col = gaps_col,
     color = grDevices::colorRampPalette(c("#15b379", "yellow", "#f2615a"))(100),
     border_color = NA,
-    fontsize_row = 9,
-    fontsize_col = 10,
-    fontsize = 10
+    fontsize_row = 8,
+    fontsize_col = 8,
+    fontsize = 8
   )
 
   invisible(NULL)

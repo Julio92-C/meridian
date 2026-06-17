@@ -496,7 +496,7 @@ ge_plot_category_upset <- function(df, category_col, group, file,
     order.by         = "freq",
     nintersects      = if (is.na(nintersects)) NA else as.integer(nintersects),
     sets.bar.color   = sets_bar_color,
-    text.scale       = c(1.4, 1.3, 1.2, 1.2, 1.3, 1.1)
+    text.scale       = c(1.4, 1.2, 1.2, 1.2, 1.3, 1.1)
   ))
   invisible(NULL)
 }
@@ -550,10 +550,10 @@ ge_plot_category_venn <- function(df, category_col, group, pal_group,
       imagetype = "png",
       height = 2800, width = 2800, resolution = 300,
       fill = fill_pal, alpha = 0.6,
-      cat.cex = 1.25, cat.fontface = "bold",
-      cex = 1.5,
+      cat.cex = 1.0, cat.fontface = "bold",
+      cex = 1.0,
       main = main_title,
-      main.cex = 1.3, margin = 0.18,
+      main.cex = 1.0, margin = 0.18,
       disable.logging = TRUE
     ),
     cat_args
@@ -568,7 +568,7 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
                                   category_col, file, palette,
                                   top_n             = NULL,
                                   rank_by           = "abundance",
-                                  fontsize_row      = 10,
+                                  fontsize_row      = 8,
                                   row_height_factor = 0.15,
                                   min_height        = 6,
                                   width             = NULL,
@@ -650,7 +650,7 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
     annotation_names_row = FALSE,
     annotation_names_col = FALSE,
     gaps_col          = gaps_col,
-    fontsize_row = fontsize_row, fontsize_col = 11, fontsize = 12
+    fontsize_row = fontsize_row, fontsize_col = 8, fontsize = 8
   )
   if (isTRUE(legend_top)) {
     ph <- do.call(pheatmap::pheatmap, c(ph_args, list(silent = TRUE)))
@@ -676,7 +676,7 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
 # to override per caller.
 ge_plot_category_heatmap <- function(df, category_col, group, pal_group,
                                       file, palette,
-                                      fontsize_row      = 14,
+                                      fontsize_row      = 12,
                                       row_height_factor = 0.28,
                                       min_height        = 4,
                                       width             = 8.5,
@@ -720,7 +720,7 @@ ge_plot_category_heatmap <- function(df, category_col, group, pal_group,
     annotation_col    = sample_group,
     annotation_colors = ann_colors,
     gaps_col          = gaps_col,
-    fontsize_row = fontsize_row, fontsize_col = 13, fontsize = 14
+    fontsize_row = fontsize_row, fontsize_col = 11, fontsize = 11
   )
   if (isTRUE(legend_top)) {
     ph <- do.call(pheatmap::pheatmap, c(ph_args, list(silent = TRUE)))
@@ -795,13 +795,12 @@ ge_plot_total_bar <- function(totals, category_col, value_col, palette,
     ggplot2::geom_hline(yintercept = stats::median(totals[[value_col]]),
                         linetype = "dashed", colour = "black") +
     ggplot2::geom_text(ggplot2::aes(label = fmt_label(.data[[value_col]])),
-                       hjust = -0.05, size = 3.4) +
+                       hjust = -0.05, size = 2.8) +
     ggplot2::scale_y_log10(expand = ggplot2::expansion(mult = c(0, 0.18))) +
     ggplot2::scale_fill_manual(values = palette) +
     ggplot2::labs(x = x_label, y = y_label) +
     ggplot2::theme_classic() +
     ggplot2::theme(legend.position = "none",
-                   axis.text.y = ggplot2::element_text(size = 11),
                    text = ggplot2::element_text(size = 13)) +
     ggplot2::coord_flip()
   save_panel_ggplot(file, p, width = width, height = height, dpi = 300)

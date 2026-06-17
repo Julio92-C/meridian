@@ -591,7 +591,7 @@ run_network <- function(cleaned, cfg) {
         circlize::get.cell.meta.data("xcenter"),
         circlize::get.cell.meta.data("ylim")[1],
         sector.index, facing = "clockwise", niceFacing = TRUE,
-        adj = c(0, 0.8), cex = 0.75
+        adj = c(0, 0.8), cex = 0.7
       )
     }, bg.border = NA
   )
@@ -1146,9 +1146,9 @@ run_network <- function(cleaned, cfg) {
     breaks = seq(-1, 1, length.out = 101),
     display_numbers = labels,
     number_color    = "black",
-    fontsize_number = 13,
+    fontsize_number = 10,
     border_color    = "grey70",
-    fontsize_row = 12, fontsize_col = 12, fontsize = 11,
+    fontsize_row = 10, fontsize_col = 10, fontsize = 10,
     main = sprintf(
       "Mantel triangle (Spearman, %s-level, %d perms, p adj %s)",
       level, perms, pad_method

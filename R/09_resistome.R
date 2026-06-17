@@ -296,7 +296,7 @@ run_resistome <- function(cleaned, cfg) {
                 circlize::get.cell.meta.data("xcenter"),
                 circlize::get.cell.meta.data("ylim")[1],
                 sector_idx, facing = "clockwise", niceFacing = TRUE,
-                adj = c(0, 0.5), cex = 0.8
+                adj = c(0, 0.5), cex = 0.7
               )
             }, bg.border = NA
           )

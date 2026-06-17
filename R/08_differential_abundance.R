@@ -645,7 +645,7 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
           annotation_col    = ann_col,
           annotation_colors = ann_colors,
           gaps_col          = gaps_col,
-          fontsize_row = 8, fontsize_col = 9, fontsize = 10,
+          fontsize_row = 8, fontsize_col = 8, fontsize = 8,
           filename = file.path(fig_dir, "top30_daa_heatmap.png"),
           width  = max(8, 0.4  * ncol(sub_mat) + 4),
           height = max(6, 0.22 * nrow(sub_mat) + 2.5)

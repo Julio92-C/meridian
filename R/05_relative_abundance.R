@@ -537,7 +537,7 @@ run_relative_abundance <- function(cleaned, cfg) {
         annotation_col    = samp_ann,
         annotation_colors = ann_colors,
         border_color      = NA,
-        fontsize_row = 9, fontsize_col = 9, fontsize = 10,
+        fontsize_row = 8, fontsize_col = 8, fontsize = 8,
         filename = file.path(fig_dir, "genus_heatmap_top30.png"),
         width    = max(8, 0.4  * ncol(z) + 4),
         height   = max(6, 0.25 * nrow(z) + 2.5)

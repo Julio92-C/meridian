@@ -349,7 +349,7 @@ run_virulome <- function(cleaned, cfg) {
         breaks            = seq(-1, 1, length.out = 101),
         display_numbers   = stars,
         number_color      = "black",
-        fontsize_number   = 11,
+        fontsize_number   = 10,
         border_color      = "grey80",
         fontsize_row = 10, fontsize_col = 10, fontsize = 10,
         # Title omitted — panel composites strip titles, and the

@@ -75,6 +75,18 @@ network:
     top_genes:   30
     rank_by:     prevalence_x_abundance   # mean_abundance | prevalence | prevalence_x_abundance
 
+# Publication panel rendering — final polishing pass aims at a single
+# unified text size across every panel. ggplot panels obey these knobs
+# directly via R/14_panels.R::.panels_composite_theme; raster panels
+# (pheatmap / Venn / UpSet / circlize) are sized at their source modules.
+panels:
+  composite_unified:    true
+  composite_base_size:  8
+  composite_legend_size: 8
+  composite_margin_pt:  6
+  strip_plot_title:     true
+  show_title:           false
+
 outputs:
   datasets_dir: "test_run/Datasets"
   figures_dir:  "test_run/Figures"
