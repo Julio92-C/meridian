@@ -221,6 +221,11 @@ main:
     rows: 1
     cols: 1
     labels: false
+    # ggraph's layout sets x/y aesthetics; theme_void() blanks them at the
+    # source but the composite theme re-adds axis.title/axis.text. Strip
+    # everything axis-related so the composite stays clean.
+    composite:
+      strip_axis_text: all
     panels:
       - kind: network_graph
 

@@ -201,11 +201,19 @@ run_panels <- function(cfg) {
   }
   if (!is.null(overrides$strip_axis_text)) {
     s <- tolower(overrides$strip_axis_text)
-    if (s %in% c("x", "both")) {
+    if (s %in% c("x", "both", "all")) {
       th$axis.text.x <- ggplot2::element_blank()
     }
-    if (s %in% c("y", "both")) {
+    if (s %in% c("y", "both", "all")) {
       th$axis.text.y <- ggplot2::element_blank()
+    }
+    # "all" also blanks axis titles + ticks — needed for ggraph-based
+    # panels (fig09 network) where theme_void() in the source gets
+    # overwritten by the composite axis.title default and the layout
+    # x/y coords end up bleeding into the panel.
+    if (s == "all") {
+      th$axis.title  <- ggplot2::element_blank()
+      th$axis.ticks  <- ggplot2::element_blank()
     }
   }
   if (length(th) > 0) {

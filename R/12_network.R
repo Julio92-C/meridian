@@ -432,12 +432,21 @@ run_network <- function(cleaned, cfg) {
       segment.color = "grey60", min.segment.length = 0.5
     ) +
     ggraph::scale_edge_width(range = edge_width_range) +
-    ggplot2::scale_color_manual(values = pal, na.value = "grey60") +
+    ggplot2::scale_color_manual(values = pal, na.value = "grey60",
+                                  name  = "Node type") +
     ggplot2::scale_shape_manual(
-      values = c(sample = 16, taxa = 17, gene = 15)
+      values = c(sample = 16, taxa = 17, gene = 15),
+      name   = "Node shape"
     ) +
     ggplot2::theme_void() +
-    ggplot2::theme(legend.position = "right")
+    # theme_void() blanks axes, but R/14_panels.R adds axis.text and
+    # axis.title back via .panels_composite_theme so the .rds re-render
+    # ends up showing x/y coords ("0", "-2.5", ...). Force them blank
+    # here so the composite stays clean regardless of theme overrides.
+    ggplot2::theme(legend.position = "right",
+                   axis.title      = ggplot2::element_blank(),
+                   axis.text       = ggplot2::element_blank(),
+                   axis.ticks      = ggplot2::element_blank())
 
   save_panel_ggplot(
     file.path(fig_dir, "network.png"),

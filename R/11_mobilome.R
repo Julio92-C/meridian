@@ -207,6 +207,7 @@ run_mobilome <- function(cleaned, cfg) {
     group_col    = group,
     value_col    = "TPM",
     palette      = pal_gene,
+    fill_label   = "Plasmid replicon",
     title        = "MGE plasmid replicon (gene) composition by treatment"
   )
   save_stream_composition(
@@ -216,6 +217,7 @@ run_mobilome <- function(cleaned, cfg) {
     group_col    = group,
     value_col    = "TPM",
     palette      = pal_family,
+    fill_label   = "Replicon family",
     title        = "MGE replicon family composition by treatment"
   )
   ge_plot_total_bar(

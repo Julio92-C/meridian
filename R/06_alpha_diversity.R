@@ -257,8 +257,17 @@ run_alpha_diversity <- function(cleaned, cfg) {
   }
   kw_p_adj <- padjust_p(kw_p_raw, cfg)
 
+  # Short display labels: precomputed wf-metagenomics CSV ships
+  # "Shannon diversity index" / "Simpson diversity index" — long form
+  # collides with the shorter axis labels used by the GE-side violins
+  # ("Shannon"). Trim the redundant " diversity index" suffix for
+  # display only; the slug (e.g. shannon_diversity_index) and the
+  # manifest label remain unchanged.
+  display_label <- function(s) sub("\\s+diversity index$", "", s)
+
   for (m in metrics) {
     label <- pretty_labels[[m]] %||% m
+    label_disp <- display_label(label)
     sub   <- div[!is.na(div[[m]]), , drop = FALSE]
     if (nrow(sub) < 2 || dplyr::n_distinct(sub[[group]]) < 2) {
       pipeline_log(cfg, sprintf("Alpha diversity: %s — not enough data for KW", label))
@@ -294,7 +303,8 @@ run_alpha_diversity <- function(cleaned, cfg) {
       ggplot2::annotate("text", x = Inf, y = Inf, label = label_kw,
                         hjust = 1.05, vjust = 1.4,
                         size = 4.2, colour = "black") +
-      ggplot2::labs(x = group, y = label, title = paste(label, "by", group)) +
+      ggplot2::labs(x = group, y = label_disp,
+                    title = paste(label_disp, "by", group)) +
       ggplot2::theme_classic() +
       ggplot2::theme(legend.position = "top",
                      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
@@ -328,8 +338,8 @@ run_alpha_diversity <- function(cleaned, cfg) {
         ) +
         ggplot2::scale_fill_manual(values = pal) +
         ggplot2::labs(
-          title = sprintf("%s by %s (%s)", label, group, label_kw),
-          x = "Sample", y = label
+          title = sprintf("%s by %s (%s)", label_disp, group, label_kw),
+          x = "Sample", y = label_disp
         ) +
         ggplot2::theme_classic() +
         ggplot2::theme(

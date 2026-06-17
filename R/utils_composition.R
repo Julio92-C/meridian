@@ -30,6 +30,7 @@ build_stream_composition <- function(df,
                                       top_n          = 12,
                                       others_label   = "Others",
                                       title          = NULL,
+                                      fill_label     = NULL,
                                       stream_type    = "proportional") {
   for (pkg in c("ggplot2", "dplyr")) {
     if (!requireNamespace(pkg, quietly = TRUE)) {
@@ -142,7 +143,7 @@ build_stream_composition <- function(df,
     ggplot2::labs(
       x     = group_col,
       y     = "Relative abundance (%)",
-      fill  = category_col,
+      fill  = fill_label %||% category_col,
       title = title
     ) +
     ggplot2::theme_classic() +

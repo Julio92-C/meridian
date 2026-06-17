@@ -211,7 +211,7 @@ run_virulome <- function(cleaned, cfg) {
       palette = pal_function,
       fig_file = file.path(fig_dir, "vf_relative_abundance.png"),
       ds_file  = file.path(ds_dir,  "vf_total_TPM.csv"),
-      fill_label = "Virulent function"
+      fill_label = "VF function"
     )
     # Streamgraph companion (2026-06-12 polish) — per-treatment view for
     # composite panel D.
@@ -222,13 +222,14 @@ run_virulome <- function(cleaned, cfg) {
       group_col    = group,
       value_col    = "TPM",
       palette      = pal_function,
+      fill_label   = "VF function",
       title        = "VF function composition by treatment"
     )
     ge_plot_total_bar(
       vf_totals, category_col = "Functions", value_col = "Total_TPM",
       palette = pal_function,
       file    = file.path(fig_dir, "vf_total_count.png"),
-      x_label = "Virulent function"
+      x_label = "VF function"
     )
     save_count_prevalence(
       vfdb_fun,
@@ -351,8 +352,10 @@ run_virulome <- function(cleaned, cfg) {
         fontsize_number   = 11,
         border_color      = "grey80",
         fontsize_row = 10, fontsize_col = 10, fontsize = 10,
-        main = sprintf("VF function x ARG drug class Spearman (%d samples)",
-                       length(common)),
+        # Title omitted — panel composites strip titles, and the
+        # standalone caption belongs in the manuscript figure legend,
+        # not baked into the raster.
+        main = NA,
         filename = file.path(fig_dir, "vf_arg_correlation_heatmap.png"),
         width  = max(8,  0.55 * n_arg + 4),
         height = max(6,  0.50 * n_vf  + 3)

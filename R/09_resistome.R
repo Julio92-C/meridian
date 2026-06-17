@@ -228,6 +228,7 @@ run_resistome <- function(cleaned, cfg) {
       group_col    = group,
       value_col    = "TPM",
       palette      = pal_drug,
+      fill_label   = "Drug class",
       title        = "Drug class composition by treatment"
     )
     ge_plot_total_bar(

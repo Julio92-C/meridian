@@ -265,6 +265,7 @@ run_relative_abundance <- function(cleaned, cfg) {
       group_col    = facet_by,
       value_col    = "count",
       palette      = stream_palette,
+      fill_label   = "Species",
       title        = "Species composition by treatment"
     )
   }
@@ -326,6 +327,9 @@ run_relative_abundance <- function(cleaned, cfg) {
         group_col    = facet_by,
         value_col    = "count",
         palette      = rank_palette,
+        # Capitalised display label for fig01 F (taxa class stream).
+        fill_label   = paste0(toupper(substr(rank_col, 1, 1)),
+                                substr(rank_col, 2, nchar(rank_col))),
         title        = sprintf("Composition by treatment (%s level)", rank_col)
       )
     }

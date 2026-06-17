@@ -408,7 +408,7 @@ ge_plot_abundance_violin <- function(df, group, pal_group, file,
   if (!is.null(kw)) {
     p <- p + ggplot2::annotate(
       "text", x = -Inf, y = Inf,
-      label = sprintf("Kruskal-Wallis p = %.2g", kw$p.value),
+      label = sprintf("KW p = %.2g", kw$p.value),
       hjust = -0.05, vjust = 1.4, size = 3.4, colour = "black"
     )
   }
