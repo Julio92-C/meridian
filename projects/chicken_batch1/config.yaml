@@ -86,6 +86,11 @@ panels:
   composite_margin_pt:  6
   strip_plot_title:     true
   show_title:           false
+  # Publication output: TIFF (LZW-compressed, 300 dpi). PNG suppressed for
+  # the panel composites since they're not embedded in the Quarto report;
+  # per-stage figures under <figures_dir>/<stage>/*.png remain PNG.
+  tiff:                 true
+  png:                  false
 
 outputs:
   datasets_dir: "test_run/Datasets"

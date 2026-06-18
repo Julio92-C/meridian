@@ -61,7 +61,7 @@ run_panels <- function(cfg) {
   # an orphaned file behind.
   for (sub in c("main", "supplementary")) {
     stale <- list.files(file.path(fig_root, sub),
-                         pattern = "\\.(png|pdf)$", full.names = TRUE)
+                         pattern = "\\.(png|pdf|tiff?)$", full.names = TRUE)
     if (length(stale) > 0) file.remove(stale)
   }
 
@@ -356,11 +356,30 @@ run_panels <- function(cfg) {
   width  <- cfg$panels$width  %||% (5.5 * cols)
   height <- cfg$panels$height %||% (4.5 * rows_eq + 0.4)
 
-  ggplot2::ggsave(out_path, composed_final,
-                   width = width, height = height,
-                   dpi = dpi, bg = "white")
+  # Output format toggles. PNG is the default container (and the path returned
+  # to the caller / logged); TIFF + PDF are optional siblings. Disable PNG via
+  # cfg$panels$png = FALSE when you only need a publication TIFF.
+  emit_png  <- isTRUE(cfg$panels$png  %||% TRUE)
+  emit_tiff <- isTRUE(cfg$panels$tiff %||% FALSE)
+  emit_pdf  <- isTRUE(cfg$panels$pdf  %||% FALSE)
+  if (!emit_png && !emit_tiff && !emit_pdf) emit_png <- TRUE  # safety net
 
-  if (isTRUE(cfg$panels$pdf %||% FALSE)) {
+  if (emit_png) {
+    ggplot2::ggsave(out_path, composed_final,
+                     width = width, height = height,
+                     dpi = dpi, bg = "white")
+  }
+
+  if (emit_tiff) {
+    tiff_path <- sub("\\.png$", ".tiff", out_path)
+    ggplot2::ggsave(tiff_path, composed_final,
+                     width = width, height = height,
+                     dpi = dpi, bg = "white",
+                     device = grDevices::tiff,
+                     compression = "lzw")
+  }
+
+  if (emit_pdf) {
     pdf_path <- sub("\\.png$", ".pdf", out_path)
     ggplot2::ggsave(pdf_path, composed_final,
                      width = width, height = height,

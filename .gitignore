@@ -21,6 +21,10 @@ renv/staging/
 *.bam
 *.fastq.gz
 *.fasta
+# Publication TIFFs (LZW-compressed composites are 5-15 MB each; regenerable
+# from the panels stage via the cfg$panels$tiff knob).
+*.tif
+*.tiff
 # Do NOT commit raw study data — only configs, code, and small reference files.
 /projects/*/Datasets/
 /projects/*/Figures/
