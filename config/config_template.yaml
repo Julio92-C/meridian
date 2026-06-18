@@ -1,116 +1,73 @@
 # --------------------------------------------------------------------------- #
 # Metagenomics pipeline configuration — template                              #
-# Copy this file to projects/<study>/config.yaml and fill in the study-       #
-# specific values. Everything that changes between studies lives here.        #
+# Copy this file to projects/<slug>/config.yaml and fill in the values marked #
+# <REPLACE_ME>. Everything else carries a pipeline default tuned against the  #
+# chicken_batch1 reference study; override per project as needed.             #
 # --------------------------------------------------------------------------- #
 
 study:
-  id: chicken_batch1              # short slug used in output filenames
-  name: "Chicken batch 1 — Dulse supplementation"
+  id: <REPLACE_ME>                  # short slug used in output filenames (e.g. chicken_batch2)
+  name: "<REPLACE_ME>"              # one-liner including primary contrast + date stamp
   description: >
-    Long-reads metagenomics of chicken caecal bacteriome comparing
-    Control, Reference diet, Soyabean meal, and Dulse treatments.
+    <REPLACE_ME — 2-3 lines explaining the contrast, the cohort, and any
+    pipeline features this study exercises that the reference did not
+    (random effect, controls, composite grouping, etc.).>
 
 # Absolute path to the study's working directory on disk (the folder that
-# contains Datasets/, Metadata/, Reports/, Figures/, R_scripts/). All other
-# paths below are resolved relative to this root.
-project_root: "C:/Users/julio/OneDrive/Desktop/PC_JC_2024-11-29_Julio_Gallus"
+# contains Datasets/, Metadata/, Reports/). All other paths below are
+# resolved relative to this root.
+project_root: "<REPLACE_ME>"        # e.g. "C:/Users/.../PC_JC_2024-11-29_Julio_Gallus"
 
 # --------------------------------------------------------------------------- #
-# Input report locations (relative to project_root)                           #
+# Input report locations (relative to project_root). Verify each path exists  #
+# before first run — see bootstrap-project skill Step 1.                      #
 # --------------------------------------------------------------------------- #
 inputs:
   abricate_summary: "Reports/Abricate/summary_reportClean.csv"
   kraken2_report:   "Reports/Kraken2/kraken2_db1_combined_reports.txt"
-  bracken_report:   "Reports/Kraken2/kraken2_db2-bracken_combined_reports.csv"
-  recentrifuge_csv: "Reports/Re-centrifuge/*.rcf.data.csv"   # glob allowed
-  diversity_csv:    "Datasets/wf-metagenomics-diversity.csv" # optional
+  bracken_report:   "Reports/Kraken2/bracken_arranged.csv"     # may live under Reports/Bracken/ instead
+  recentrifuge_csv: "Reports/Re-centrifuge/*.rcf.data.csv"     # glob allowed
+  diversity_csv:    "Datasets/wf-metagenomics-diversity.csv"   # may live under Reports/wf-metagenomics/
 
 # --------------------------------------------------------------------------- #
 # Metadata                                                                    #
 # --------------------------------------------------------------------------- #
 metadata:
-  file: "Datasets/chicken_metadata.csv"
-  sample_id_col: "sample"           # column holding the sample barcode/id
-  # Grouping variables to use across plots / stats. The first entry is the
-  # primary grouping (used for colour/x-axis in violin/bar plots).
+  file: "Metadata/<REPLACE_ME>.csv"  # the single CSV in Metadata/
+  sample_id_col: "sample"            # usually `sample` (lowercase); NOT `sample_id`
+  # Grouping variables. The first entry is the primary grouping (colour/x-axis
+  # in violin/bar plots, contrast variable for ALDEx2 / PERMANOVA / DAA).
   group_cols:
-    - Treatment
-  # Optional random effect (set to null if not applicable).
-  random_effect: "block"
-  # Fixed effects to explore (used in ANOVA / ALDEx2 / alpha-diversity models).
+    - <REPLACE_ME>                   # e.g. Treatment, or composite Treatment_Time
+  random_effect: ~                   # column name for a clustering factor (block / pen / cage) or ~ if none
   fixed_effects:
-    - Treatment
-    - Weight
-  # Optional. Sample IDs to treat as negative controls — their per-taxon
-  # counts are used as the contaminant baseline and subtracted from real
-  # samples in the Re-centrifuge step. Leave empty (`controls: []`) or omit
-  # entirely for studies that don't have controls; the baseline subtraction
+    - <REPLACE_ME>                   # include group_cols[0] + continuous covariates (Weight, Age, ...)
+  # Sample IDs to treat as negative controls — per-taxon counts are used as
+  # the contaminant baseline and subtracted from real samples in R/02. Leave
+  # empty (`controls: []`) for studies without controls; baseline subtraction
   # is skipped and a note is written to the run log. Declared controls that
-  # don't appear as columns in the Re-centrifuge CSV cause a hard error,
-  # because that's almost always a config typo.
+  # don't match a post-strip rcf column cause a hard error.
   controls: []
   #   - CTRL1
   #   - CTRL2
 
 # --------------------------------------------------------------------------- #
-# Manual taxid / name fixes                                                   #
-# Replaces the ad-hoc `noncontaminants_list[26, 4] <- ...` row edits that     #
-# were scattered through relativeAbundance.R. Keep this as a small CSV so     #
-# fixes are reviewable and versioned.                                         #
-# Columns: taxid,name                                                         #
+# Manual taxid / name fixes. Optional CSV with columns: taxid,name             #
+# Set to ~ if the dataset has no fixes to apply.                              #
 # --------------------------------------------------------------------------- #
 taxid_fixes_file: "Metadata/taxid_fixes.csv"
 
 # --------------------------------------------------------------------------- #
-# Filter thresholds                                                           #
+# Filter thresholds (tuned against chicken_batch1; adjust only if the dataset #
+# is dramatically larger or smaller).                                         #
 # --------------------------------------------------------------------------- #
 filters:
-  min_count_per_sample:   17      # matches original cleanData.R
-  min_count_for_species:  2000    # used by species count bar chart
-  min_prevalence_aldex:   2       # ALDEx2 low-prevalence filter
+  min_count_per_sample:   17        # original cleanData.R floor
+  min_count_for_species:  500       # species count bar chart cutoff
+  min_prevalence_aldex:   2         # ALDEx2 low-prevalence filter
 
 # --------------------------------------------------------------------------- #
-# Taxa-name display options                                                   #
-# Applied by clean_taxa_names() in R/utils_taxa.R before any plotting stage.  #
-# All keys are optional; commented values show the built-in defaults.         #
-# --------------------------------------------------------------------------- #
-taxa_display:
-  species_only:       true    # drop non-binomial (kingdom/phylum/...) rows
-  abbreviate_genus:   true    # "Escherichia coli" -> "E. coli"
-  max_name_len:       30      # truncate names beyond this many characters
-  truncate_to_words:  2       # words to keep when truncating
-  # drop_patterns: list of regex applied before any name cleanup. Defaults
-  # baked into clean_taxa_names() drop two kinds of noise:
-  #   (1) NCBI clade rollups above species rank (Terrabacteria group,
-  #       FCB group, Bacteroidota/Chlorobiota group, Plasmodium, etc.)
-  #   (2) non-species placeholder labels that pass the binomial word-count
-  #       filter (uncultured, "X bacterium", "X archaeon", environmental,
-  #       metagenome, unidentified).
-  # Setting this key here REPLACES the defaults — copy the full list if
-  # you only want to extend it.
-  # drop_patterns:
-  #   - "Terrabacteria group"
-  #   - "FCB group"
-  #   - "\\buncultured\\b"
-  #   - "\\bbacterium\\b"
-  #   - "MyProjectSpecificNoise"
-
-# --------------------------------------------------------------------------- #
-# Per-stage display options                                                   #
-# --------------------------------------------------------------------------- #
-taxonomy:
-  top_n: 50                  # heatmap row count (taxa ranked by mean %)
-  min_count_per_sample: 5    # drop (taxon, sample) pairs below this read count
-  # Optional fixed colour map for the primary group_cols[[1]] variable.
-  # If omitted, the stage falls back to a paletteer palette.
-  # treatment_colors:
-  #   "Reference diet": "#1f77b4"
-  #   "Soyabean meal":  "#ff7f0e"
-  #   "Dulce":          "#2ca02c"
-
-# --------------------------------------------------------------------------- #
-# Which analyses to run (false skips the stage)                               #
+# Which analyses to run (false skips the stage).                              #
 # --------------------------------------------------------------------------- #
 stages:
   clean_data:             true
@@ -125,75 +82,62 @@ stages:
   mobilome:               true
   network:                true
   report:                 true
-  panels:                 true     # Publication panels + supplementary XLSX
+  panels:                 true      # publication panels + supplementary XLSX
 
 # --------------------------------------------------------------------------- #
-# Statistical parameters (methods match Chicken batch 1 manuscript)           #
+# Statistical parameters (matches the chicken_batch1 manuscript).             #
 # --------------------------------------------------------------------------- #
 stats:
   permanova_permutations: 9999
   aldex_mc_samples:       128
   alpha: 0.05
-  # Multiple-testing correction applied to every multi-test family in the
-  # pipeline (ALDEx2 GLM, ALDEx2 pairwise, VF×ARG correlation, Mantel
-  # triangle, alpha-diversity Kruskal-Wallis across metrics, per-domain KW,
-  # PERMANOVA). Default "BH" is the field standard for compositional /
-  # abundance data (positive-dependence regime). Use "BY" for the more
-  # conservative arbitrary-dependence FDR control; "bonferroni" / "holm"
-  # for FWER; "none" to disable (raw p-values).
-  padjust_method: BH
+  padjust_method: BH                # BH | BY | bonferroni | holm | hochberg | none
 
 # --------------------------------------------------------------------------- #
-# Quarto dashboard display settings                                           #
-# Statistics (alpha, beta, DAA, network metrics) are always computed on the   #
-# full unfiltered data. The keys below only cap what plots and reactable      #
-# tables in the dashboard SHOW, so the report stays legible whether the       #
-# study has 5 samples or 200. Tweak per-project as needed.                    #
+# Quarto dashboard display caps. Statistics are always computed on the full   #
+# unfiltered data — these only limit what plots / reactable tables show, so   #
+# the report stays legible regardless of cohort size.                         #
 # --------------------------------------------------------------------------- #
 report:
   top_n_taxa:              25
-  # How to rank features when selecting the top-N for display.
-  # mean_abundance         : average value across samples
-  # prevalence             : fraction of samples in which feature appears
-  # max_abundance          : highest single-sample value
-  # prevalence_x_abundance : prevalence * mean — robust to single outliers
-  rank_taxa_by:            prevalence_x_abundance
+  rank_taxa_by:            prevalence_x_abundance   # mean_abundance | prevalence | max_abundance | prevalence_x_abundance
   network_top_nodes:       50
   network_edge_min_weight: 0.3
   show_per_group_chord:    true
   show_per_group_sankey:   true
 
 # --------------------------------------------------------------------------- #
-# Centralised palette for categorical metadata variables.                     #
-# Picked up by every stage's group-palette resolver (R/04-R/11) so a level    #
-# gets the same color in alpha-violin, beta-PCoA, DA effect plots, and the    #
-# resistome/virulome/mobilome bars. Two value forms are supported:            #
-#   - explicit named map { level: hex_color }                                 #
-#   - paletteer palette name string (applied across whatever levels appear)   #
+# Tripartite network + sankey (R/12) display tuning. The full VF gene set     #
+# (100+ genes in chicken_batch1) produces an unreadable diagram in print;     #
+# capping at the top-30 by prevalence×abundance keeps the dominant flows.    #
 # --------------------------------------------------------------------------- #
-# colors:
-#   sample_type:                  # explicit per-level map
-#     Exhale: "#1F77B4"
-#     Sputum: "#FF7F0E"
-#   ID: "ggsci::default_jama"     # OR a paletteer_d palette name
+network:
+  sankey:
+    top_genes:  30
+    rank_by:    prevalence_x_abundance              # mean_abundance | prevalence | prevalence_x_abundance
 
 # --------------------------------------------------------------------------- #
-# Tripartite network + sankey (R/12) display tuning.                          #
+# Publication panel rendering (R/14). All knobs are optional; defaults below  #
+# match the final polishing pass applied to chicken_batch1.                   #
 # --------------------------------------------------------------------------- #
-# network:
-#   sankey:
-#     # Filters applied BEFORE rendering to keep the diagram readable.
-#     top_genes:           20                       # cap genes shown (Inf for unlimited)
-#     min_gene_prevalence: 0.15                     # drop genes in <15% of samples
-#     rank_by:             prevalence_x_abundance   # mean_abundance | prevalence | prevalence_x_abundance
-#     # Other knobs:
-#     database:            vfdb                     # vfdb | card | plasmidfinder
-#     min_sample_count:    0                        # per-row sampleCount floor
-#     per_group:           true                     # also emit one sankey per group level
-#     enabled:             true
+panels:
+  # Composite text scaling.
+  composite_unified:     true       # force axis.text = axis.title = legend = one size
+  composite_base_size:   8          # base text pt (axis title, text, strip, plot.tag)
+  composite_legend_size: 8          # legend text pt
+  composite_margin_pt:   6          # plot.margin pt on all sides
+  strip_plot_title:      true       # drop per-plot title / subtitle so A/B/C tags lead
+  show_title:            false      # journal figures get a caption, not a baked title
+  # Output formats. PNG is the default container; TIFF + PDF are siblings.
+  # Set png: false when you only need a publication TIFF.
+  png:                   true
+  tiff:                  false      # LZW-compressed 300-dpi TIFF for journal submission
+  pdf:                   false      # cairo_pdf vector sibling
 
 # --------------------------------------------------------------------------- #
-# Output paths (relative to project_root)                                     #
+# Output paths (relative to project_root). When evaluating a new dataset for  #
+# the first time, prefix all four with `test_run/` to keep the original tree  #
+# untouched.                                                                  #
 # --------------------------------------------------------------------------- #
 outputs:
   datasets_dir: "Datasets"
