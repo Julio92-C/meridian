@@ -103,6 +103,23 @@ network:
     min_gene_prevalence: 0.15                      # drop genes present in <15% of samples
     rank_by:             prevalence_x_abundance    # mean_abundance | prevalence | prevalence_x_abundance
 
+# Publication panel rendering — unified fontsize across every composite cell
+# (8pt text + legend). Raster sources (pheatmap / Venn / UpSet / circlize)
+# are shrunk at the per-stage modules; ggplot panels obey these knobs via
+# R/14_panels.R::.panels_composite_theme.
+panels:
+  composite_unified:    true
+  composite_base_size:  8
+  composite_legend_size: 8
+  composite_margin_pt:  6
+  strip_plot_title:     true
+  show_title:           false
+  # Publication output: TIFF (LZW-compressed, 300 dpi). PNG suppressed for
+  # the panel composites since they're not embedded in the Quarto report;
+  # per-stage figures under <figures_dir>/<stage>/*.png remain PNG.
+  tiff:                 true
+  png:                  false
+
 outputs:
   datasets_dir: "test_run/Datasets"
   figures_dir:  "test_run/Figures"

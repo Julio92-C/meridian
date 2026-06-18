@@ -40,6 +40,8 @@ Thumbs.db
 
 # Local scratch / smoke tests (regenerable from R/ scripts)
 /scratch/
+Rplots.pdf
+**/config_smoke_panels.yaml
 
 # Claude Code local
 .claude/
