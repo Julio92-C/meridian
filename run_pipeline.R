@@ -64,8 +64,11 @@ enabled_names <- c(
   if (isTRUE(cfg$stages$mobilome))               "mobilome",
   if (isTRUE(cfg$stages$network))                "network",
   if (isTRUE(cfg$stages$report))                 "report",
-  if (isTRUE(cfg$stages$manifest %||% TRUE))     "manifest",
-  if (isTRUE(cfg$stages$panels   %||% TRUE))     "panels"
+  # Panels runs BEFORE manifest so the manifest catalogues the rendered
+  # composites (the build_stages_index() helper in R/13 scans the output
+  # dirs panels just wrote to).
+  if (isTRUE(cfg$stages$panels   %||% TRUE))     "panels",
+  if (isTRUE(cfg$stages$manifest %||% TRUE))     "manifest"
 )
 total_stages <- length(enabled_names)
 stage_idx    <- 0L
@@ -133,11 +136,18 @@ run_stage("report", function() {
   }
 })
 
+# Publication panels + supplementary tables XLSX. Runs BEFORE manifest so
+# the manifest can catalogue the rendered composites (R/14 builds its
+# figures_index in-process via build_stages_index() — no manifest.json
+# round-trip). Gated by cfg$stages$panels (default TRUE).
+run_stage("panels", function() run_panels(cfg))
+
 pipeline_end <- Sys.time()
 
-# Emit manifest.json before logging the final summary so its duration shows
-# up in the breakdown. The writer is gated by cfg$stages$manifest (default TRUE)
-# and consults stage_times to mark each stage complete / skipped / failed.
+# Emit manifest.json after panels so its build_stage_panels() entry lists
+# the actual TIFF/PNG/PDF files that were just written. Gated by
+# cfg$stages$manifest (default TRUE); consults stage_times to mark each
+# stage complete / skipped / failed.
 run_stage("manifest", function() {
   write_manifest(
     cfg,
@@ -147,11 +157,6 @@ run_stage("manifest", function() {
     pipeline_repo_root = repo_root
   )
 })
-
-# Publication panels + supplementary tables XLSX. Runs AFTER manifest so
-# it can read the kind-tagged manifest.json directly; gated by
-# cfg$stages$panels (default TRUE).
-run_stage("panels", function() run_panels(cfg))
 
 total_elapsed <- as.numeric(difftime(Sys.time(), pipeline_start, units = "secs"))
 pipeline_log(cfg, sprintf("Pipeline finished — %d/%d stages complete in %s",

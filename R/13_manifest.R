@@ -41,7 +41,8 @@
   resistome              = c("datasets_dir", "resistome/alpha_diversity.csv"),
   virulome               = c("datasets_dir", "virulome/alpha_diversity.csv"),
   mobilome               = c("datasets_dir", "mobilome/alpha_diversity.csv"),
-  network                = c("datasets_dir", "network/gephi_nodes.csv")
+  network                = c("datasets_dir", "network/gephi_nodes.csv"),
+  panels                 = c("datasets_dir", "panels/supplementary_tables.xlsx")
 )
 
 # ---------------------------------------------------------------------------
@@ -669,6 +670,83 @@ build_stage_network <- function(cfg, stage_times) {
 }
 
 # ---------------------------------------------------------------------------
+# Panels stage builder. Scans <figures_dir>/panels/{main,supplementary}/ for
+# every emitted composite (TIFF / PNG / PDF) and emits a `figures` array; the
+# supplementary tables XLSX lands in `tables`. R/14 runs BEFORE this writer,
+# so this builder catalogues what was actually rendered, not predictions.
+# ---------------------------------------------------------------------------
+
+build_stage_panels <- function(cfg, stage_times) {
+  status <- stage_status(cfg, "panels", stage_times)
+  if (status == "skipped") return(NULL)
+
+  panel_globs <- function(section) {
+    # One glob per format so the relative paths stay sorted deterministically
+    # by format (png, tiff, pdf) within each section.
+    fmts <- c("png", "tiff", "pdf")
+    out <- character(0)
+    for (fmt in fmts) {
+      out <- c(out, project_glob(
+        cfg, fig_path(cfg, sprintf("panels/%s/*.%s", section, fmt))
+      ))
+    }
+    out
+  }
+
+  panel_figures <- function(section) {
+    rels <- panel_globs(section)
+    lapply(rels, function(rel) {
+      slot <- tools::file_path_sans_ext(basename(rel))
+      figure_entry(cfg, rel,
+                   kind         = "panel_composite",
+                   section      = section,
+                   slot         = slot,
+                   caption_seed = sprintf(
+                     "Publication composite — slot %s (%s figure).",
+                     slot, section
+                   ))
+    })
+  }
+
+  list(
+    status     = status,
+    duration_s = stage_times[["panels"]],
+    tables     = Filter(Negate(is.null), list(
+      table_entry(cfg, ds_path(cfg, "panels/supplementary_tables.xlsx"),
+                  kind = "supplementary_tables",
+                  description = paste(
+                    "Multi-tab supplementary tables — one sheet per",
+                    "table_entry kind across the run, plus an Index sheet."
+                  ))
+    )),
+    figures    = c(panel_figures("main"), panel_figures("supplementary"))
+  )
+}
+
+# ---------------------------------------------------------------------------
+# Stages-index builder. Walks every per-stage builder and returns the
+# `stages = { taxonomy = {...}, ... }` dict. Used by `write_manifest` to fill
+# manifest.json AND by R/14_panels.R to build its figures_index in-process
+# (panels runs before manifest in the current ordering, so it can't read
+# manifest.json — it asks for the same data structure directly).
+# ---------------------------------------------------------------------------
+
+build_stages_index <- function(cfg, stage_times = list()) {
+  Filter(Negate(is.null), list(
+    taxonomy               = build_stage_taxonomy(cfg, stage_times),
+    relative_abundance     = build_stage_relative_abundance(cfg, stage_times),
+    alpha_diversity        = build_stage_alpha_diversity(cfg, stage_times),
+    beta_diversity         = build_stage_beta_diversity(cfg, stage_times),
+    differential_abundance = build_stage_differential_abundance(cfg, stage_times),
+    resistome              = build_stage_ge_domain(cfg, "resistome", stage_times),
+    virulome               = build_stage_ge_domain(cfg, "virulome",  stage_times),
+    mobilome               = build_stage_ge_domain(cfg, "mobilome",  stage_times),
+    network                = build_stage_network(cfg, stage_times),
+    panels                 = build_stage_panels(cfg, stage_times)
+  ))
+}
+
+# ---------------------------------------------------------------------------
 # Top-level entry: gather everything and write `<project_root>/manifest.json`.
 # ---------------------------------------------------------------------------
 
@@ -753,17 +831,7 @@ write_manifest <- function(cfg,
       figures_dir  = cfg$outputs$figures_dir,
       log_file     = cfg$outputs$log_file
     ),
-    stages = Filter(Negate(is.null), list(
-      taxonomy               = build_stage_taxonomy(cfg, stage_times),
-      relative_abundance     = build_stage_relative_abundance(cfg, stage_times),
-      alpha_diversity        = build_stage_alpha_diversity(cfg, stage_times),
-      beta_diversity         = build_stage_beta_diversity(cfg, stage_times),
-      differential_abundance = build_stage_differential_abundance(cfg, stage_times),
-      resistome              = build_stage_ge_domain(cfg, "resistome", stage_times),
-      virulome               = build_stage_ge_domain(cfg, "virulome",  stage_times),
-      mobilome               = build_stage_ge_domain(cfg, "mobilome",  stage_times),
-      network                = build_stage_network(cfg, stage_times)
-    )),
+    stages = build_stages_index(cfg, stage_times),
     pipeline = list(
       name             = "Metagenomics_pipeline_automation",
       repo             = "https://github.com/Julio92-C/Metagenomics_pipeline_automation",

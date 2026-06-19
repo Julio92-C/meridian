@@ -34,20 +34,16 @@ run_panels <- function(cfg) {
     return(invisible(NULL))
   }
 
-  manifest_path <- file.path(cfg$project_root, dirname(cfg$outputs$log_file),
-                              "manifest.json")
-  if (!file.exists(manifest_path)) {
-    pipeline_log(cfg, sprintf(
-      "Panels: manifest %s missing — run the manifest stage first; skipping",
-      manifest_path
-    ))
-    return(invisible(NULL))
-  }
-
-  slots <- yaml::read_yaml(yaml_path)
-  manifest <- jsonlite::read_json(manifest_path)
-  figures_index <- .panels_index_figures(manifest)
-  tables_index  <- .panels_index_tables(manifest)
+  # Panels runs BEFORE manifest in the current pipeline ordering (so the
+  # manifest can catalogue what was actually rendered). Instead of round-
+  # tripping through manifest.json, ask the per-stage builders in R/13 for
+  # the same in-memory dict via build_stages_index(). Empty stage_times is
+  # fine — panels only needs figures[] / tables[], not status/duration_s.
+  slots         <- yaml::read_yaml(yaml_path)
+  stages_index  <- build_stages_index(cfg)
+  manifest_like <- list(stages = stages_index)
+  figures_index <- .panels_index_figures(manifest_like)
+  tables_index  <- .panels_index_tables(manifest_like)
 
   fig_root <- file.path(cfg$project_root, cfg$outputs$figures_dir, "panels")
   dir.create(file.path(fig_root, "main"),          recursive = TRUE,
