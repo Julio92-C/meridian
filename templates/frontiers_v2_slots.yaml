@@ -47,6 +47,7 @@ main:
 
   fig01_taxa_overview:
     title: "Taxonomic diversity overview"
+    subsection: community_overview
     rows: 2
     cols: 3
     labels: true
@@ -77,6 +78,7 @@ main:
 
   fig02_resistome_overview:
     title: "Resistome (ARG) diversity overview"
+    subsection: resistome
     rows: 2
     cols: 3
     labels: true
@@ -101,6 +103,7 @@ main:
 
   fig03_virulome_overview:
     title: "Virulome (VF) diversity overview"
+    subsection: virulome
     rows: 2
     cols: 3
     labels: true
@@ -125,6 +128,7 @@ main:
 
   fig04_mobilome_overview:
     title: "Mobilome (plasmid replicon) diversity overview"
+    subsection: mobilome
     rows: 2
     cols: 3
     labels: true
@@ -157,6 +161,7 @@ main:
   # --- Relative abundance ----------------------------------------------
   fig05_relative_abundance_species:
     title: "Relative abundance — species composition"
+    subsection: community_overview
     rows: 1
     cols: 1
     labels: false
@@ -186,6 +191,7 @@ main:
   # --- Chord, Sankey, Network ------------------------------------------
   fig06_chord:
     title: "Chord diagram — overall ARG–taxa flow"
+    subsection: taxa_gene_associations
     rows: 1
     cols: 1
     labels: false
@@ -194,6 +200,7 @@ main:
 
   fig07_sankey_vf:
     title: "Sankey — VF taxa-to-function flow"
+    subsection: taxa_gene_associations
     rows: 1
     cols: 1
     labels: false
@@ -209,6 +216,7 @@ main:
 
   fig08_sankey_taxon_arg_mge:
     title: "Sankey — phylum → ARG drug class → MGE replicon family"
+    subsection: taxa_gene_associations
     rows: 1
     cols: 1
     labels: false
@@ -218,6 +226,7 @@ main:
 
   fig09_network:
     title: "Tripartite network — sample × taxon × gene element"
+    subsection: co_occurrence_network
     rows: 1
     cols: 1
     labels: false
@@ -231,6 +240,7 @@ main:
 
   fig10_vf_arg_correlation:
     title: "Cross-domain VF × ARG correlation heatmap"
+    subsection: co_occurrence_network
     rows: 1
     cols: 1
     labels: false
@@ -257,6 +267,7 @@ supplementary:
 
   figS_diet_effects_arg:
     title: "Diet effects on antibiotic resistance genes (ARGs) across treatments"
+    subsection: resistome
     rows: 2
     cols: 2
     labels: true
@@ -280,6 +291,7 @@ supplementary:
 
   figS_diet_effects_vf:
     title: "Diet effects on virulence factors (VFs) across treatments"
+    subsection: virulome
     rows: 2
     cols: 2
     labels: true
@@ -301,6 +313,7 @@ supplementary:
 
   figS_diet_effects_mge:
     title: "Diet effects on plasmid replicons (MGEs) across treatments"
+    subsection: mobilome
     rows: 2
     cols: 2
     labels: true
@@ -328,6 +341,7 @@ supplementary:
 
   figS00_heatmap_species:
     title: "Heatmap — top species"
+    subsection: community_overview
     rows: 1
     cols: 1
     labels: false
@@ -336,6 +350,7 @@ supplementary:
 
   figS00b_network_degree_distribution:
     title: "Network degree distribution"
+    subsection: co_occurrence_network
     rows: 1
     cols: 1
     labels: false
@@ -351,6 +366,7 @@ supplementary:
 
   figS00c_rarefaction_curves:
     title: "Rarefaction curves"
+    subsection: community_overview
     rows: 1
     cols: 1
     labels: false
@@ -359,6 +375,7 @@ supplementary:
 
   figS01_heatmap_arg_genes:
     title: "Heatmap — individual ARG genes"
+    subsection: resistome
     rows: 1
     cols: 1
     labels: false
@@ -368,6 +385,7 @@ supplementary:
 
   figS02_heatmap_vf_genes:
     title: "Heatmap — individual VF genes"
+    subsection: virulome
     rows: 1
     cols: 1
     labels: false
@@ -388,6 +406,7 @@ supplementary:
   # =============================================================
   figS_circos_chord_by_treatment:
     title: "ARG drug-class circos and per-treatment taxon co-occurrence chords"
+    subsection: taxa_gene_associations
     rows: 2
     cols: 2
     labels: true

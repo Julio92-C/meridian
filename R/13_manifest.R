@@ -680,6 +680,42 @@ build_stage_panels <- function(cfg, stage_times) {
   status <- stage_status(cfg, "panels", stage_times)
   if (status == "skipped") return(NULL)
 
+  # Build a slot -> subsection lookup from the slots YAML so each emitted
+  # panel_composite figure carries the manuscript subsection id it belongs
+  # to (community_overview, resistome, virulome, mobilome, ...). The
+  # downstream agent (metaomics-scribe) groups composites by this field when
+  # filling the results-section figure references — see
+  # metaomics-scribe/docs/PIPELINE_SUBSECTION_GAP.md. Slots without an
+  # explicit `subsection:` simply get NA and the agent surfaces them under
+  # an "awaiting subsection assignment" block.
+  .manifest_repo_root <- function() {
+    args <- commandArgs(trailingOnly = FALSE)
+    file_arg <- grep("^--file=", args, value = TRUE)
+    if (length(file_arg) == 1) {
+      return(normalizePath(dirname(dirname(sub("^--file=", "", file_arg[1])))))
+    }
+    normalizePath(getwd())
+  }
+  slots_yaml_path <- (cfg$panels %||% list())$slots_yaml %||%
+    file.path(.manifest_repo_root(), "templates", "frontiers_v2_slots.yaml")
+
+  subsection_lookup <- character(0)
+  if (file.exists(slots_yaml_path)) {
+    slots_doc <- yaml::read_yaml(slots_yaml_path)
+    combined <- c(slots_doc$main %||% list(),
+                  slots_doc$supplementary %||% list())
+    subsection_lookup <- vapply(combined, function(spec) {
+      val <- spec$subsection
+      if (is.null(val)) NA_character_ else as.character(val)
+    }, character(1))
+    names(subsection_lookup) <- names(combined)
+  } else {
+    message(sprintf(
+      "Panels manifest: slots YAML not found at %s; emitting composites without `subsection`",
+      slots_yaml_path
+    ))
+  }
+
   panel_globs <- function(section) {
     # One glob per format so the relative paths stay sorted deterministically
     # by format (png, tiff, pdf) within each section.
@@ -697,14 +733,22 @@ build_stage_panels <- function(cfg, stage_times) {
     rels <- panel_globs(section)
     lapply(rels, function(rel) {
       slot <- tools::file_path_sans_ext(basename(rel))
-      figure_entry(cfg, rel,
-                   kind         = "panel_composite",
-                   section      = section,
-                   slot         = slot,
-                   caption_seed = sprintf(
-                     "Publication composite — slot %s (%s figure).",
-                     slot, section
-                   ))
+      sub  <- subsection_lookup[slot]
+      extras <- list(
+        kind    = "panel_composite",
+        section = section,
+        slot    = slot
+      )
+      # Only include `subsection` when the slots YAML actually carries one —
+      # an absent field is more honest than a null in the JSON.
+      if (length(sub) == 1L && !is.na(sub) && nzchar(sub)) {
+        extras$subsection <- unname(sub)
+      }
+      extras$caption_seed <- sprintf(
+        "Publication composite — slot %s (%s figure).",
+        slot, section
+      )
+      do.call(figure_entry, c(list(cfg, rel), extras))
     })
   }
 
