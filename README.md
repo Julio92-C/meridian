@@ -224,11 +224,17 @@ papers are accepted.
 
 ---
 
-## 👤 Author & contact
+## 📬 Contact
 
-**Julio Cesar Ortega Cambara**
-PhD Researcher — University of West London
-<juliocesar921016@gmail.com> · [GitHub @Julio92-C](https://github.com/Julio92-C)
+👤 **Julio C. Ortega Cambara**
+
+🎓 PhD Candidate — Computational Bioinformatics
+
+🏛️ School of Biomedical Sciences, University of West London
+
+📍 St Mary's Rd, London W5 5RF
+
+✉️ Email: [32104617@student.uwl.ac.uk](mailto:32104617@student.uwl.ac.uk)
 
 ---
 
