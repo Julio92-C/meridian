@@ -11,8 +11,11 @@ Layout (top -> bottom, diamond / hourglass):
 Community (R/04-R/08)   Functional (R/03 TPM + R/09-R/11 + shared a/b/DAA)
        \\                       /
      R/12 Network (centred)
-       v
-  Quarto Dashboard  ->  R/13 Manifest
+       /                       \\
+Quarto Dashboard          R/14 Panels
+       v                       v
+  R/13 Manifest    <-     Publication outputs
+  (also fed by R/14 + Quarto)
 
 Every module box is two-line (bold id + description) so long labels
 never overflow the frame. A shared-methods box under the Functional
@@ -41,7 +44,7 @@ DPI   = 300
 
 fig, ax = plt.subplots(figsize=(FIG_W, FIG_H))
 ax.set_xlim(0, FIG_W)
-ax.set_ylim(-0.35, 7.45)
+ax.set_ylim(-0.43, 7.45)
 ax.axis('off')
 fig.patch.set_facecolor('white')
 
@@ -65,7 +68,8 @@ CBW = 1.58    # analysis box width  (community / functional domains)
 CBH = 0.34    # analysis box height
 COREW = 1.74  # core box width
 NBW = 1.96    # network box width
-OBW = 1.98    # output box width
+OBW2 = 1.85   # bottom-row output box width (two columns side by side)
+OBH2 = 0.42   # bottom-row output box height (room for two-line subs)
 METHW = 2.04  # functional shared-methods box width
 BRAD = 0.065  # corner-rounding radius
 
@@ -136,8 +140,11 @@ FUNC_YS = [4.25, 3.79, 3.33, 2.87]         # R/03 (TPM) + R/09-R/11
 Y_FMETH = 2.41                             # shared-methods box (aligns with R/08)
 
 Y_NET   = 1.42
-Y_QRTO  = 0.80
-Y_MFST  = 0.26
+Y_QRTO  = 0.80   # Quarto dashboard (left) + R/14 panels (right)
+Y_MFST  = 0.18   # R/13 manifest (left) + publication outputs (right)
+
+X_OUTL  = 2.50   # left output column: Quarto -> Manifest
+X_OUTR  = 5.40   # right output column: R/14 panels -> Publication outputs
 
 PAD = 0.11
 
@@ -224,11 +231,15 @@ ax.text(CX_FUNC, Y_FMETH-CBH*0.25,
 box(CX, Y_NET, 'R/12  network', 'tripartite · chord · Sankey',
     'net', top_fs=6.0, sub_fs=5.4, w=NBW)
 
-# --- 7. OUTPUTS (centred) ----------------------------------------------------
-box(CX, Y_QRTO, 'Quarto dashboard', 'HTML · per-domain panels',
-    'out', top_fs=6.0, sub_fs=5.4, w=OBW)
-box(CX, Y_MFST, 'R/13  manifest', 'manifest.json · artefact catalogue',
-    'out', top_fs=6.0, sub_fs=5.4, w=OBW)
+# --- 7. OUTPUTS (two columns: dashboard+manifest / panels+publication) ------
+box(X_OUTL, Y_QRTO, 'Quarto dashboard', 'HTML · per-domain panels',
+    'out', top_fs=5.8, sub_fs=5.0, w=OBW2, h=OBH2)
+box(X_OUTR, Y_QRTO, 'R/14  panels', 'composite figures +\nsupp_tables.xlsx',
+    'core', top_fs=5.8, sub_fs=5.0, w=OBW2, h=OBH2)
+box(X_OUTL, Y_MFST, 'R/13  manifest', 'manifest.json (v1.2) ·\nkind-tagged catalogue',
+    'out', top_fs=5.8, sub_fs=5.0, w=OBW2, h=OBH2)
+box(X_OUTR, Y_MFST, 'Publication outputs', 'PNG / TIFF panels +\ntables workbook',
+    'out', top_fs=5.8, sub_fs=5.0, w=OBW2, h=OBH2)
 
 # --- 8. ARROWS ---------------------------------------------------------------
 # 8a. each data input -> R/00 (fan inward)
@@ -268,11 +279,21 @@ arr(CX_FUNC, Y_FMETH - CBH/2,
     CX + NBW/2 - 0.22, Y_NET + CBH/2,
     color=PAL['net'][1], rad=0.18, lw=0.85)
 
-# 8i. R/12 -> Quarto
-arr(CX, Y_NET - CBH/2, CX, Y_QRTO + CBH/2, color=PAL['out'][1], lw=0.85)
+# 8i. R/12 -> Quarto (left) and R/12 -> R/14 panels (right): from R/12's
+# own left/right bottom corners to the centre-top of each child, mirroring
+# the R/02 -> Community/Functional corner fan-out (8d/8e).
+arr(CX - NBW/2, Y_NET - CBH/2, X_OUTL, Y_QRTO + OBH2/2,
+    color=PAL['out'][1], rad=-0.15, lw=0.85)
+arr(CX + NBW/2, Y_NET - CBH/2, X_OUTR, Y_QRTO + OBH2/2,
+    color=PAL['core'][1], rad=-0.15, lw=0.85)
 
-# 8j. Quarto -> Manifest
-arr(CX, Y_QRTO - CBH/2, CX, Y_MFST + CBH/2, color=PAL['out'][1], lw=0.85)
+# 8j. Quarto -> Manifest (same column) and R/14 -> Publication outputs
+arr(X_OUTL, Y_QRTO - OBH2/2, X_OUTL, Y_MFST + OBH2/2, color=PAL['out'][1], lw=0.85)
+arr(X_OUTR, Y_QRTO - OBH2/2, X_OUTR, Y_MFST + OBH2/2, color=PAL['core'][1], lw=0.85)
+
+# 8k. R/14 panels -> Manifest (cross-feed; manifest also catalogues panels)
+arr(X_OUTR - OBW2/2 + 0.08, Y_QRTO - OBH2/2, X_OUTL + OBW2/2 - 0.08, Y_MFST + OBH2/2,
+    color=PAL['core'][1], rad=0.16, lw=0.65, alpha=0.7, ls=':')
 
 # --- 9. VERTICAL FLOW LABELS (left margin) -----------------------------------
 for y, lbl, col in [

@@ -11,38 +11,40 @@ flowchart TD
 
     subgraph INP["Upstream outputs (run prior to pipeline)"]
         K["Kraken2 / Bracken<br/>tables"]:::input
-        A["ABRicate calls<br/>CARD · VFDB · PlasmidFinder"]:::input
+        A["ABRicate calls<br/>CARD &middot; VFDB &middot; PlasmidFinder"]:::input
         R["Re-centrifuge<br/>contamination tags"]:::input
         M["Sample metadata"]:::input
     end
 
     CFG["config.yaml<br/>(one per study)"]:::cfg
 
-    subgraph PIPE["R workflow — R/00 to R/13"]
-        S0["R/00 setup<br/>library load · config validation"]:::stage
+    subgraph PIPE["R workflow &mdash; R/00 to R/14"]
+        S0["R/00 setup<br/>library load &middot; config validation"]:::stage
         S1["R/01 load inputs"]:::stage
-        S2["R/02 clean<br/>taxid_fixes · decontaminate · Bracken merge · link ABRicate to taxa"]:::stage
-        S3["R/03 TPM normalisation"]:::stage
+        S2["R/02 clean<br/>taxid_fixes &middot; decontaminate &middot; Bracken merge &middot; link ABRicate to taxa"]:::stage
+        S3["R/03 TPM normalisation<br/>per (sample, GENE) over ABRicate hits"]:::stage
 
         subgraph COMM["Community analyses"]
-            S4["R/04 taxonomy<br/>Venn · heatmaps"]:::comm
-            S5["R/05 relative abundance<br/>stacked bar · plotly · prevalence"]:::comm
-            S6["R/06 alpha diversity<br/>precomputed CSV or vegan · KW · violin/bar"]:::comm
-            S7["R/07 beta diversity<br/>Hellinger-Bray-Curtis PCoA · PERMANOVA · PERMDISP"]:::comm
-            S8["R/08 differential abundance<br/>ALDEx2 two-level (taxa + gene) · KW + pairwise"]:::comm
+            S4["R/04 taxonomy<br/>Venn &middot; heatmaps"]:::comm
+            S5["R/05 relative abundance<br/>stacked bar &middot; plotly &middot; prevalence"]:::comm
+            S6["R/06 alpha diversity<br/>precomputed CSV or vegan &middot; KW &middot; violin/bar"]:::comm
+            S7["R/07 beta diversity<br/>Hellinger-Bray-Curtis PCoA &middot; PERMANOVA &middot; PERMDISP"]:::comm
+            S8["R/08 differential abundance<br/>ALDEx2 two-level (taxa + gene) &middot; KW + pairwise"]:::comm
         end
 
-        subgraph FUNC["Functional profiling<br/>(alpha · Venn · heatmap · PCoA · prevalence)"]
-            S9["R/09 resistome<br/>CARD · drug-class + MLS"]:::func
-            S10["R/10 virulome<br/>VFDB · function category"]:::func
-            S11["R/11 mobilome<br/>PlasmidFinder · replicon family"]:::func
+        subgraph FUNC["Functional profiling<br/>(alpha &middot; Venn &middot; heatmap &middot; PCoA &middot; prevalence)"]
+            S9["R/09 resistome<br/>CARD &middot; drug-class + MLS"]:::func
+            S10["R/10 virulome<br/>VFDB &middot; function category"]:::func
+            S11["R/11 mobilome<br/>PlasmidFinder &middot; replicon family"]:::func
         end
 
-        S12["R/12 network<br/>tripartite (sample &times; taxon &times; gene) · chord · Sankey · Gephi · igraph topology"]:::net
-        S13["R/13 manifest<br/>manifest.json contract"]:::stage
+        S12["R/12 network<br/>tripartite (sample &times; taxon &times; gene) &middot; chord &middot; Sankey &middot; Gephi &middot; igraph topology"]:::net
+        S14["R/14 publication panels<br/>main + supplementary composites (PNG / TIFF) &middot; supplementary_tables.xlsx"]:::stage
+        S13["R/13 manifest<br/>manifest.json (contract v1.2)<br/>kind-tagged figure &amp; table catalogue"]:::stage
     end
 
     QR["Quarto HTML dashboard<br/>(per-domain panels)"]:::out
+    PUB["Publication-ready figures<br/>+ supplementary tables workbook"]:::out
 
     CFG --> S0
     K --> S1
@@ -59,4 +61,7 @@ flowchart TD
     COMM --> QR
     FUNC --> QR
     S12 --> QR
+    S12 --> S14
+    S14 --> PUB
+    S14 --> S13
     QR --> S13
