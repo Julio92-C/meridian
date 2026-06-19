@@ -215,8 +215,26 @@ brk_out <- bind_cols(brk_out, brk_wide[, sample_cols], brk_wide[, c("taxid", "na
 write_csv(brk_out, file.path(REP, "Bracken", "bracken_arranged.csv"))
 cat("  written:", nrow(brk_out), "rows,", length(sample_cols), "sample cols\n\n")
 
-# === 3. KRAKEN2 (taxid -> name lookup) =====================================
-cat("[3/5] Combining Kraken2 taxid->name lookup...\n")
+# === 3. KRAKEN2 (taxid -> lvl_type + name, merged in DFS pre-order) =======
+# Each per-batch kraken2 combined-report is in NCBI DFS pre-order. The
+# ancestry walker in R/02_clean_data.R::build_taxid_ancestry relies on
+# both that ordering (parents before children) AND on the `lvl_type`
+# rank code. An earlier version of this section stripped both, which
+# caused the pipeline to fail at clean_data with
+# `kraken2 input missing column(s) lvl_type`.
+#
+# Algorithm:
+#   1. For each batch, walk its report top-to-bottom and derive a lineage
+#      path per row via an ancestor stack keyed on rank depth.
+#   2. Union by taxid (all 3 batches were run against Kraken2 db1, so any
+#      duplicate taxid carries identical lvl_type + name — keep the first
+#      occurrence).
+#   3. Lex-sort by lineage path. Lex order over slash-separated paths is a
+#      valid DFS pre-order because every ancestor's path is a strict prefix
+#      of its descendants', so sorting can never put a child before its
+#      parent. Sibling order ends up alphabetical, which is fine for
+#      build_taxid_ancestry — it only cares about parent-before-child.
+cat("[3/5] Merging Kraken2 taxonomy (preserving lvl_type + DFS pre-order)...\n")
 
 read_k2 <- function(batch_suffix) {
   f <- file.path(REP, "Kraken",
@@ -224,14 +242,65 @@ read_k2 <- function(batch_suffix) {
   read_delim(f, delim = "\t", show_col_types = FALSE, progress = FALSE)
 }
 
-k2_all <- bind_rows(
-  read_k2(BATCHES$apr) |> select(taxid, name),
-  read_k2(BATCHES$may) |> select(taxid, name),
-  read_k2(BATCHES$jun) |> select(taxid, name)
-) |> distinct()
+# Map a kraken2 lvl_type code (e.g. "P", "P1", "S2") to a numeric depth.
+# Base letters: U(0) < R(1) < D(2) < K(3) < P(4) < C(5) < O(6) < F(7) <
+# G(8) < S(9). Sub-rank suffixes shift fractionally so e.g. `D1` sits
+# between `D` and the next base rank.
+.rank_depth <- function(lvl) {
+  if (is.na(lvl) || !nzchar(lvl)) return(NA_real_)
+  base <- substr(lvl, 1, 1)
+  rest <- substr(lvl, 2, nchar(lvl))
+  base_d <- switch(base,
+                   U = 0, R = 1, D = 2, K = 3, P = 4,
+                   C = 5, O = 6, F = 7, G = 8, S = 9,
+                   NA_real_)
+  if (is.na(base_d)) return(NA_real_)
+  if (!nzchar(rest)) return(base_d)
+  sfx <- suppressWarnings(as.numeric(rest))
+  if (is.na(sfx)) base_d + 0.5 else base_d + sfx / 10
+}
 
-write_tsv(k2_all, file.path(REP, "Kraken", "kraken2_db1_combined_reports.txt"))
-cat("  written:", nrow(k2_all), "(taxid, name) pairs\n\n")
+# Walk a single batch's report (already DFS pre-order) and return one
+# lineage path per row. Uses a pre-allocated ancestor stack indexed by
+# rank depth: every new row pops the stack until the top has strictly
+# smaller depth, then pushes itself.
+.extract_lineage_paths <- function(k2_df) {
+  n <- nrow(k2_df)
+  depths  <- vapply(k2_df$lvl_type, .rank_depth, numeric(1))
+  trimmed <- trimws(k2_df$name)
+  paths   <- character(n)
+  stack_n <- character(n)
+  stack_d <- numeric(n)
+  top <- 0L
+  for (i in seq_len(n)) {
+    d <- depths[i]
+    while (top > 0L && stack_d[top] >= d) top <- top - 1L
+    top <- top + 1L
+    stack_d[top] <- d
+    stack_n[top] <- trimmed[i]
+    paths[i] <- paste(stack_n[seq_len(top)], collapse = "/")
+  }
+  paths
+}
+
+read_k2_lineage <- function(batch_suffix) {
+  df <- read_k2(batch_suffix) |> select(taxid, lvl_type, name)
+  df$path <- .extract_lineage_paths(df)
+  df
+}
+
+k2_merged <- bind_rows(
+  read_k2_lineage(BATCHES$apr),
+  read_k2_lineage(BATCHES$may),
+  read_k2_lineage(BATCHES$jun)
+) |>
+  distinct(taxid, .keep_all = TRUE) |>   # first occurrence wins (same db => same lvl_type/name)
+  arrange(path) |>
+  select(taxid, lvl_type, name)
+
+write_tsv(k2_merged, file.path(REP, "Kraken", "kraken2_db1_combined_reports.txt"))
+cat(sprintf("  written: %d taxa (DFS pre-order, lvl_type preserved)\n\n",
+            nrow(k2_merged)))
 
 # === 4. RE-CENTRIFUGE ======================================================
 cat("[4/5] Combining Re-centrifuge data...\n")
