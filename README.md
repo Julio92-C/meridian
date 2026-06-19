@@ -28,6 +28,24 @@ decontamination to the final HTML report.
 
 ---
 
+## 🗺️ Pipeline roadmap
+
+<p align="center">
+  <img alt="Pipeline roadmap" src="docs/manuscript/figure1_pipeline_schematic.png" width="720">
+</p>
+
+Upstream inputs (Kraken2 / Bracken taxonomy, ABRicate gene-element hits
+against CARD / VFDB / PlasmidFinder, Re-centrifuge contamination tags,
+and the study metadata) feed a single `config.yaml`. From there the
+numbered `R/NN_*.R` modules cover decontamination, TPM normalisation,
+community analyses (taxonomy / relative abundance / α + β diversity /
+ALDEx2 differential abundance), functional profiling (resistome /
+virulome / mobilome), and the tripartite network. The run ends with a
+Quarto HTML dashboard, a kind-tagged `manifest.json` catalogue, and the
+publication outputs (composite TIFFs + supplementary XLSX).
+
+---
+
 ## 🚀 Features
 
 - 🧾 **One config per study.** Everything that varies between studies
