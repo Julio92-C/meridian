@@ -372,7 +372,21 @@ run_alpha_diversity <- function(cleaned, cfg) {
                       drop = FALSE]
     if (nrow(mat_rc) >= 2) {
       depths <- rowSums(mat_rc)
-      step   <- max(1L, as.integer(round(min(depths) / 100)))
+      # Pick a step that yields ~100 points along the shallowest curve but
+      # CAPS the deepest curve at ~500 points. Without the second term a
+      # single near-empty sample (~50 reads) collapses step to 1 and
+      # vegan::rarecurve then iterates one read at a time across the
+      # deepest sample — turning the stage into O(max_depth) per sample.
+      # Seen on the lung_microbiome study (46 samples, max ~5M reads ->
+      # 11m 44s in this loop). The cap brings it back to seconds.
+      step <- max(1L,
+                  as.integer(round(min(depths) / 100)),
+                  as.integer(round(max(depths) / 500)))
+      pipeline_log(cfg, sprintf(
+        "Rarefaction: %d samples, depth min=%d / median=%d / max=%d, step=%d",
+        nrow(mat_rc), min(depths),
+        as.integer(stats::median(depths)), max(depths), step
+      ))
       rc_long <- tryCatch(
         suppressWarnings(vegan::rarecurve(mat_rc, step = step, tidy = TRUE)),
         error = function(e) {
