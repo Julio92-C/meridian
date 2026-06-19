@@ -67,21 +67,28 @@ publication outputs (composite TIFFs + supplementary XLSX).
 
 ## 🧪 Analysis blocks
 
-| # | Block                      | Icon | Tool / method                                                     |
-|---|----------------------------|:----:|-------------------------------------------------------------------|
-| 0 | Load inputs                | 📥  | Kraken2, Bracken, ABRicate, Re-centrifuge raw reports             |
-| 1 | Clean & decontaminate      | 🧼  | Merge reports, control subtraction, taxid fixes                   |
-| 2 | Normalisation              | ⚖️  | TPM per gene element (GE)                                         |
-| 3 | Taxonomy                   | 🌿  | Venn + pHeatmap across treatment groups                           |
-| 4 | Relative abundance         | 📊  | Stacked bar plots (phylum → species) + interactive plotly HTML    |
-| 5 | Alpha diversity            | 🎻  | Richness, Shannon; Kruskal–Wallis, violin plots                   |
-| 6 | Beta diversity             | 🧭  | Bray–Curtis → PCoA; PERMANOVA (`adonis2`, 9999 permutations)      |
-| 7 | Differential abundance     | 🧮  | ALDEx2 — 128 MC Dirichlet instances, CLR pairwise tests           |
-| 8 | Resistome                  | 💊  | ABRicate + CARD → ARG profile                                     |
-| 9 | Virulome                   | 🦠  | ABRicate + VFDB → virulence factor profile                        |
-| 10| Mobilome                   | 🧬  | ABRicate + PlasmidFinder → MGE profile                            |
-| 11| Network analysis           | 🕸️  | Tripartite Treatment × taxa × GE; igraph + Gephi-ready edge lists |
-| 12| Report                     | 📄  | Quarto → single self-contained HTML per study                     |
+Rows are listed in **execution order**. The `Module` column matches the
+file name under `R/`; `R/13_manifest.R` runs after `R/14_panels.R` by
+design so the manifest catalogues the rendered composites.
+
+| Module               | Block                    | Icon | Tool / method                                                                 |
+|----------------------|--------------------------|:----:|-------------------------------------------------------------------------------|
+| `R/00_setup.R`       | Setup                    | 🛠️  | Paths, logging, config loader (sourced at startup; not a toggleable stage)    |
+| `R/01_load_inputs.R` | Load inputs              | 📥  | Kraken2, Bracken, ABRicate, Re-centrifuge raw reports                         |
+| `R/02_clean_data.R`  | Clean & decontaminate    | 🧼  | Merge reports, control subtraction, taxid fixes                               |
+| `R/03_normalisation.R` | Normalisation          | ⚖️  | TPM per gene element (GE)                                                     |
+| `R/04_taxonomy.R`    | Taxonomy                 | 🌿  | Venn + pHeatmap across treatment groups                                       |
+| `R/05_relative_abundance.R` | Relative abundance | 📊  | Stacked bar + stream plots (phylum → species) + plotly HTML                   |
+| `R/06_alpha_diversity.R` | Alpha diversity      | 🎻  | Richness, Shannon, Simpson, …; Kruskal–Wallis, violin plots                   |
+| `R/07_beta_diversity.R` | Beta diversity        | 🧭  | Bray–Curtis → PCoA; PERMANOVA (`adonis2`, 9999 permutations)                  |
+| `R/08_differential_abundance.R` | Differential abundance | 🧮 | ALDEx2 — 128 MC Dirichlet instances, CLR pairwise tests                  |
+| `R/09_resistome.R`   | Resistome                | 💊  | ABRicate + CARD → ARG profile                                                 |
+| `R/10_virulome.R`    | Virulome                 | 🦠  | ABRicate + VFDB → virulence factor profile                                    |
+| `R/11_mobilome.R`    | Mobilome                 | 🧬  | ABRicate + PlasmidFinder → MGE profile                                        |
+| `R/12_network.R`     | Network                  | 🕸️  | Tripartite Treatment × taxa × GE; igraph + Gephi-ready edges; chord + Sankey  |
+| `templates/report.qmd` | Report                 | 📄  | Quarto → single self-contained HTML dashboard per study                       |
+| `R/14_panels.R`      | Panels                   | 🖼️  | Composite multi-panel figures (TIFF / PNG / PDF) + `supplementary_tables.xlsx` |
+| `R/13_manifest.R`    | Manifest                 | 🗂️  | Kind-tagged `manifest.json` catalogue — stable JSON contract for downstream agents |
 
 > Methodology reproduced from a peer-review-stage long-read metagenomics
 > manuscript. See [`reference_methodology/chicken_batch1_methods.md`](reference_methodology/chicken_batch1_methods.md)
@@ -155,12 +162,16 @@ Each stage can be skipped by flipping a flag under `stages:` in the config.
 │   ├── 09_resistome.R          CARD / ARGs
 │   ├── 10_virulome.R           VFDB / VFs
 │   ├── 11_mobilome.R           PlasmidFinder / MGEs
-│   └── 12_network.R            tripartite + topology metrics
+│   ├── 12_network.R            tripartite + topology metrics
+│   ├── 13_manifest.R           kind-tagged manifest.json catalogue
+│   ├── 14_panels.R             composite TIFF/PNG figures + supp tables XLSX
+│   └── utils_*.R               shared helpers (palette, taxa, GE profile, …)
 ├── 📁 config/                  schema + annotated template
 ├── 📁 projects/                one subfolder per study, each with config.yaml
-├── 📁 templates/               Quarto report template
+├── 📁 templates/               Quarto report template + panel slot YAML
+├── 📁 scripts/                 panels_only.R (~45s re-render), smoke_panels.R
 ├── 📁 reference_methodology/   methods extracted from reference papers
-├── 📁 docs/                    conversation log, design decisions
+├── 📁 docs/                    conversation log, manuscript drafts, schematic
 ├── 📝 run_pipeline.R           master entry point
 └── 📄 README.md
 ```
