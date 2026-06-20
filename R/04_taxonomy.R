@@ -212,7 +212,9 @@ run_taxonomy <- function(cleaned, cfg) {
     border_color = NA,
     fontsize_row = 8,
     fontsize_col = 8,
-    fontsize = 8
+    # Legend + annotation_legend font; bumped to 10 so the gradient's top
+    # tick doesn't sit flush against the "Treatment_Bird" annotation header.
+    fontsize = 10
   )
 
   invisible(NULL)
