@@ -119,6 +119,20 @@ Rscript -e 'if (!requireNamespace("renv", quietly = TRUE)) install.packages("ren
 The lockfile records R 4.5.0 + 180 packages (CRAN + Bioconductor). To bump
 a package later: install the new version, then run `renv::snapshot()`.
 
+**Note on `ggalluvial` vs `ggplot2`.** The sankey PNGs in `R/12_network.R`
+require `ggalluvial`. The lock pairs `ggalluvial 0.12.6` with `ggplot2
+4.0.3` — `0.12.6` calls a `gg_par()` internal that does not exist in
+`ggplot2 ≤ 3.5.x`. If your local environment is still on `ggplot2 3.5.x`
+(i.e. you have not yet `renv::restore()`-d to the locked 4.0.3), install
+the prior `ggalluvial 0.12.5` from a date-pinned snapshot instead:
+
+```r
+install.packages("ggalluvial",
+                 repos = "https://packagemanager.posit.co/cran/2025-09-15")
+```
+
+Otherwise the sankey render aborts with `could not find function "gg_par"`.
+
 ---
 
 ## ⚡ Quickstart

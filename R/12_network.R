@@ -749,6 +749,10 @@ run_network <- function(cleaned, cfg) {
 # rightmost tier (category) so flows are easy to trace. Width/height scale
 # with cardinality to keep labels legible across study sizes.
 .network_render_sankey_png <- function(df, png_path, scfg, cfg) {
+  # ggalluvial 0.12.6 calls ggplot2 4.0's `gg_par()` internal — on environments
+  # still pinned to ggplot2 3.5.x (i.e. the local R lib has not been brought
+  # up to the locked ggplot2 4.0.3 via renv::restore), use ggalluvial 0.12.5
+  # instead. See README "Note on ggalluvial vs ggplot2".
   if (!requireNamespace("ggalluvial", quietly = TRUE)) {
     pipeline_log(cfg, "Network sankey PNG: ggalluvial not available — skipping")
     return(invisible(NULL))
@@ -766,9 +770,19 @@ run_network <- function(cleaned, cfg) {
   # smallest sample (e.g. one passing through a single category) gets a
   # stratum of height ~1/nrow(df_alluv). Scaling the plot height by total
   # flow count (not max-axis cardinality) gives those small strata enough
-  # room for their labels to clear the neighbours.
+  # room for their labels to clear the neighbours. Cap below ggsave's 50-in
+  # safety limit — denser studies (hospital_microbiome: 1454 flows) would
+  # otherwise resolve to ~106 in and crash the render.
   total_flows <- nrow(df_alluv)
-  ph <- scfg$png_height %||% max(10, 0.07 * total_flows + 5)
+  ph_raw <- scfg$png_height %||% max(10, 0.07 * total_flows + 5)
+  ph_cap <- scfg$png_height_max %||% 48
+  ph     <- min(ph_raw, ph_cap)
+  if (ph_raw > ph_cap) {
+    pipeline_log(cfg, sprintf(
+      "Network sankey PNG: height clamped %.1f → %.1f in (%d flows; raise sankey$png_height_max or prune genes/taxa for more vertical room)",
+      ph_raw, ph, total_flows
+    ))
+  }
   pw <- scfg$png_width  %||% 14
   label_size <- scfg$png_label_size %||% 2.0
 
@@ -1511,7 +1525,15 @@ run_network <- function(cleaned, cfg) {
       text            = ggplot2::element_text(size = 11)
     )
 
-  ph <- max(8, 0.35 * nrow(agg) + 5)
+  ph_raw <- max(8, 0.35 * nrow(agg) + 5)
+  ph_cap <- cfg$network$sankey$png_height_max %||% 48
+  ph     <- min(ph_raw, ph_cap)
+  if (ph_raw > ph_cap) {
+    pipeline_log(cfg, sprintf(
+      "Taxon→ARG→MGE sankey: height clamped %.1f → %.1f in (%d agg rows)",
+      ph_raw, ph, nrow(agg)
+    ))
+  }
   save_panel_ggplot(
     file.path(fig_dir, "sankey_taxon_arg_mge.png"),
     p, width = 12, height = ph, dpi = 300, bg = "white"
