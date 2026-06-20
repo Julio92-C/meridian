@@ -459,7 +459,8 @@ ge_plot_abundance_violin <- function(df, group, pal_group, file,
 # size bars (lower-left of the UpSet figure) are coloured by treatment.
 ge_plot_category_upset <- function(df, category_col, group, file,
                                     log_label, cfg, value_col = "TPM",
-                                    nintersects = NA, pal_group = NULL) {
+                                    nintersects = NA, pal_group = NULL,
+                                    value_label = "Intersection Size") {
   if (!requireNamespace("UpSetR", quietly = TRUE)) {
     pipeline_log(cfg, sprintf("%s: UpSetR not available — UpSet skipped",
                               log_label))
@@ -496,6 +497,7 @@ ge_plot_category_upset <- function(df, category_col, group, file,
     order.by         = "freq",
     nintersects      = if (is.na(nintersects)) NA else as.integer(nintersects),
     sets.bar.color   = sets_bar_color,
+    mainbar.y.label  = value_label,
     text.scale       = c(1.4, 1.2, 1.2, 1.2, 1.3, 1.1)
   ))
   invisible(NULL)

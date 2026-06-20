@@ -146,7 +146,8 @@ run_virulome <- function(cleaned, cfg) {
   ge_plot_category_upset(
     vfdb, category_col = "GENE", group = group,
     file = file.path(fig_dir, "vf_upset_treatments.png"),
-    log_label = label, cfg = cfg, pal_group = pal_group
+    log_label = label, cfg = cfg, pal_group = pal_group,
+    value_label = "VFs count"
   )
 
   # ---- (2b) Beta diversity on the gene-level TPM matrix ----------------

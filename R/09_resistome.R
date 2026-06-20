@@ -158,7 +158,8 @@ run_resistome <- function(cleaned, cfg) {
   ge_plot_category_upset(
     card, category_col = "GENE", group = group,
     file = file.path(fig_dir, "arg_upset_treatments.png"),
-    log_label = label, cfg = cfg, pal_group = pal_group
+    log_label = label, cfg = cfg, pal_group = pal_group,
+    value_label = "ARGs count"
   )
 
   # ---- (2b) Beta diversity on the gene-level TPM matrix ----------------

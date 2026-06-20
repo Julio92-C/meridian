@@ -139,7 +139,8 @@ run_mobilome <- function(cleaned, cfg) {
   ge_plot_category_upset(
     pfdb, category_col = "GENE", group = group,
     file = file.path(fig_dir, "mge_upset_treatments.png"),
-    log_label = label, cfg = cfg, pal_group = pal_group
+    log_label = label, cfg = cfg, pal_group = pal_group,
+    value_label = "MGEs count"
   )
 
   # ---- (2b) Beta diversity on the gene-level TPM matrix ----------------
