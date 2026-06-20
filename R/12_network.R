@@ -15,8 +15,11 @@
 #
 # Datasets (under <project>/<datasets_dir>/network/):
 #   gephi_edges.csv         Source / Target / Weight rows for Gephi import
-#   gephi_nodes.csv         Id / type / <group> / geneCategory /
+#   gephi_nodes.csv         Id / node_kind / <group> / geneCategory /
 #                           Function_group / distance_cluster
+#                           (node_kind ∈ {sample, taxa, gene}; kept distinct
+#                           from any user metadata column that might happen
+#                           to be called `type`.)
 #   topology.csv            node / kind / degree / betweenness / module
 #   sample_clusters.csv     sample → Bray-Curtis hierarchical cluster id
 #   chord_long.csv          (sample, name, GENE, RESISTANCE_class, <group>)
@@ -207,8 +210,13 @@ run_network <- function(cleaned, cfg) {
     dplyr::select(.data$name, .data$geneCategory) |>
     dplyr::distinct(.data$name, .keep_all = TRUE)
 
+  # `node_kind` (not `type`) labels each node as sample/taxa/gene. The
+  # column is intentionally NOT called `type` because user metadata may
+  # carry a column with that exact name (hospital_microbiome's group_col
+  # is `type`) — a name collision in the left_joins below silently turns
+  # the kind column into type.x/type.y and breaks every downstream filter.
   nodes <- dplyr::tibble(name = unique(c(edges$from, edges$to))) |>
-    dplyr::mutate(type = dplyr::case_when(
+    dplyr::mutate(node_kind = dplyr::case_when(
       .data$name %in% df$sample ~ "sample",
       .data$name %in% df$name   ~ "taxa",
       TRUE                       ~ "gene"
@@ -249,9 +257,9 @@ run_network <- function(cleaned, cfg) {
   pipeline_log(cfg, sprintf(
     "Network: %d edges, %d nodes (samples=%d, taxa=%d, genes=%d)",
     nrow(edges), nrow(nodes),
-    sum(nodes$type == "sample"),
-    sum(nodes$type == "taxa"),
-    sum(nodes$type == "gene")
+    sum(nodes$node_kind == "sample"),
+    sum(nodes$node_kind == "taxa"),
+    sum(nodes$node_kind == "gene")
   ))
 
   # Connectivity Venns (Frontiers Fig S13 panels A/B) -------------------
@@ -278,7 +286,7 @@ run_network <- function(cleaned, cfg) {
     ))
   }
 
-  gene_nodes <- nodes |> dplyr::filter(.data$type == "gene",
+  gene_nodes <- nodes |> dplyr::filter(.data$node_kind == "gene",
                                        !is.na(.data$geneCategory))
   if (nrow(gene_nodes) > 0 &&
       dplyr::n_distinct(gene_nodes$geneCategory) >= 2) {
@@ -317,7 +325,7 @@ run_network <- function(cleaned, cfg) {
   cluster <- igraph::cluster_louvain(g)
   topo <- data.frame(
     node        = igraph::V(g)$name,
-    kind        = igraph::V(g)$type,
+    kind        = igraph::V(g)$node_kind,
     degree      = igraph::degree(g),
     betweenness = igraph::betweenness(g, normalized = TRUE),
     module      = cluster$membership
@@ -401,8 +409,8 @@ run_network <- function(cleaned, cfg) {
   igraph::V(g)$label_show <- igraph::V(g)$name %in% top_nodes
 
   col_key <- ifelse(
-    nodes$type == "gene",   as.character(nodes$geneCategory),
-    ifelse(nodes$type == "sample",
+    nodes$node_kind == "gene",   as.character(nodes$geneCategory),
+    ifelse(nodes$node_kind == "sample",
            paste0("cluster_", nodes$distance_cluster),
            "taxa")
   )
@@ -423,7 +431,7 @@ run_network <- function(cleaned, cfg) {
       ggplot2::aes(width = .data$weight), alpha = edge_alpha
     ) +
     ggraph::geom_node_point(
-      ggplot2::aes(shape = .data$type, color = .data$col_key),
+      ggplot2::aes(shape = .data$node_kind, color = .data$col_key),
       size = pt_size, alpha = node_alpha
     ) +
     ggraph::geom_node_text(
@@ -1276,19 +1284,25 @@ run_network <- function(cleaned, cfg) {
       non_mobile_pct_mean = 100 - mean(.data$mobile_pct, na.rm = TRUE),
       .groups = "drop"
     )
+  # Use `mobile_class` (not `type`) for the pivot's names column — when
+  # the user's group_col is itself `type` (hospital_microbiome), a `type`
+  # names_to collides with the already-present group column and trips
+  # pivot_longer's duplicate-name guard.
   per_group_long <- tidyr::pivot_longer(
     per_group,
     cols      = c("mobile_pct_mean", "non_mobile_pct_mean"),
-    names_to  = "type",
+    names_to  = "mobile_class",
     values_to = "pct"
   )
-  per_group_long$type <- ifelse(per_group_long$type == "mobile_pct_mean",
-                                 "Mobile", "Non-mobile")
-  per_group_long$type <- factor(per_group_long$type,
-                                 levels = c("Non-mobile", "Mobile"))
+  per_group_long$mobile_class <- ifelse(
+    per_group_long$mobile_class == "mobile_pct_mean", "Mobile", "Non-mobile"
+  )
+  per_group_long$mobile_class <- factor(per_group_long$mobile_class,
+                                         levels = c("Non-mobile", "Mobile"))
 
   p <- ggplot2::ggplot(per_group_long,
-        ggplot2::aes(x = .data[[group]], y = .data$pct, fill = .data$type)) +
+        ggplot2::aes(x = .data[[group]], y = .data$pct,
+                     fill = .data$mobile_class)) +
     ggplot2::geom_col(width = 0.7) +
     ggplot2::scale_fill_manual(values = c(`Non-mobile` = "#4575b4",
                                            Mobile      = "#d73027")) +
