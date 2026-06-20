@@ -407,26 +407,37 @@ supplementary:
   # available if a future supplementary slot wants it.
 
   # =============================================================
-  # Circos (ARG drug class) + per-treatment chord diagrams.
-  # Added 2026-06-16 to free main of the per-treatment chord trio and
-  # the standalone ARG circos. fig06_chord (main) still carries the
-  # overall chord. 2x2 layout: circos top-left + 3 treatment chords.
+  # ARG drug-class circos (standalone). Split out 2026-06-20 from
+  # figS_chord_by_treatment so the per-treatment chord slot fits a
+  # clean per_group grid without an awkward empty cell when the group
+  # count crosses 4 (lung 2-arm fits 1x2, chicken_batch1 3-arm fits
+  # 1x3, chicken_batch2 4-arm fits 2x2). fig06_chord (main) still
+  # carries the overall chord.
   # =============================================================
-  figS_circos_chord_by_treatment:
-    title: "ARG drug-class circos and per-treatment taxon co-occurrence chords"
+  figS_arg_circos:
+    title: "ARG drug-class circos"
     subsection: taxa_gene_associations
-    rows: 2
+    rows: 1
+    cols: 1
+    labels: false
+    panels:
+      - kind: arg_circos
+        domain: resistome
+
+  figS_chord_by_treatment:
+    title: "Per-treatment taxon co-occurrence chord diagrams"
+    subsection: taxa_gene_associations
+    # rows: 1 so the assembler auto-expands based on panel count:
+    #   2 groups -> 1x2, 3 groups -> 2x2 (1 empty), 4 groups -> 2x2.
+    rows: 1
     cols: 2
     labels: true
     panels:
-      - tag: A
-        kind: arg_circos
-        domain: resistome
       # Per-treatment taxon co-occurrence chords. Adapts to the number of
-      # levels in cfg$metadata$group_cols[[1]]: 3 panels (B/C/D) for the
-      # chicken_batch1 3-arm design, 2 panels (B/C) for the lung 2-arm
-      # design, etc. R/14_panels.R::.panels_expand_per_group fans this out
-      # at runtime and sanitises level names to match the underlying
-      # chord_<group>.png filenames written by R/12_network.R.
+      # levels in cfg$metadata$group_cols[[1]]: 2 panels (A/B) for the
+      # lung 2-arm design, 3 panels (A/B/C) for chicken_batch1, 4 panels
+      # (A/B/C/D) for chicken_batch2. R/14_panels.R::.panels_expand_per_group
+      # fans this out at runtime and sanitises level names to match the
+      # underlying chord_<group>.png filenames written by R/12_network.R.
       - kind: chord
         per_group: true

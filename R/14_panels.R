@@ -449,7 +449,7 @@ run_panels <- function(cfg) {
   if (length(panels) == 0) return(NULL)
 
   # Expand any `per_group: true` spec into one panel per primary-grouping
-  # level. Lets a slot like figS_circos_chord_by_treatment adapt from
+  # level. Lets a slot like figS_chord_by_treatment adapt from
   # chicken_batch1's 3 treatments (Dulce / Reference_diet / Soyabean_meal)
   # to lung_microbiome's 2 (Exhale / Sputum) without hardcoded group names.
   panels <- .panels_expand_per_group(panels, cfg, slug, sec_id)
