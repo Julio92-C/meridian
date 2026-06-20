@@ -55,9 +55,17 @@ main:
       - tag: A
         kind: alpha_violin
         metric: "Richness"
+        # Source bakes in legend.position = "top"; at composite scale it
+        # stacks with the top-right KW p-value annotation. Drop the legend
+        # here — panel C (PCoA) carries the Treatment_Bird colour key for
+        # the whole composite.
+        composite:
+          legend_position: none
       - tag: B
         kind: alpha_violin
         metric: "Shannon diversity index"
+        composite:
+          legend_position: none
       - tag: C
         kind: pcoa_scatter
       - tag: D
