@@ -414,12 +414,11 @@ supplementary:
       - tag: A
         kind: arg_circos
         domain: resistome
-      - tag: B
-        kind: chord
-        group: Dulce
-      - tag: C
-        kind: chord
-        group: Reference_diet
-      - tag: D
-        kind: chord
-        group: Soyabean_meal
+      # Per-treatment taxon co-occurrence chords. Adapts to the number of
+      # levels in cfg$metadata$group_cols[[1]]: 3 panels (B/C/D) for the
+      # chicken_batch1 3-arm design, 2 panels (B/C) for the lung 2-arm
+      # design, etc. R/14_panels.R::.panels_expand_per_group fans this out
+      # at runtime and sanitises level names to match the underlying
+      # chord_<group>.png filenames written by R/12_network.R.
+      - kind: chord
+        per_group: true

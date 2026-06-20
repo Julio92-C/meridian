@@ -238,6 +238,57 @@ run_panels <- function(cfg) {
 }
 
 # ---------------------------------------------------------------------------
+# `per_group: true` slot expansion
+# ---------------------------------------------------------------------------
+
+# Expand any panel spec carrying `per_group: true` into one entry per level
+# of cfg$metadata$group_cols[[1]] (controls excluded — sourced from
+# cfg_group_levels() in R/13_manifest.R). Each expanded entry inherits the
+# original kind / domain / composite block and gets a `group:` filter equal
+# to the sanitised level name. Sanitisation must match the convention used
+# when writing the underlying PNG — R/12_network.R::.network_build_chord
+# does `gsub("[^A-Za-z0-9_-]+", "_", lvl)`, so we apply the same here so
+# the filter matches the figures_index `group` field (which is derived from
+# the filename by R/13).
+#
+# If no levels are resolvable (missing metadata, empty group column), the
+# `per_group` entry is dropped silently — the slot's `required` semantics
+# then drive whether the whole slot skips or partially renders.
+.panels_expand_per_group <- function(panels, cfg, slug, sec_id) {
+  out <- list()
+  expanded <- 0L
+  for (p in panels) {
+    if (isTRUE(p$per_group %||% FALSE)) {
+      levels <- tryCatch(cfg_group_levels(cfg), error = function(e) character(0))
+      if (length(levels) == 0) {
+        pipeline_log(cfg, sprintf(
+          "Panels[%s/%s]: per_group spec has no resolvable levels — dropped",
+          slug, sec_id
+        ))
+        next
+      }
+      p$per_group <- NULL
+      p$tag       <- NULL  # let the resolver auto-assign LETTERS in order
+      for (lvl in levels) {
+        slot_p       <- p
+        slot_p$group <- gsub("[^A-Za-z0-9_-]+", "_", lvl)
+        out[[length(out) + 1]] <- slot_p
+      }
+      expanded <- expanded + length(levels)
+    } else {
+      out[[length(out) + 1]] <- p
+    }
+  }
+  if (expanded > 0) {
+    pipeline_log(cfg, sprintf(
+      "Panels[%s/%s]: per_group expanded to %d panel(s)",
+      slug, sec_id, expanded
+    ))
+  }
+  out
+}
+
+# ---------------------------------------------------------------------------
 # Manifest indexing
 # ---------------------------------------------------------------------------
 
@@ -396,6 +447,12 @@ run_panels <- function(cfg) {
                                         use_labels, sec_id) {
   panels <- sec_spec$panels %||% list()
   if (length(panels) == 0) return(NULL)
+
+  # Expand any `per_group: true` spec into one panel per primary-grouping
+  # level. Lets a slot like figS_circos_chord_by_treatment adapt from
+  # chicken_batch1's 3 treatments (Dulce / Reference_diet / Soyabean_meal)
+  # to lung_microbiome's 2 (Exhale / Sputum) without hardcoded group names.
+  panels <- .panels_expand_per_group(panels, cfg, slug, sec_id)
 
   resolved <- vector("list", length(panels))
   missing_required <- character()
