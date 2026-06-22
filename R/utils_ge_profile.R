@@ -682,6 +682,21 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
     cat_per_gene <- NA
   }
 
+  # Display-only: strip underscores from the annotation header labels
+  # (Treatment_Bird -> Treatment Bird, Replicon_Family -> Replicon
+  # Family). pheatmap uses the data-frame column name as the legend /
+  # annotation-strip title, so renaming the column at the last moment
+  # is the simplest path. The data fetching above keeps using actual
+  # column names; only the labels passed to pheatmap get cleaned.
+  display_group <- gsub("_", " ", group,        fixed = TRUE)
+  display_cat   <- gsub("_", " ", category_col, fixed = TRUE)
+  names(sample_group)[names(sample_group) == group] <- display_group
+  if (is.data.frame(cat_per_gene)) {
+    names(cat_per_gene)[names(cat_per_gene) == category_col] <- display_cat
+  }
+  names(ann_colors)[names(ann_colors) == group]        <- display_group
+  names(ann_colors)[names(ann_colors) == category_col] <- display_cat
+
   hm_width  <- width  %||% max(6, 0.32 * ncol(gene_scaled) + 3)
   hm_height <- height %||% max(min_height, row_height_factor * nrow(gene_scaled) + 2.5)
   ph_args <- list(
@@ -764,6 +779,14 @@ ge_plot_category_heatmap <- function(df, category_col, group, pal_group,
 
   ann_colors <- list()
   ann_colors[[group]] <- pal_group[grp_lvls]
+
+  # Display-only: strip underscores from the annotation header label
+  # (Treatment_Bird -> Treatment Bird). Same rationale as the gene-
+  # heatmap counterpart — data fetching keeps the actual column name;
+  # only the label passed to pheatmap is cleaned.
+  display_group <- gsub("_", " ", group, fixed = TRUE)
+  names(sample_group)[names(sample_group) == group] <- display_group
+  names(ann_colors)[names(ann_colors) == group]    <- display_group
 
   hm_width  <- width  %||% max(6, 0.32 * ncol(cat_scaled) + 3)
   hm_height <- height %||% max(min_height, row_height_factor * nrow(cat_scaled) + 2.5)
