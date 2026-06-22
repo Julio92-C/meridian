@@ -169,10 +169,8 @@ run_mobilome <- function(cleaned, cfg) {
       top_n   = mcfg$top_n_genes %||% 30L,
       rank_by = mcfg$gene_rank_by %||% "prevalence",
       fontsize_row = 8, row_height_factor = 0.32, min_height = 5,
-      # Lock to uniform dims so MGE panel D in figS_diet_effects_mge
-      # matches the ARG/VF category-heatmap canvas (8.5 x 6). Legend on
-      # top to free horizontal room (same as category heatmaps).
-      width = 8.5, height = 6, legend_top = TRUE
+      width = 8.5, height = 6, legend_top = TRUE,
+      legend_title = "Scaled TPM (0-1)"
     )
   } else {
     pipeline_log(cfg, "Mobilome: pheatmap not available — heatmaps skipped")

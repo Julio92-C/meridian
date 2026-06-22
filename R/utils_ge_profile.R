@@ -13,7 +13,8 @@
 # (continuous gradient) and any number of categorical annotation legends.
 # Used by .pheatmap_save_legend_top to replace pheatmap's vertical legends.
 .make_gradient_legend_grob <- function(palette, limits = c(0, 1),
-                                        title = "value") {
+                                        title    = "value",
+                                        fontsize = 8) {
   df <- data.frame(x = c(0, 1), v = limits)
   p <- ggplot2::ggplot(df, ggplot2::aes(x = .data$x, y = .data$x,
                                           fill = .data$v)) +
@@ -33,13 +34,13 @@
     ggplot2::theme_void() +
     ggplot2::theme(
       legend.position = "top",
-      legend.text     = ggplot2::element_text(size = 8),
-      legend.title    = ggplot2::element_text(size = 9)
+      legend.text     = ggplot2::element_text(size = fontsize),
+      legend.title    = ggplot2::element_text(size = fontsize + 1)
     )
   cowplot::get_legend(p)
 }
 
-.make_categorical_legend_grob <- function(pal, title) {
+.make_categorical_legend_grob <- function(pal, title, fontsize = 8) {
   df <- data.frame(x = seq_along(pal), y = 1,
                    cat = factor(names(pal), levels = names(pal)))
   p <- ggplot2::ggplot(df, ggplot2::aes(x = .data$x, y = .data$y,
@@ -58,8 +59,8 @@
     ggplot2::theme_void() +
     ggplot2::theme(
       legend.position = "top",
-      legend.text     = ggplot2::element_text(size = 8),
-      legend.title    = ggplot2::element_text(size = 9)
+      legend.text     = ggplot2::element_text(size = fontsize),
+      legend.title    = ggplot2::element_text(size = fontsize + 1)
     )
   cowplot::get_legend(p)
 }
@@ -76,7 +77,10 @@
 # above the body, and grid::grid.draw onto a fresh PNG device.
 .pheatmap_save_legend_top <- function(ph, file, width_in, height_in,
                                        palette, ann_colors,
-                                       dpi = 300) {
+                                       dpi                 = 300,
+                                       legend_title        = "value",
+                                       fontsize_legend     = 8,
+                                       fontsize_annotation = 8) {
   has_deps <- requireNamespace("gtable", quietly = TRUE) &&
               requireNamespace("gridExtra", quietly = TRUE) &&
               requireNamespace("cowplot", quietly = TRUE)
@@ -86,24 +90,34 @@
                                  invert = TRUE)
 
   gradient_grob <- .make_gradient_legend_grob(palette, limits = c(0, 1),
-                                                title = "value")
+                                                title    = legend_title,
+                                                fontsize = fontsize_legend)
   cat_grobs <- lapply(names(ann_colors), function(nm) {
-    .make_categorical_legend_grob(ann_colors[[nm]], nm)
+    .make_categorical_legend_grob(ann_colors[[nm]], nm,
+                                  fontsize = fontsize_annotation)
   })
 
-  # Layout policy: gradient + ≤1 categorical → single row.
-  # gradient + ≥2 categorical → gradient on row 1, categoricals on row 2
-  # (avoids horizontal clipping on narrow canvases like the MGE panel D,
-  # which has both Treatment and Replicon_Family annotations).
-  if (length(cat_grobs) <= 1) {
+  # Layout policy:
+  #   0 categorical: gradient alone (1 row, 1.0cm).
+  #   1 categorical: gradient + cat side-by-side (1 row, 1.2cm).
+  #   ≥2 categorical: each cat on its own row below the gradient. Single-
+  #     row packing breaks once the combined key count exceeds ~10 — the
+  #     ARG gene heatmap has 4 (Treatment_Bird) + 13 (DRUG) keys and the
+  #     titles collide when arrayed horizontally on one row.
+  if (length(cat_grobs) == 0) {
+    top_band    <- gradient_grob
+    top_band_cm <- 1.0
+  } else if (length(cat_grobs) == 1) {
     top_band    <- gridExtra::arrangeGrob(grobs = c(list(gradient_grob),
                                                      cat_grobs),
                                             nrow  = 1)
     top_band_cm <- 1.2
   } else {
-    cat_row  <- gridExtra::arrangeGrob(grobs = cat_grobs, nrow = 1)
-    top_band <- gridExtra::arrangeGrob(gradient_grob, cat_row, ncol = 1)
-    top_band_cm <- 2.0
+    top_band    <- gridExtra::arrangeGrob(
+      grobs = c(list(gradient_grob), cat_grobs),
+      ncol  = 1
+    )
+    top_band_cm <- 1.0 + 0.9 * length(cat_grobs)
   }
 
   combined <- gridExtra::arrangeGrob(
@@ -568,14 +582,17 @@ ge_plot_category_venn <- function(df, category_col, group, pal_group,
 # group runs. Caller is responsible for any GENE renames in `df`.
 ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
                                   category_col, file, palette,
-                                  top_n             = NULL,
-                                  rank_by           = "abundance",
-                                  fontsize_row      = 8,
-                                  row_height_factor = 0.15,
-                                  min_height        = 6,
-                                  width             = NULL,
-                                  height            = NULL,
-                                  legend_top        = FALSE) {
+                                  top_n               = NULL,
+                                  rank_by             = "abundance",
+                                  fontsize_row        = 8,
+                                  row_height_factor   = 0.15,
+                                  min_height          = 6,
+                                  width               = NULL,
+                                  height              = NULL,
+                                  legend_top          = FALSE,
+                                  legend_title        = "value",
+                                  fontsize_legend     = 8,
+                                  fontsize_annotation = 8) {
   gene_wide <- df |>
     dplyr::group_by(.data$GENE, .data$sample) |>
     dplyr::summarise(TPM = sum(.data$TPM, na.rm = TRUE), .groups = "drop") |>
@@ -659,7 +676,10 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
     .pheatmap_save_legend_top(ph, file, hm_width, hm_height,
                                palette    = grDevices::colorRampPalette(palette)(100),
                                ann_colors = if (length(ann_colors) > 0) ann_colors
-                                            else list())
+                                            else list(),
+                               legend_title        = legend_title,
+                               fontsize_legend     = fontsize_legend,
+                               fontsize_annotation = fontsize_annotation)
   } else {
     do.call(pheatmap::pheatmap, c(ph_args,
                                     list(filename = file,
@@ -678,13 +698,16 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
 # to override per caller.
 ge_plot_category_heatmap <- function(df, category_col, group, pal_group,
                                       file, palette,
-                                      fontsize_row      = 12,
-                                      fontsize_col      = NULL,
-                                      row_height_factor = 0.28,
-                                      min_height        = 4,
-                                      width             = 8.5,
-                                      height            = 6,
-                                      legend_top        = TRUE) {
+                                      fontsize_row        = 12,
+                                      fontsize_col        = NULL,
+                                      row_height_factor   = 0.28,
+                                      min_height          = 4,
+                                      width               = 8.5,
+                                      height              = 6,
+                                      legend_top          = TRUE,
+                                      legend_title        = "value",
+                                      fontsize_legend     = 8,
+                                      fontsize_annotation = 8) {
   cat_wide <- df |>
     dplyr::group_by(.data[[category_col]], .data$sample) |>
     dplyr::summarise(TPM = sum(.data$TPM, na.rm = TRUE), .groups = "drop") |>
@@ -732,8 +755,11 @@ ge_plot_category_heatmap <- function(df, category_col, group, pal_group,
   if (isTRUE(legend_top)) {
     ph <- do.call(pheatmap::pheatmap, c(ph_args, list(silent = TRUE)))
     .pheatmap_save_legend_top(ph, file, hm_width, hm_height,
-                               palette = grDevices::colorRampPalette(palette)(100),
-                               ann_colors = ann_colors)
+                               palette             = grDevices::colorRampPalette(palette)(100),
+                               ann_colors          = ann_colors,
+                               legend_title        = legend_title,
+                               fontsize_legend     = fontsize_legend,
+                               fontsize_annotation = fontsize_annotation)
   } else {
     do.call(pheatmap::pheatmap, c(ph_args,
                                     list(filename = file,

@@ -180,7 +180,8 @@ run_virulome <- function(cleaned, cfg) {
       palette = vcfg$gene_heatmap_palette %||% c("#0612bd", "#bbbbbd", "#bd0606"),
       top_n   = vcfg$top_n_genes %||% 30L,
       rank_by = vcfg$gene_rank_by %||% "prevalence",
-      fontsize_row = 8, row_height_factor = 0.18, min_height = 7
+      fontsize_row = 8, row_height_factor = 0.18, min_height = 7,
+      legend_top = TRUE, legend_title = "Scaled TPM (0-1)"
     )
   } else {
     pipeline_log(cfg, "Virulome: pheatmap not available — heatmaps skipped")
