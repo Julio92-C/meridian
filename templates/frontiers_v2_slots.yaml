@@ -255,23 +255,62 @@ main:
     panels:
       - kind: vf_arg_corr_heatmap
 
+  # =============================================================
+  # Gene-level pheatmaps — promoted to main 2026-06-22.
+  # Each is a standalone full-detail heatmap (rows = top-N genes,
+  # cols = samples grouped by treatment, value = column-scaled TPM).
+  # Source: R/09/R/10/R/11 call ge_plot_gene_heatmap(legend_top=TRUE,
+  # legend_title="Scaled TPM (0-1)") so the value-scale + Treatment
+  # annotation legends sit horizontally above the matrix instead of
+  # competing for the right-side canvas band.
+  # =============================================================
+
+  fig11_heatmap_arg_genes:
+    title: "Heatmap — individual ARG genes (top-30 by prevalence)"
+    subsection: resistome
+    rows: 1
+    cols: 1
+    labels: false
+    panels:
+      - kind: ge_pheatmap_genes
+        domain: resistome
+
+  fig12_heatmap_vf_genes:
+    title: "Heatmap — individual VF genes (top-30 by prevalence)"
+    subsection: virulome
+    rows: 1
+    cols: 1
+    labels: false
+    panels:
+      - kind: ge_pheatmap_genes
+        domain: virulome
+
+  fig13_heatmap_mge_genes:
+    title: "Heatmap — individual plasmid-replicon genes (top-30 by prevalence)"
+    subsection: mobilome
+    rows: 1
+    cols: 1
+    labels: false
+    panels:
+      - kind: ge_pheatmap_genes
+        domain: mobilome
+
 supplementary:
 
   # =============================================================
   # Diet effects on gene elements (GEs) across treatments
   # =============================================================
   # Three per-domain supplementary composites (ARG / VF / MGE),
-  # each 5-panel (A-E) tall layout:
+  # each 2x2 (A-D) layout:
   #   A relative abundance per sample (stacked bar)
-  #   B TPM x prevalence dot plot
-  #   C treatment-overlap Venn
-  #   D abundance log(TPM) box+jitter w/ pairwise asterisks
-  #   E heatmap (drug class / VF function / replicon family)
-
-  # 2x2 flat layout (2026-06-12 follow-up). The Venn was dropped from
-  # this composite — treatment overlap is also visible in the main
-  # composite UpSet panels, and removing it lets the remaining four
-  # panels each occupy a full quadrant.
+  #   B TPM x prevalence dot plot (per category)
+  #   C abundance log(TPM) box+jitter w/ pairwise asterisks
+  #   D treatment-overlap gene-level Venn
+  #
+  # 2026-06-22: panel D switched from category/gene pheatmaps to
+  # gene-level Venns (ge_venn_args / ge_venn_vfs / ge_venn_replicons).
+  # The displaced gene-level pheatmaps were promoted to main as
+  # fig11/fig12/fig13 (full-detail standalone heatmaps).
 
   figS_diet_effects_arg:
     title: "Diet effects on antibiotic resistance genes (ARGs) across treatments"
@@ -294,7 +333,7 @@ supplementary:
         kind: ge_arg_abundance_violin
         domain: resistome
       - tag: D
-        kind: ge_pheatmap_drug_classes
+        kind: ge_venn_args
         domain: resistome
 
   figS_diet_effects_vf:
@@ -316,7 +355,7 @@ supplementary:
         kind: ge_vf_abundance_violin
         domain: virulome
       - tag: D
-        kind: ge_pheatmap_functions
+        kind: ge_venn_vfs
         domain: virulome
 
   figS_diet_effects_mge:
@@ -338,13 +377,13 @@ supplementary:
         kind: ge_mge_abundance_violin
         domain: mobilome
       - tag: D
-        # Gene-level heatmap per the 2026-06-12 MGE design call.
-        kind: ge_pheatmap_genes
+        kind: ge_venn_replicons
         domain: mobilome
 
   # =============================================================
-  # Gene-level pheatmaps (legacy supplementary slots) — full-detail
-  # per-gene rendering. Moved here from main 2026-06-12.
+  # Community overview supplementary panels (species heatmap, network
+  # degree distribution, rarefaction). Gene-level heatmaps used to live
+  # here as figS01/figS02 but are now main slots (fig11/fig12/fig13).
   # =============================================================
 
   figS00_heatmap_species:
@@ -381,28 +420,9 @@ supplementary:
     panels:
       - kind: rarefaction_curves
 
-  figS01_heatmap_arg_genes:
-    title: "Heatmap — individual ARG genes"
-    subsection: resistome
-    rows: 1
-    cols: 1
-    labels: false
-    panels:
-      - kind: ge_pheatmap_genes
-        domain: resistome
-
-  figS02_heatmap_vf_genes:
-    title: "Heatmap — individual VF genes"
-    subsection: virulome
-    rows: 1
-    cols: 1
-    labels: false
-    panels:
-      - kind: ge_pheatmap_genes
-        domain: virulome
-
-  # figS03_heatmap_mge_genes removed 2026-06-12 — fig12_heatmap_mge_replicon
-  # in main: now covers the plasmid-replicon gene heatmap. The family-level
+  # Gene-level pheatmaps (figS01 ARG, figS02 VF) were promoted to main
+  # 2026-06-22 as fig11/fig12, with fig13 restoring the MGE heatmap that
+  # had been removed in the 2026-06-12 refactor. The family-level
   # heatmap (ge_pheatmap_replicon_families) is still emitted by R/11 and
   # available if a future supplementary slot wants it.
 
