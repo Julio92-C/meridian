@@ -102,9 +102,13 @@ run_panels <- function(cfg) {
   args <- commandArgs(trailingOnly = FALSE)
   file_arg <- grep("^--file=", args, value = TRUE)
   if (length(file_arg) == 1) {
-    return(normalizePath(dirname(dirname(sub("^--file=", "", file_arg[1])))))
+    script_dir <- normalizePath(dirname(sub("^--file=", "", file_arg[1])))
+    # Entry can be the repo-root run_pipeline.R OR a one-level-deep script
+    # in R/ or scripts/. Probe for templates/ next to the script first; if
+    # not there, walk up one level.
+    if (dir.exists(file.path(script_dir, "templates"))) return(script_dir)
+    return(normalizePath(dirname(script_dir)))
   }
-  # Sourced interactively — best effort: current wd.
   normalizePath(getwd())
 }
 
