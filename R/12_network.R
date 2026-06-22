@@ -520,6 +520,81 @@ run_network <- function(cleaned, cfg) {
     return(invisible(NULL))
   }
 
+  # --- Per-taxon + per-gene prevalence + top-N filters ------------------
+  # Mirrors the sankey top_genes knob. Without caps the chord perimeter
+  # crowds heavily once the taxa or gene count crosses ~50; with 4-arm
+  # designs both routinely land above 100. Score by prevalence x abundance
+  # (default) so the kept items are the ones doing most of the work. Same
+  # rank_by feeds both filters so the two stay consistent.
+  min_prev    <- chord_cfg$min_taxa_prevalence %||% 0
+  top_n_taxa  <- chord_cfg$top_taxa            %||% Inf
+  top_n_gene  <- chord_cfg$top_genes           %||% Inf
+  rank_by     <- chord_cfg$rank_by             %||% "prevalence_x_abundance"
+  .score <- function(prev, abund) {
+    dplyr::case_when(
+      rank_by == "mean_abundance" ~ abund,
+      rank_by == "prevalence"     ~ prev,
+      TRUE                         ~ prev * abund
+    )
+  }
+  if ((min_prev > 0 || is.finite(top_n_taxa)) && nrow(df) > 0) {
+    total_samples <- dplyr::n_distinct(df$sample)
+    taxa_stats <- df |>
+      dplyr::group_by(.data$name) |>
+      dplyr::summarise(
+        prevalence = dplyr::n_distinct(.data$sample) /
+                     max(total_samples, 1L),
+        abundance  = dplyr::n(),
+        .groups    = "drop"
+      ) |>
+      dplyr::mutate(score = .score(.data$prevalence, .data$abundance))
+    n_before <- nrow(taxa_stats)
+    taxa_stats <- dplyr::filter(taxa_stats, .data$prevalence >= min_prev)
+    if (is.finite(top_n_taxa)) {
+      taxa_stats <- taxa_stats |>
+        dplyr::arrange(dplyr::desc(.data$score)) |>
+        dplyr::slice_head(n = as.integer(top_n_taxa))
+    }
+    df <- dplyr::filter(df, .data$name %in% taxa_stats$name)
+    pipeline_log(cfg, sprintf(
+      "Chord taxa filter: %d -> %d taxa (min_prev=%.2f, top_n=%s, rank_by=%s)",
+      n_before, nrow(taxa_stats), min_prev,
+      if (is.finite(top_n_taxa)) as.character(top_n_taxa) else "Inf",
+      rank_by
+    ))
+    if (nrow(df) == 0) {
+      pipeline_log(cfg,
+        "Network chord: no rows after taxa filter — skipping")
+      return(invisible(NULL))
+    }
+  }
+  if (is.finite(top_n_gene) && nrow(df) > 0) {
+    total_samples <- dplyr::n_distinct(df$sample)
+    gene_stats <- df |>
+      dplyr::group_by(.data$GENE) |>
+      dplyr::summarise(
+        prevalence = dplyr::n_distinct(.data$sample) /
+                     max(total_samples, 1L),
+        abundance  = dplyr::n(),
+        .groups    = "drop"
+      ) |>
+      dplyr::mutate(score = .score(.data$prevalence, .data$abundance))
+    n_before <- nrow(gene_stats)
+    gene_stats <- gene_stats |>
+      dplyr::arrange(dplyr::desc(.data$score)) |>
+      dplyr::slice_head(n = as.integer(top_n_gene))
+    df <- dplyr::filter(df, .data$GENE %in% gene_stats$GENE)
+    pipeline_log(cfg, sprintf(
+      "Chord gene filter: %d -> %d genes (top_n=%d, rank_by=%s)",
+      n_before, nrow(gene_stats), as.integer(top_n_gene), rank_by
+    ))
+    if (nrow(df) == 0) {
+      pipeline_log(cfg,
+        "Network chord: no rows after gene filter — skipping")
+      return(invisible(NULL))
+    }
+  }
+
   palette_name <- chord_cfg$palette       %||% "ggsci::default_ucscgb"
   start_degree <- chord_cfg$start_degree  %||% 152
 
@@ -784,7 +859,12 @@ run_network <- function(cleaned, cfg) {
     ))
   }
   pw <- scfg$png_width  %||% 14
-  label_size <- scfg$png_label_size %||% 2.0
+  label_size        <- scfg$png_label_size  %||% 2.0
+  # Per-axis label size override for the Sample stratum (axis 1). When
+  # there are 18+ samples, the default 2.0 pt overlaps; shrink just the
+  # sample labels so the IDs remain visible but stop colliding. Other
+  # axes keep label_size so taxon / gene / category labels stay readable.
+  sample_label_size <- scfg$sample_label_size %||% label_size
 
   p <- ggplot2::ggplot(
         df_alluv,
@@ -800,11 +880,19 @@ run_network <- function(cleaned, cfg) {
     # only `requireNamespace()` the package (not library()), bare
     # stat = "stratum" isn't in ggplot2's registry — reference the
     # StatStratum ggproto object directly so it resolves regardless.
+    # Size mapped via after_stat(x) so axis 1 (Sample) renders smaller
+    # than the other axes. scale_size_identity() below preserves the
+    # raw pt values instead of treating them as a continuous scale.
     ggplot2::geom_text(
       stat = ggalluvial::StatStratum,
-      ggplot2::aes(label = ggplot2::after_stat(stratum)),
-      size = label_size
+      ggplot2::aes(
+        label = ggplot2::after_stat(stratum),
+        size  = ggplot2::after_stat(
+          ifelse(x == 1L, sample_label_size, label_size)
+        )
+      )
     ) +
+    ggplot2::scale_size_identity() +
     ggplot2::scale_x_discrete(
       limits = c("Sample", "Taxon", "Gene", "Category"),
       # Extra right margin so long category labels like
@@ -1514,7 +1602,9 @@ run_network <- function(cleaned, cfg) {
     ) +
     ggplot2::scale_x_discrete(
       limits = c("Phylum", "ARG drug class", "MGE type"),
-      expand = ggplot2::expansion(mult = c(0.05, 0.05))
+      # 10/15% expansion so long edge labels (e.g. "Pseudomonadota" left,
+      # "Unknown/Other" right) don't get clipped at the canvas edge.
+      expand = ggplot2::expansion(mult = c(0.10, 0.15))
     ) +
     ggplot2::labs(x = NULL, y = NULL, fill = "Drug class") +
     ggplot2::theme_minimal() +

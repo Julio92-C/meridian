@@ -97,6 +97,17 @@ network:
   sankey:
     top_genes:   30
     rank_by:     prevalence_x_abundance   # mean_abundance | prevalence | prevalence_x_abundance
+    # 18+ samples cram the leftmost stratum at composite scale. Shrink
+    # just the Sample axis labels so the IDs remain visible but stop
+    # colliding; other axes keep the default size.
+    sample_label_size: 1.2
+  # Chord taxa + gene filters mirror the sankey gene filter so fig06's
+  # perimeter stays readable. Without caps chicken_batch2's 4-arm design
+  # pushes the taxa + gene counts above 100 each and labels collide.
+  chord:
+    top_taxa:    30
+    top_genes:   30
+    rank_by:     prevalence_x_abundance
 
 # Publication panel rendering — unified fontsize across every composite cell
 # (8pt text + legend). Raster sources (pheatmap / Venn / UpSet / circlize)
