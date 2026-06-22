@@ -101,6 +101,12 @@ network:
     # just the Sample axis labels so the IDs remain visible but stop
     # colliding; other axes keep the default size.
     sample_label_size: 1.2
+    # Filter to top-N samples by taxon-prevalence-weighted TPM so the
+    # Sample stratum doesn't crush at 32 samples. 12 keeps roughly the
+    # 3 most-representative samples per treatment arm (4 arms x 3 = 12)
+    # and the flow story stays interpretable.
+    top_samples:    12
+    sample_rank_by: prevalence_x_abundance
   # Chord taxa + gene filters mirror the sankey gene filter so fig06's
   # perimeter stays readable. Without caps chicken_batch2's 4-arm design
   # pushes the taxa + gene counts above 100 each and labels collide.

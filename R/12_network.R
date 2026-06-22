@@ -776,6 +776,53 @@ run_network <- function(cleaned, cfg) {
     ))
   }
 
+  # --- Per-sample top-N filter ------------------------------------------
+  # Reduces sankey clutter at the Sample stratum (leftmost column) by
+  # keeping only the samples that carry the most-prevalent taxa. Same
+  # rank logic as the gene filter; applied AFTER the gene filter so the
+  # sample score reflects the post-filter gene set. Default rank_by uses
+  # taxon-prevalence-weighted TPM so a sample carrying many widely-
+  # shared taxa scores higher than one with the same TPM concentrated
+  # in rare taxa — picks the "representative" samples that the figure
+  # tells a clearer story with.
+  top_n_sample   <- scfg$top_samples    %||% Inf
+  sample_rank_by <- scfg$sample_rank_by %||% "prevalence_x_abundance"
+  if (is.finite(top_n_sample) && nrow(df) > 0) {
+    n_total      <- dplyr::n_distinct(df$sample)
+    taxon_prev   <- df |>
+      dplyr::group_by(.data$name) |>
+      dplyr::summarise(prevalence = dplyr::n_distinct(.data$sample) /
+                                    max(n_total, 1L),
+                       .groups    = "drop")
+    sample_stats <- df |>
+      dplyr::left_join(taxon_prev, by = "name") |>
+      dplyr::group_by(.data$sample) |>
+      dplyr::summarise(
+        n_taxa     = dplyr::n_distinct(.data$name),
+        abundance  = sum(.data$sampleCount, na.rm = TRUE),
+        prev_score = sum(.data$prevalence * .data$sampleCount,
+                          na.rm = TRUE),
+        .groups    = "drop"
+      ) |>
+      dplyr::mutate(
+        score = dplyr::case_when(
+          sample_rank_by == "mean_abundance" ~ .data$abundance,
+          sample_rank_by == "prevalence"     ~ as.numeric(.data$n_taxa),
+          TRUE                                ~ .data$prev_score
+        )
+      )
+    n_before_s <- nrow(sample_stats)
+    sample_stats <- sample_stats |>
+      dplyr::arrange(dplyr::desc(.data$score)) |>
+      dplyr::slice_head(n = as.integer(top_n_sample))
+    df <- dplyr::filter(df, .data$sample %in% sample_stats$sample)
+    pipeline_log(cfg, sprintf(
+      "Sankey sample filter: %d -> %d samples (top_n=%d, rank_by=%s)",
+      n_before_s, nrow(sample_stats), as.integer(top_n_sample),
+      sample_rank_by
+    ))
+  }
+
   df <- df |>
     dplyr::filter(!is.na(.data$category), nzchar(.data$category)) |>
     dplyr::distinct(.data$sample, .data$name, .data$GENE, .data$category,
