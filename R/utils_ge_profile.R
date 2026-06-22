@@ -679,6 +679,7 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
 ge_plot_category_heatmap <- function(df, category_col, group, pal_group,
                                       file, palette,
                                       fontsize_row      = 12,
+                                      fontsize_col      = NULL,
                                       row_height_factor = 0.28,
                                       min_height        = 4,
                                       width             = 8.5,
@@ -713,6 +714,10 @@ ge_plot_category_heatmap <- function(df, category_col, group, pal_group,
 
   hm_width  <- width  %||% max(6, 0.32 * ncol(cat_scaled) + 3)
   hm_height <- height %||% max(min_height, row_height_factor * nrow(cat_scaled) + 2.5)
+  # Auto-scale column fontsize when the caller doesn't override it: shrink
+  # below 11 once the sample count crosses ~18 so labels at the canvas
+  # bottom don't overlap. 32 samples (chicken_batch2) lands at ~6 pt.
+  fs_col <- fontsize_col %||% max(4, min(11, round(220 / max(ncol(cat_scaled), 1L))))
   ph_args <- list(
     mat               = cat_scaled,
     cluster_rows      = FALSE,
@@ -722,7 +727,7 @@ ge_plot_category_heatmap <- function(df, category_col, group, pal_group,
     annotation_col    = sample_group,
     annotation_colors = ann_colors,
     gaps_col          = gaps_col,
-    fontsize_row = fontsize_row, fontsize_col = 11, fontsize = 11
+    fontsize_row = fontsize_row, fontsize_col = fs_col, fontsize = 11
   )
   if (isTRUE(legend_top)) {
     ph <- do.call(pheatmap::pheatmap, c(ph_args, list(silent = TRUE)))

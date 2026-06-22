@@ -3,3 +3,4 @@ Chicken gun microbiome first batch: C:\Users\julio\OneDrive\Desktop\PC_JC_2024-1
 Chicken gun microbiome second batch: C:\Users\julio\OneDrive\Desktop\JC_FL_2025_05_20_CK_microbiome
 Hospital microbiome: C:\Users\julio\OneDrive\Desktop\Hospital_microbiome
 Lung microbiome: C:\Users\julio\OneDrive\Desktop\Lung_microbiome
+Metagenomics pipeline automation: C:\Users\julio\Desktop\Metagenomics_pipeline_automation
