@@ -559,17 +559,34 @@ ge_plot_category_venn <- function(df, category_col, group, pal_group,
     "5" = list(),
     list()
   )
+  # Display-only label cleanup: strip underscores from the group-level
+  # category labels (Control_W4 -> Control W4) and from the heading. The
+  # underlying `sets` names and the manifest entry are untouched — this
+  # only affects what's drawn on the canvas. Reads cleaner in print and
+  # matches the figure-caption convention of using spaces in column refs.
+  display_names <- gsub("_", " ", names(sets), fixed = TRUE)
+  display_title <- gsub("_", " ", main_title,  fixed = TRUE)
   do.call(VennDiagram::venn.diagram, c(
     list(
       x         = sets,
+      category.names = display_names,
       filename  = file,
       imagetype = "png",
       height = 2800, width = 2800, resolution = 300,
       fill = fill_pal, alpha = 0.6,
-      cat.cex = 1.0, cat.fontface = "bold",
-      cex = 1.0,
-      main = main_title,
-      main.cex = 1.0, margin = 0.18,
+      # cat.cex 1.0 -> 1.5 and cex 1.0 -> 1.4 so the per-set labels and
+      # intersection counts match the visual weight of axis text in
+      # neighbouring panels (boxplots, bar charts) when rendered into a
+      # 2x2 composite.
+      cat.cex = 1.5, cat.fontface = "bold",
+      cex = 1.4,
+      main = display_title,
+      # main.cex bumped 1.0 -> 1.6 so the heading carries weight at
+      # composite scale; main.pos[2] lowered 1.05 -> 0.98 to close the
+      # white-space gap between heading and diagram; margin tightened
+      # 0.18 -> 0.08 so the diagram fills more of the canvas.
+      main.cex = 1.6, main.pos = c(0.5, 0.98),
+      margin = 0.08,
       disable.logging = TRUE
     ),
     cat_args
