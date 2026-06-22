@@ -426,40 +426,53 @@ ge_plot_abundance_violin <- function(df, group, pal_group, file,
       hjust = -0.05, vjust = 1.4, size = 3.4, colour = "black"
     )
   }
-  # Pairwise Wilcoxon comparisons with bracketed asterisks. Uses
-  # ggpubr::stat_compare_means when available; family-adjustment method
-  # comes from cfg$stats$padjust_method. Brackets sit tight to the
-  # box-plot stack (small step) so they read as adjacent to the data,
-  # not floating above empty whitespace.
+  # Pairwise Wilcoxon comparisons — significant pairs only. Pre-compute
+  # the family-adjusted p-values via ggpubr::compare_means (so the BH /
+  # Holm / whatever from cfg$stats$padjust_method runs across ALL pairs),
+  # filter to p.adj < cfg$stats$alpha, then draw only those via
+  # stat_pvalue_manual. Pre-filtering is necessary because ggpubr's
+  # stat_compare_means(hide.ns = TRUE) hides the "ns" label but still
+  # draws the empty bracket, which clutters panel C with floating lines
+  # for every non-significant pair.
   group_levels <- sort(unique(as.character(v[[group]])))
   if (requireNamespace("ggpubr", quietly = TRUE) &&
       length(group_levels) >= 2) {
-    pairs <- utils::combn(group_levels, 2, simplify = FALSE)
     pad_method <- padjust_method(cfg)
-    # Anchor brackets to the per-group UPPER WHISKER (Q3 + 1.5*IQR), not
-    # max(v$log_val). Using the raw max means a single high outlier pushes
-    # brackets way above the box cloud, leaving a visible whitespace gap.
-    y_top <- max(tapply(v$log_val, v[[group]], function(x) {
-      q <- stats::quantile(x, c(0.25, 0.75), na.rm = TRUE)
-      as.numeric(q[2] + 1.5 * (q[2] - q[1]))
-    }), na.rm = TRUE)
-    y_rng  <- diff(range(v$log_val, na.rm = TRUE))
-    steps  <- y_rng * 0.01            # first bracket sits at +1% of range above max whisker
-    label_ys <- y_top + steps * seq_along(pairs)
-    p <- p + ggpubr::stat_compare_means(
-      comparisons       = pairs,
-      method            = "wilcox.test",
-      label             = "p.signif",
-      p.adjust.method   = pad_method,
-      hide.ns           = FALSE,
-      tip.length        = 0.005,
-      step.increase     = 0.02,
-      vjust             = 0.4,
-      size              = 5,
-      label.y           = label_ys
+    alpha_thr  <- cfg$stats$alpha %||% 0.05
+    cm <- tryCatch(
+      ggpubr::compare_means(
+        stats::reformulate(group, "log_val"),
+        data            = v,
+        method          = "wilcox.test",
+        p.adjust.method = pad_method
+      ),
+      error = function(e) NULL
     )
-    # Headroom so the highest bracket clears the panel top.
-    p <- p + ggplot2::expand_limits(y = y_top + steps * (length(pairs) + 1))
+    cm_sig <- if (!is.null(cm)) cm[cm$p.adj < alpha_thr, , drop = FALSE]
+              else cm
+    if (!is.null(cm_sig) && nrow(cm_sig) > 0) {
+      # Anchor brackets to the per-group UPPER WHISKER (Q3 + 1.5*IQR),
+      # not max(v$log_val). Using the raw max means a single high
+      # outlier pushes brackets way above the box cloud.
+      y_top <- max(tapply(v$log_val, v[[group]], function(x) {
+        q <- stats::quantile(x, c(0.25, 0.75), na.rm = TRUE)
+        as.numeric(q[2] + 1.5 * (q[2] - q[1]))
+      }), na.rm = TRUE)
+      y_rng <- diff(range(v$log_val, na.rm = TRUE))
+      steps <- y_rng * 0.02   # bracket stack step
+      cm_sig$y.position <- y_top + steps * seq_len(nrow(cm_sig))
+      p <- p + ggpubr::stat_pvalue_manual(
+        data       = cm_sig,
+        label      = "p.signif",
+        tip.length = 0.005,
+        vjust      = 0.4,
+        size       = 5
+      )
+      # Headroom so the highest bracket clears the panel top.
+      p <- p + ggplot2::expand_limits(
+        y = y_top + steps * (nrow(cm_sig) + 1)
+      )
+    }
   }
   save_panel_ggplot(file, p, width = 7, height = 5.5, dpi = 300)
 }
