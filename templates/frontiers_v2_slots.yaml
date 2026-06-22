@@ -222,17 +222,12 @@ main:
     panels:
       - kind: sankey_png
 
-  fig08_sankey_taxon_arg_mge:
-    title: "Sankey — phylum → ARG drug class → MGE replicon family"
-    subsection: taxa_gene_associations
-    rows: 1
-    cols: 1
-    labels: false
-    panels:
-      - kind: sankey_taxon_arg_mge
-        required: false
+  # fig08_sankey_taxon_arg_mge removed 2026-06-22 — the phylum->ARG->MGE
+  # flow added more clutter than insight at composite scale. fig07 (VF
+  # taxa-to-function sankey) covers the same narrative axis for the VF
+  # side. Downstream slot numbering shifted accordingly.
 
-  fig09_network:
+  fig08_network:
     title: "Tripartite network — sample × taxon × gene element"
     subsection: co_occurrence_network
     rows: 1
@@ -246,7 +241,7 @@ main:
     panels:
       - kind: network_graph
 
-  fig10_vf_arg_correlation:
+  fig09_vf_arg_correlation:
     title: "Cross-domain VF × ARG correlation heatmap"
     subsection: co_occurrence_network
     rows: 1
@@ -265,7 +260,7 @@ main:
   # competing for the right-side canvas band.
   # =============================================================
 
-  fig11_heatmap_arg_genes:
+  fig10_heatmap_arg_genes:
     title: "Heatmap — individual ARG genes (top-30 by prevalence)"
     subsection: resistome
     rows: 1
@@ -275,7 +270,7 @@ main:
       - kind: ge_pheatmap_genes
         domain: resistome
 
-  fig12_heatmap_vf_genes:
+  fig11_heatmap_vf_genes:
     title: "Heatmap — individual VF genes (top-30 by prevalence)"
     subsection: virulome
     rows: 1
@@ -285,7 +280,7 @@ main:
       - kind: ge_pheatmap_genes
         domain: virulome
 
-  fig13_heatmap_mge_genes:
+  fig12_heatmap_mge_genes:
     title: "Heatmap — individual plasmid-replicon genes (top-30 by prevalence)"
     subsection: mobilome
     rows: 1
