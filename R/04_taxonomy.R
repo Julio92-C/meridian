@@ -125,8 +125,14 @@ run_taxonomy <- function(cleaned, cfg) {
 
     fill_pal <- group_palette(names(sets), cfg)
     venn_path <- file.path(fig_dir, "taxa_venn.png")
+    # Display-only: strip underscores from group labels (Control_W4 ->
+    # Control W4). Matches the convention used by ge_plot_category_venn
+    # so every Venn the pipeline emits reads consistently. The font /
+    # margin / heading values are the same as the GE-side polish too.
+    display_names <- gsub("_", " ", names(sets), fixed = TRUE)
     VennDiagram::venn.diagram(
       x = sets,
+      category.names = display_names,
       filename = venn_path,
       imagetype = "png",
       height = 2400,
@@ -134,11 +140,12 @@ run_taxonomy <- function(cleaned, cfg) {
       resolution = 300,
       fill = unname(fill_pal),
       alpha = 0.5,
-      cat.cex = 1.0,
+      cat.cex = 1.5,
       cat.fontface = "bold",
-      cex = 1.0,
+      cex = 1.4,
       main = "Shared species across treatment groups",
-      main.cex = 1.0,
+      main.cex = 1.6,
+      main.pos = c(0.5, 0.98),
       margin = 0.08,
       disable.logging = TRUE
     )
