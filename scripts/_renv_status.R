@@ -1,0 +1,5 @@
+options(renv.config.startup.quiet = TRUE)
+source("renv/activate.R")
+st <- renv::status()
+cat("\n--- structured summary ---\n")
+str(st, max.level = 2)
