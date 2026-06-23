@@ -1,0 +1,487 @@
+- The project is out-of-sync -- use `renv::status()` for details.
+Warning messages:
+1: package 'yaml' was built under R version 4.5.3 
+2: package 'readr' was built under R version 4.5.3 
+3: package 'dplyr' was built under R version 4.5.3 
+4: package 'tidyr' was built under R version 4.5.3 
+5: package 'stringr' was built under R version 4.5.3 
+6: package 'purrr' was built under R version 4.5.3 
+7: package 'ggplot2' was built under R version 4.5.3 
+8: package 'ggpubr' was built under R version 4.5.3 
+9: package 'paletteer' was built under R version 4.5.3 
+[2026-06-23 18:30:49] Starting pipeline for study 'chicken_batch2'
+[2026-06-23 18:30:49] Plan: 15 stage(s) — load_inputs, clean_data, normalisation, taxonomy, relative_abundance, alpha_diversity, beta_diversity, differential_abundance, resistome, virulome, mobilome, network, report, panels, manifest
+[2026-06-23 18:30:49] [1/15   0%] load_inputs — start
+[2026-06-23 18:30:49] Loading inputs
+[2026-06-23 18:30:51] [1/15   0%] load_inputs — done in 1.3s, peak 205 MB
+[2026-06-23 18:30:51] [2/15   7%] clean_data — start
+[2026-06-23 18:30:51] Cleaning + decontaminating
+[2026-06-23 18:30:57] [2/15   7%] clean_data — done in 6.4s, peak 522 MB
+[2026-06-23 18:30:57] [3/15  13%] normalisation — start
+[2026-06-23 18:30:57] TPM-normalising gene elements
+[2026-06-23 18:30:57] [3/15  13%] normalisation — done in 0.5s, peak 205 MB
+[2026-06-23 18:30:57] [4/15  20%] taxonomy — start
+[2026-06-23 18:30:58] Taxonomy (Venn + heatmap)
+[2026-06-23 18:30:58] Taxonomy: 5570/6549 (taxon, sample) rows kept with count >= 5
+INFO [2026-06-23 18:30:58] $x
+INFO [2026-06-23 18:30:58] sets
+INFO [2026-06-23 18:30:58] 
+INFO [2026-06-23 18:30:58] $category.names
+INFO [2026-06-23 18:30:58] display_names
+INFO [2026-06-23 18:30:58] 
+INFO [2026-06-23 18:30:58] $filename
+INFO [2026-06-23 18:30:58] venn_path
+INFO [2026-06-23 18:30:58] 
+INFO [2026-06-23 18:30:58] $imagetype
+INFO [2026-06-23 18:30:58] [1] "png"
+INFO [2026-06-23 18:30:58] 
+INFO [2026-06-23 18:30:58] $height
+INFO [2026-06-23 18:30:58] [1] 2400
+INFO [2026-06-23 18:30:58] 
+INFO [2026-06-23 18:30:58] $width
+INFO [2026-06-23 18:30:58] [1] 2400
+INFO [2026-06-23 18:30:58] 
+INFO [2026-06-23 18:30:58] $resolution
+INFO [2026-06-23 18:30:58] [1] 300
+INFO [2026-06-23 18:30:58] 
+INFO [2026-06-23 18:30:58] $fill
+INFO [2026-06-23 18:30:58] unname(fill_pal)
+INFO [2026-06-23 18:30:58] 
+INFO [2026-06-23 18:30:58] $alpha
+INFO [2026-06-23 18:30:58] [1] 0.5
+INFO [2026-06-23 18:30:58] 
+INFO [2026-06-23 18:30:58] $cat.cex
+INFO [2026-06-23 18:30:58] [1] 1.5
+INFO [2026-06-23 18:30:58] 
+INFO [2026-06-23 18:30:58] $cat.fontface
+INFO [2026-06-23 18:30:58] [1] "bold"
+INFO [2026-06-23 18:30:58] 
+INFO [2026-06-23 18:30:58] $cex
+INFO [2026-06-23 18:30:58] [1] 1.4
+INFO [2026-06-23 18:30:58] 
+INFO [2026-06-23 18:30:58] $main
+INFO [2026-06-23 18:30:58] [1] "Shared species across treatment groups"
+INFO [2026-06-23 18:30:58] 
+INFO [2026-06-23 18:30:58] $main.cex
+INFO [2026-06-23 18:30:58] [1] 1.6
+INFO [2026-06-23 18:30:58] 
+INFO [2026-06-23 18:30:58] $main.pos
+INFO [2026-06-23 18:30:58] c(0.5, 0.98)
+INFO [2026-06-23 18:30:58] 
+INFO [2026-06-23 18:30:58] $margin
+INFO [2026-06-23 18:30:58] [1] 0.08
+INFO [2026-06-23 18:30:58] 
+INFO [2026-06-23 18:30:58] $disable.logging
+INFO [2026-06-23 18:30:58] [1] TRUE
+INFO [2026-06-23 18:30:58] 
+[2026-06-23 18:31:00] [4/15  20%] taxonomy — done in 2.3s, peak 308 MB
+[2026-06-23 18:31:00] [5/15  27%] relative_abundance — start
+[2026-06-23 18:31:00] Relative abundance
+[2026-06-23 18:31:00] Relative abundance: 7557/18073 (taxon, sample) rows kept with count > 17
+[2026-06-23 18:31:01] Relative abundance: 50 top taxa + 'Others' (palette sized to 51)
+[2026-06-23 18:31:06] Relative abundance (class): 9 species, 32 samples → relative_abundance_class.png
+[2026-06-23 18:31:09] Relative abundance (order): 11 species, 32 samples → relative_abundance_order.png
+[2026-06-23 18:31:13] Relative abundance (family): 23 species, 32 samples → relative_abundance_family.png
+[2026-06-23 18:31:17] Relative abundance (genus): 66 species, 32 samples → relative_abundance_genus.png
+[2026-06-23 18:31:25] Relative abundance (unique species): 33 species, 15 samples → unique_species_relative_abundance.png
+[2026-06-23 18:31:27] Relative abundance (shared species): 120 species, 32 samples → shared_species_relative_abundance.png
+[2026-06-23 18:31:29] Relative abundance: genus_heatmap_top30.png (30 genera x 32 samples)
+[2026-06-23 18:31:29] [5/15  27%] relative_abundance — done in 29.6s, peak 574 MB
+[2026-06-23 18:31:29] [6/15  33%] alpha_diversity — start
+[2026-06-23 18:31:30] Alpha diversity
+[2026-06-23 18:31:30] Alpha diversity: using precomputed table (32 samples x 9 metrics)
+[2026-06-23 18:31:31] Alpha diversity: appended Chao1 estimator (32/32 samples covered)
+[2026-06-23 18:31:31] Alpha diversity: Berger Parker index ~ Treatment_Bird: p_raw = 0.1054, p_adj (BH) = 0.2418
+[2026-06-23 18:31:33] Alpha diversity: Effective number of species ~ Treatment_Bird: p_raw = 0.191, p_adj (BH) = 0.2476
+[2026-06-23 18:31:36] Alpha diversity: Fisher's alpha ~ Treatment_Bird: p_raw = 0.1451, p_adj (BH) = 0.2418
+[2026-06-23 18:31:38] Alpha diversity: Inverse Simpson's index ~ Treatment_Bird: p_raw = 0.07597, p_adj (BH) = 0.2418
+[2026-06-23 18:31:41] Alpha diversity: Pielou's evenness ~ Treatment_Bird: p_raw = 0.05991, p_adj (BH) = 0.2418
+[2026-06-23 18:31:43] Alpha diversity: Richness ~ Treatment_Bird: p_raw = 0.2465, p_adj (BH) = 0.2739
+[2026-06-23 18:31:46] Alpha diversity: Shannon diversity index ~ Treatment_Bird: p_raw = 0.198, p_adj (BH) = 0.2476
+[2026-06-23 18:31:48] Alpha diversity: Simpson's index ~ Treatment_Bird: p_raw = 0.08581, p_adj (BH) = 0.2418
+[2026-06-23 18:31:50] Alpha diversity: Total counts ~ Treatment_Bird: p_raw = 0.1451, p_adj (BH) = 0.2418
+[2026-06-23 18:31:53] Alpha diversity: chao1 ~ Treatment_Bird: p_raw = 0.4702, p_adj (BH) = 0.4702
+[2026-06-23 18:31:56] Rarefaction: 32 samples, depth min=17996 / median=80660 / max=193634, step=387
+[2026-06-23 18:32:00] Rarefaction curves: 32 samples, step=387 reads
+[2026-06-23 18:32:01] [6/15  33%] alpha_diversity — done in 31.4s, peak 587 MB
+[2026-06-23 18:32:01] [7/15  40%] beta_diversity — start
+[2026-06-23 18:32:01] Beta diversity (PCoA + PERMANOVA + PERMDISP)
+[2026-06-23 18:32:01] Beta diversity: source=bracken, 702 rows after clean_taxa_names
+[2026-06-23 18:32:01] Beta diversity: transform=hellinger, distance=bray
+[2026-06-23 18:32:01] PERMANOVA Treatment_Bird: R2 = 0.121, p_raw = 0.1546
+[2026-06-23 18:32:02] PERMDISP Treatment_Bird: p_raw = 0.0532
+[2026-06-23 18:32:02] PERMANOVA Jaccard Treatment_Bird: R2 = 0.097, p_raw = 0.4598
+[2026-06-23 18:32:03] PERMDISP Jaccard Treatment_Bird: p_raw = 0.4446
+[2026-06-23 18:32:06] [7/15  40%] beta_diversity — done in 5.2s, peak 482 MB
+[2026-06-23 18:32:06] [8/15  47%] differential_abundance — start
+[2026-06-23 18:32:11] Differential abundance (ALDEx2)
+[2026-06-23 18:32:12] DA[taxa]: source=bracken, 53 features x 32 samples, 4 group(s) (Control_W4=8, Control_W5=8, Dulse_W4=8, Dulse_W5=8), mc=128, denom=all
+aldex.clr: generating Monte-Carlo instances and clr values
+conditions vector supplied
+operating in serial mode
+computing center with all features
+aldex.glm: doing Kruskal-Wallace and glm test (ANOVA-like)
+operating in serial mode
+aldex.clr: generating Monte-Carlo instances and clr values
+conditions vector supplied
+operating in serial mode
+computing center with all features
+aldex.ttest: doing t-test
+aldex.effect: calculating effect sizes
+[2026-06-23 18:32:40] DA[taxa] Control_W4_vs_Control_W5 → Control_W4_vs_Control_W5.tsv (37 features)
+aldex.clr: generating Monte-Carlo instances and clr values
+conditions vector supplied
+operating in serial mode
+computing center with all features
+aldex.ttest: doing t-test
+aldex.effect: calculating effect sizes
+[2026-06-23 18:32:41] DA[taxa] Control_W4_vs_Dulse_W4 → Control_W4_vs_Dulse_W4.tsv (37 features)
+aldex.clr: generating Monte-Carlo instances and clr values
+conditions vector supplied
+operating in serial mode
+computing center with all features
+aldex.ttest: doing t-test
+aldex.effect: calculating effect sizes
+[2026-06-23 18:32:42] DA[taxa] Control_W4_vs_Dulse_W5 → Control_W4_vs_Dulse_W5.tsv (38 features)
+aldex.clr: generating Monte-Carlo instances and clr values
+conditions vector supplied
+operating in serial mode
+computing center with all features
+aldex.ttest: doing t-test
+aldex.effect: calculating effect sizes
+[2026-06-23 18:32:42] DA[taxa] Control_W5_vs_Dulse_W4 → Control_W5_vs_Dulse_W4.tsv (37 features)
+aldex.clr: generating Monte-Carlo instances and clr values
+conditions vector supplied
+operating in serial mode
+computing center with all features
+aldex.ttest: doing t-test
+aldex.effect: calculating effect sizes
+[2026-06-23 18:32:43] DA[taxa] Control_W5_vs_Dulse_W5 → Control_W5_vs_Dulse_W5.tsv (36 features)
+aldex.clr: generating Monte-Carlo instances and clr values
+conditions vector supplied
+operating in serial mode
+computing center with all features
+aldex.ttest: doing t-test
+aldex.effect: calculating effect sizes
+[2026-06-23 18:32:44] DA[taxa] Dulse_W4_vs_Dulse_W5 → Dulse_W4_vs_Dulse_W5.tsv (38 features)
+[2026-06-23 18:32:44] DA[taxa] Control_W4_vs_Dulse_W5: no features pass |effect|>=0.80 & overlap<=0.20 — using top 5 by |effect|
+[2026-06-23 18:32:44] DA[taxa] Control_W5_vs_Dulse_W5: no features pass |effect|>=0.80 & overlap<=0.20 — using top 5 by |effect|
+[2026-06-23 18:32:50] DA[taxa] cross-comp summary: 10 unique candidates
+[2026-06-23 18:32:59] DA[taxa] top30_daa_heatmap.png (30 features x 32 samples)
+[2026-06-23 18:32:59] DA[taxa] aldex2_dotplot: no features significant in >=1 pair — skipping
+[2026-06-23 18:32:59] DA[gene]: source=abri_kraken2, 221 features x 32 samples, 4 group(s) (Control_W4=8, Control_W5=8, Dulse_W4=8, Dulse_W5=8), mc=128, denom=all
+aldex.clr: generating Monte-Carlo instances and clr values
+conditions vector supplied
+operating in serial mode
+computing center with all features
+aldex.glm: doing Kruskal-Wallace and glm test (ANOVA-like)
+operating in serial mode
+aldex.clr: generating Monte-Carlo instances and clr values
+conditions vector supplied
+operating in serial mode
+computing center with all features
+aldex.ttest: doing t-test
+aldex.effect: calculating effect sizes
+[2026-06-23 18:34:51] DA[gene] Control_W4_vs_Control_W5 → Control_W4_vs_Control_W5.tsv (80 features)
+aldex.clr: generating Monte-Carlo instances and clr values
+conditions vector supplied
+operating in serial mode
+computing center with all features
+aldex.ttest: doing t-test
+aldex.effect: calculating effect sizes
+[2026-06-23 18:34:53] DA[gene] Control_W4_vs_Dulse_W4 → Control_W4_vs_Dulse_W4.tsv (158 features)
+aldex.clr: generating Monte-Carlo instances and clr values
+conditions vector supplied
+operating in serial mode
+computing center with all features
+aldex.ttest: doing t-test
+aldex.effect: calculating effect sizes
+[2026-06-23 18:34:55] DA[gene] Control_W4_vs_Dulse_W5 → Control_W4_vs_Dulse_W5.tsv (139 features)
+aldex.clr: generating Monte-Carlo instances and clr values
+conditions vector supplied
+operating in serial mode
+computing center with all features
+aldex.ttest: doing t-test
+aldex.effect: calculating effect sizes
+[2026-06-23 18:34:58] DA[gene] Control_W5_vs_Dulse_W4 → Control_W5_vs_Dulse_W4.tsv (166 features)
+aldex.clr: generating Monte-Carlo instances and clr values
+conditions vector supplied
+operating in serial mode
+computing center with all features
+aldex.ttest: doing t-test
+aldex.effect: calculating effect sizes
+[2026-06-23 18:35:01] DA[gene] Control_W5_vs_Dulse_W5 → Control_W5_vs_Dulse_W5.tsv (159 features)
+aldex.clr: generating Monte-Carlo instances and clr values
+conditions vector supplied
+operating in serial mode
+computing center with all features
+aldex.ttest: doing t-test
+aldex.effect: calculating effect sizes
+[2026-06-23 18:35:03] DA[gene] Dulse_W4_vs_Dulse_W5 → Dulse_W4_vs_Dulse_W5.tsv (200 features)
+[2026-06-23 18:35:03] DA[gene] Control_W4_vs_Control_W5: no features pass |effect|>=0.80 & overlap<=0.20 — using top 5 by |effect|
+[2026-06-23 18:35:03] DA[gene] Control_W4_vs_Dulse_W4: no features pass |effect|>=0.80 & overlap<=0.20 — using top 5 by |effect|
+[2026-06-23 18:35:03] DA[gene] Control_W4_vs_Dulse_W5: no features pass |effect|>=0.80 & overlap<=0.20 — using top 5 by |effect|
+[2026-06-23 18:35:03] DA[gene] Control_W5_vs_Dulse_W4: no features pass |effect|>=0.80 & overlap<=0.20 — using top 5 by |effect|
+[2026-06-23 18:35:03] DA[gene] Control_W5_vs_Dulse_W5: no features pass |effect|>=0.80 & overlap<=0.20 — using top 5 by |effect|
+[2026-06-23 18:35:03] DA[gene] Dulse_W4_vs_Dulse_W5: no features pass |effect|>=0.80 & overlap<=0.20 — using top 5 by |effect|
+[2026-06-23 18:35:08] DA[gene] cross-comp summary: 16 unique candidates
+[2026-06-23 18:35:24] [8/15  47%] differential_abundance — done in 3m 18s, peak 1133 MB
+[2026-06-23 18:35:24] [9/15  53%] resistome — start
+[2026-06-23 18:35:25] Resistome (CARD)
+[2026-06-23 18:35:25] Resistome: 648 CARD rows, 99 genes, 20 drug classes, 32 samples
+[2026-06-23 18:35:25] Resistome alpha richness ~ Treatment_Bird KW p = 0.4321
+[2026-06-23 18:35:25] Resistome alpha shannon ~ Treatment_Bird KW p = 0.4541
+[2026-06-23 18:35:29] Resistome log(TPM+1) ~ Treatment_Bird KW p = 2.634e-18
+[2026-06-23 18:35:32] Resistome PERMANOVA Treatment_Bird: R2 = 0.074, p_raw = 0.868
+[2026-06-23 18:35:33] Resistome PERMDISP Treatment_Bird: p_raw = 0.0239
+[2026-06-23 18:35:33] Resistome beta p_adj (BH): PERMANOVA = 0.868, PERMDISP = 0.0478
+[2026-06-23 18:35:41] Resistome: arg_circos_drugclass.png (20 drug classes x 4 groups)
+[2026-06-23 18:35:45] Resistome c_difficile: count_per_treatment.png (32 samples)
+[2026-06-23 18:35:46] Resistome c_difficile: gene_map.png (25 hits, 14 samples)
+[2026-06-23 18:35:47] Resistome enterobacteriaceae: count_per_treatment.png (32 samples)
+[2026-06-23 18:35:49] Resistome enterobacteriaceae: gene_map.png (276 hits, 23 samples)
+[2026-06-23 18:35:50] [9/15  53%] resistome — done in 25.9s, peak 1102 MB
+[2026-06-23 18:35:50] [10/15  60%] virulome — start
+[2026-06-23 18:35:50] Virulome (VFDB)
+[2026-06-23 18:35:51] Virulome: 492 VFDB rows, 156 genes, 8 VF functions, 26 samples
+[2026-06-23 18:35:51] Virulome alpha richness ~ Treatment_Bird KW p = 0.1034
+[2026-06-23 18:35:51] Virulome alpha shannon ~ Treatment_Bird KW p = 0.08559
+[2026-06-23 18:35:54] Virulome log(TPM+1) ~ Treatment_Bird KW p = 1.829e-05
+[2026-06-23 18:35:57] Virulome PERMANOVA Treatment_Bird: R2 = 0.135, p_raw = 0.1567
+[2026-06-23 18:35:57] Virulome PERMDISP Treatment_Bird: p_raw = 0.3569
+[2026-06-23 18:35:57] Virulome beta p_adj (BH): PERMANOVA = 0.3134, PERMDISP = 0.3569
+[2026-06-23 18:36:06] Virulome: vf_arg_correlation_heatmap.png (8 VF functions x 20 drug classes, 32 samples)
+[2026-06-23 18:36:07] [10/15  60%] virulome — done in 17.3s, peak 1132 MB
+[2026-06-23 18:36:07] [11/15  67%] mobilome — start
+[2026-06-23 18:36:08] Mobilome (PlasmidFinder)
+[2026-06-23 18:36:08] Mobilome: 137 PlasmidFinder rows, 25 replicons, 5 families, 32 samples
+[2026-06-23 18:36:08] Mobilome alpha richness ~ Treatment_Bird KW p = 0.4582
+[2026-06-23 18:36:08] Mobilome alpha shannon ~ Treatment_Bird KW p = 0.5777
+[2026-06-23 18:36:11] Mobilome log(TPM+1) ~ Treatment_Bird KW p = 0.5699
+[2026-06-23 18:36:13] Mobilome PERMANOVA Treatment_Bird: R2 = 0.073, p_raw = 0.7468
+[2026-06-23 18:36:14] Mobilome PERMDISP Treatment_Bird: p_raw = 0.3981
+[2026-06-23 18:36:14] Mobilome beta p_adj (BH): PERMANOVA = 0.7468, PERMDISP = 0.7468
+[2026-06-23 18:36:23] [11/15  67%] mobilome — done in 16.1s, peak 1100 MB
+[2026-06-23 18:36:23] [12/15  73%] network — start
+[2026-06-23 18:36:24] Network analysis (tripartite + chord)
+[2026-06-23 18:36:24] Network: 576 edges, 210 nodes (samples=32, taxa=77, genes=101)
+[2026-06-23 18:36:26] Network topology: modularity = 0.399
+[2026-06-23 18:36:42] Chord taxa filter: 46 -> 30 taxa (min_prev=0.00, top_n=30, rank_by=prevalence_x_abundance)
+[2026-06-23 18:36:42] Chord gene filter: 37 -> 30 genes (top_n=30, rank_by=prevalence_x_abundance)
+[2026-06-23 18:36:42] Network chord: 284 rows, 32 samples, 30 taxa, 30 genes, 10 classes
+[2026-06-23 18:37:23] Sankey gene filter: 157 -> 30 genes (min_prev=0.00, top_n=30, rank_by=prevalence_x_abundance)
+[2026-06-23 18:37:23] Sankey sample filter: 22 -> 12 samples (top_n=12, rank_by=prevalence_x_abundance)
+[2026-06-23 18:37:23] Network sankey: 181 rows, 12 samples, 6 taxa, 30 genes, 5 categories
+[2026-06-23 18:37:35] Network sankey PNG: sankey_overall.png
+[2026-06-23 18:37:38] Mantel Taxonomy vs Resistome: r = 0.062, p = 0.2345 (n=32 samples)
+[2026-06-23 18:37:39] Mantel Taxonomy vs Virulome: r = -0.040, p = 0.6262 (n=26 samples)
+[2026-06-23 18:37:41] Mantel Taxonomy vs Mobilome: r = 0.208, p = 0.0237 (n=32 samples)
+[2026-06-23 18:37:42] Mantel Resistome vs Virulome: r = 0.086, p = 0.2011 (n=26 samples)
+[2026-06-23 18:37:44] Mantel Resistome vs Mobilome: r = 0.399, p = 0.0001 (n=32 samples)
+[2026-06-23 18:37:45] Mantel Virulome vs Mobilome: r = 0.133, p = 0.1284 (n=26 samples)
+[2026-06-23 18:37:45] Mantel triangle: 4 domains x 4, 6 pairs computed, p adjusted via BH
+[2026-06-23 18:37:46] Mobile ARG fraction: 32 samples, 4 treatment groups, 114 mobile contigs
+[2026-06-23 18:37:48] Taxon→ARG→MGE sankey: 3 flows, 2 phyla, 2 drug classes, 2 MGE types (weight=TPM)
+[2026-06-23 18:37:49] [12/15  73%] network — done in 1m 26s, peak 1418 MB
+NULL
+There were 50 or more warnings (use warnings() to see the first 50)
+[2026-06-23 18:37:49] [13/15  80%] report — start
+[2026-06-23 18:37:49] Rendering Quarto HTML report
+- The project is out-of-sync -- use `renv::status()` for details.
+
+
+processing file: report.qmd
+1/63                   
+2/63 [setup]           
+3/63                   
+4/63 [unnamed-chunk-1] 
+5/63                   
+6/63 [unnamed-chunk-2] 
+7/63                   
+8/63 [unnamed-chunk-3] 
+9/63                   
+10/63 [unnamed-chunk-4] 
+11/63                   
+12/63 [unnamed-chunk-5] 
+13/63                   
+14/63 [unnamed-chunk-6] 
+15/63                   
+16/63 [unnamed-chunk-7] 
+17/63                   
+18/63 [unnamed-chunk-8] 
+19/63                   
+20/63 [unnamed-chunk-9] 
+21/63                   
+22/63 [unnamed-chunk-10]
+23/63                   
+24/63 [unnamed-chunk-11]
+25/63                   
+26/63 [unnamed-chunk-12]
+27/63                   
+28/63 [unnamed-chunk-13]
+29/63                   
+30/63 [unnamed-chunk-14]
+31/63                   
+32/63 [unnamed-chunk-15]
+33/63                   
+34/63 [unnamed-chunk-16]
+35/63                   
+36/63 [unnamed-chunk-17]
+37/63                   
+38/63 [unnamed-chunk-18]
+39/63                   
+40/63 [unnamed-chunk-19]
+41/63                   
+42/63 [unnamed-chunk-20]
+43/63                   
+44/63 [unnamed-chunk-21]
+45/63                   
+46/63 [unnamed-chunk-22]
+47/63                   
+48/63 [unnamed-chunk-23]
+49/63                   
+50/63 [unnamed-chunk-24]
+51/63                   
+52/63 [unnamed-chunk-25]
+53/63                   
+54/63 [unnamed-chunk-26]
+55/63                   
+56/63 [unnamed-chunk-27]
+57/63                   
+58/63 [unnamed-chunk-28]
+59/63                   
+60/63 [unnamed-chunk-29]
+61/63                   
+62/63 [unnamed-chunk-30]
+63/63                   
+output file: report.knit.md
+
+pandoc 
+  to: html
+  output-file: report.html
+  template: >-
+    C:\Users\julio\AppData\Local\Programs\Quarto\share\formats\dashboard\template.html
+  standalone: true
+  embed-resources: true
+  section-divs: true
+  html-math-method: mathjax
+  wrap: none
+  default-image-extension: png
+  variables: {}
+  
+metadata
+  document-css: false
+  link-citations: true
+  date-format: long
+  lang: en
+  page-layout: custom
+  engines:
+    - path: C:\Users\julio\AppData\Local\Programs\Quarto\share\extension-subtrees\julia-engine\_extensions\julia-engine\julia-engine.js
+  title: MERIDIAN
+  subtitle: Metagenomic Evaluation of Resistance, Identity & Diversity through Integrated Analysis of Nanopore sequencing
+  orientation: rows
+  scrolling: false
+  theme: cosmo
+  nav-buttons: []
+  
+Output created: report.html
+
+[2026-06-23 18:38:16] [13/15  80%] report — done in 27.4s, peak 647 MB
+NULL
+[2026-06-23 18:38:16] [14/15  87%] panels — start
+[2026-06-23 18:38:17] Publication panels + supplementary tables
+[2026-06-23 18:38:20] Panels[fig01_taxa_overview/main]: 5 native (.rds) + 1 raster (.png)
+[2026-06-23 18:38:22] Panels[fig01_taxa_overview]: 6 panel(s) assembled -> fig01_taxa_overview.png
+[2026-06-23 18:38:23] Panels[fig02_resistome_overview/main]: 5 native (.rds) + 1 raster (.png)
+[2026-06-23 18:38:25] Panels[fig02_resistome_overview]: 6 panel(s) assembled -> fig02_resistome_overview.png
+[2026-06-23 18:38:26] Panels[fig03_virulome_overview/main]: 5 native (.rds) + 1 raster (.png)
+[2026-06-23 18:38:28] Panels[fig03_virulome_overview]: 6 panel(s) assembled -> fig03_virulome_overview.png
+[2026-06-23 18:38:29] Panels[fig04_mobilome_overview/main]: 5 native (.rds) + 1 raster (.png)
+[2026-06-23 18:38:31] Panels[fig04_mobilome_overview]: 6 panel(s) assembled -> fig04_mobilome_overview.png
+[2026-06-23 18:38:32] Panels[fig05_relative_abundance_species/main]: 1 native (.rds) + 0 raster (.png)
+[2026-06-23 18:38:32] Panels[fig05_relative_abundance_species]: 1 panel(s) assembled -> fig05_relative_abundance_species.png
+[2026-06-23 18:38:33] Panels[fig06_chord/main]: 0 native (.rds) + 1 raster (.png)
+[2026-06-23 18:38:34] Panels[fig06_chord]: 1 panel(s) assembled -> fig06_chord.png
+[2026-06-23 18:38:34] Panels[fig07_sankey_vf/main]: 1 native (.rds) + 0 raster (.png)
+[2026-06-23 18:38:37] Panels[fig07_sankey_vf]: 1 panel(s) assembled -> fig07_sankey_vf.png
+[2026-06-23 18:38:37] Panels[fig08_network/main]: 1 native (.rds) + 0 raster (.png)
+[2026-06-23 18:38:43] Panels[fig08_network]: 1 panel(s) assembled -> fig08_network.png
+[2026-06-23 18:38:43] Panels[fig09_vf_arg_correlation/main]: 0 native (.rds) + 1 raster (.png)
+[2026-06-23 18:38:43] Panels[fig09_vf_arg_correlation]: 1 panel(s) assembled -> fig09_vf_arg_correlation.png
+[2026-06-23 18:38:44] Panels[fig10_heatmap_arg_genes/main]: 0 native (.rds) + 1 raster (.png)
+[2026-06-23 18:38:44] Panels[fig10_heatmap_arg_genes]: 1 panel(s) assembled -> fig10_heatmap_arg_genes.png
+[2026-06-23 18:38:45] Panels[fig11_heatmap_vf_genes/main]: 0 native (.rds) + 1 raster (.png)
+[2026-06-23 18:38:45] Panels[fig11_heatmap_vf_genes]: 1 panel(s) assembled -> fig11_heatmap_vf_genes.png
+[2026-06-23 18:38:46] Panels[fig12_heatmap_mge_genes/main]: 0 native (.rds) + 1 raster (.png)
+[2026-06-23 18:38:46] Panels[fig12_heatmap_mge_genes]: 1 panel(s) assembled -> fig12_heatmap_mge_genes.png
+[2026-06-23 18:38:47] Panels[figS_diet_effects_arg/main]: 3 native (.rds) + 1 raster (.png)
+[2026-06-23 18:38:48] Panels[figS_diet_effects_arg]: 4 panel(s) assembled -> figS_diet_effects_arg.png
+[2026-06-23 18:38:49] Panels[figS_diet_effects_vf/main]: 3 native (.rds) + 1 raster (.png)
+[2026-06-23 18:38:51] Panels[figS_diet_effects_vf]: 4 panel(s) assembled -> figS_diet_effects_vf.png
+[2026-06-23 18:38:51] Panels[figS_diet_effects_mge/main]: 3 native (.rds) + 1 raster (.png)
+[2026-06-23 18:38:53] Panels[figS_diet_effects_mge]: 4 panel(s) assembled -> figS_diet_effects_mge.png
+[2026-06-23 18:38:54] Panels[figS00_heatmap_species/main]: 0 native (.rds) + 1 raster (.png)
+[2026-06-23 18:38:55] Panels[figS00_heatmap_species]: 1 panel(s) assembled -> figS00_heatmap_species.png
+[2026-06-23 18:38:55] Panels[figS00b_network_degree_distribution/main]: 1 native (.rds) + 0 raster (.png)
+[2026-06-23 18:38:55] Panels[figS00b_network_degree_distribution]: 1 panel(s) assembled -> figS00b_network_degree_distribution.png
+[2026-06-23 18:38:55] Panels[figS00c_rarefaction_curves/main]: 1 native (.rds) + 0 raster (.png)
+[2026-06-23 18:38:56] Panels[figS00c_rarefaction_curves]: 1 panel(s) assembled -> figS00c_rarefaction_curves.png
+[2026-06-23 18:38:57] Panels[figS_arg_circos/main]: 0 native (.rds) + 1 raster (.png)
+[2026-06-23 18:38:57] Panels[figS_arg_circos]: 1 panel(s) assembled -> figS_arg_circos.png
+[2026-06-23 18:38:57] Panels[figS_chord_by_treatment/main]: per_group expanded to 4 panel(s)
+[2026-06-23 18:39:01] Panels[figS_chord_by_treatment/main]: 0 native (.rds) + 4 raster (.png)
+[2026-06-23 18:39:02] Panels[figS_chord_by_treatment]: 4 panel(s) assembled -> figS_chord_by_treatment.png
+[2026-06-23 18:39:02] Panels: 12/12 main + 8/8 supplementary slots assembled
+[2026-06-23 18:39:04] Panels XLSX: 32 tables -> supplementary_tables.xlsx
+[2026-06-23 18:39:05] [14/15  87%] panels — done in 49.0s, peak 1505 MB
+$main_panels
+ [1] "C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics/test_run/Figures/panels/main/fig01_taxa_overview.png"             
+ [2] "C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics/test_run/Figures/panels/main/fig02_resistome_overview.png"        
+ [3] "C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics/test_run/Figures/panels/main/fig03_virulome_overview.png"         
+ [4] "C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics/test_run/Figures/panels/main/fig04_mobilome_overview.png"         
+ [5] "C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics/test_run/Figures/panels/main/fig05_relative_abundance_species.png"
+ [6] "C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics/test_run/Figures/panels/main/fig06_chord.png"                     
+ [7] "C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics/test_run/Figures/panels/main/fig07_sankey_vf.png"                 
+ [8] "C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics/test_run/Figures/panels/main/fig08_network.png"                   
+ [9] "C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics/test_run/Figures/panels/main/fig09_vf_arg_correlation.png"        
+[10] "C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics/test_run/Figures/panels/main/fig10_heatmap_arg_genes.png"         
+[11] "C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics/test_run/Figures/panels/main/fig11_heatmap_vf_genes.png"          
+[12] "C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics/test_run/Figures/panels/main/fig12_heatmap_mge_genes.png"         
+
+$supplementary_panels
+[1] "C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics/test_run/Figures/panels/supplementary/figS_diet_effects_arg.png"              
+[2] "C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics/test_run/Figures/panels/supplementary/figS_diet_effects_vf.png"               
+[3] "C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics/test_run/Figures/panels/supplementary/figS_diet_effects_mge.png"              
+[4] "C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics/test_run/Figures/panels/supplementary/figS00_heatmap_species.png"             
+[5] "C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics/test_run/Figures/panels/supplementary/figS00b_network_degree_distribution.png"
+[6] "C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics/test_run/Figures/panels/supplementary/figS00c_rarefaction_curves.png"         
+[7] "C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics/test_run/Figures/panels/supplementary/figS_arg_circos.png"                    
+[8] "C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics/test_run/Figures/panels/supplementary/figS_chord_by_treatment.png"            
+
+$supplementary_xlsx
+[1] "C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics/test_run/Datasets/panels/supplementary_tables.xlsx"
+
+[2026-06-23 18:39:05] [15/15  93%] manifest — start
+[2026-06-23 18:39:06] Writing manifest.json
+[2026-06-23 18:39:07] Manifest written to C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics/test_run/Reports/manifest.json
+[2026-06-23 18:39:08] [15/15  93%] manifest — done in 3.1s, peak 1040 MB
+[1] "C:/Users/julio/Desktop/JC_FL_2025_05_20_CK_microbiome/metaOmics/test_run/Reports/manifest.json"
+[2026-06-23 18:39:08] Pipeline finished — 15/15 stages complete in 8m 19s
+[2026-06-23 18:39:08] Stage breakdown (slowest first):
+  differential_abundance    3m 18s   39.6%     1133 MB
+  network                   1m 26s   17.2%     1418 MB
+  panels                     49.0s    9.8%     1505 MB
+  alpha_diversity            31.4s    6.3%      587 MB
+  relative_abundance         29.6s    5.9%      574 MB
+  report                     27.4s    5.5%      647 MB
+  resistome                  25.9s    5.2%     1102 MB
+  virulome                   17.3s    3.5%     1132 MB
+  mobilome                   16.1s    3.2%     1100 MB
+  clean_data                  6.4s    1.3%      522 MB
+  beta_diversity              5.2s    1.0%      482 MB
+  manifest                    3.1s    0.6%     1040 MB
+  taxonomy                    2.3s    0.5%      308 MB
+  load_inputs                 1.3s    0.3%      205 MB
+  normalisation               0.5s    0.1%      205 MB
+  ----------------------------------------------------
+  Total                     8m 19s  100.0%     1505 MB
