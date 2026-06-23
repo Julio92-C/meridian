@@ -7,7 +7,7 @@ suppressPackageStartupMessages({
   library(dplyr)
 })
 
-root <- "C:/Users/julio/OneDrive/Desktop/PC_JC_2024-11-29_Julio_Gallus"
+root <- "C:/Users/julio/Desktop/PC_JC_2024-11-29_Julio_Gallus"
 ours <- read_csv(file.path(root, "test_run/Datasets/genetable_normdata.csv"),
                  show_col_types = FALSE)
 gt   <- read_csv(file.path(root, "Datasets/genetable_normdata.csv"),
