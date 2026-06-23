@@ -1,5 +1,6 @@
 ---
-title: "Metagenomics pipeline report"
+title: "MERIDIAN"
+subtitle: "Metagenomic Evaluation of Resistance, Identity & Diversity through Integrated Analysis of Nanopore sequencing"
 format:
   dashboard:
     orientation: rows

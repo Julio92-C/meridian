@@ -1,8 +1,9 @@
-<h1 align="center">🧬 Metagenomics Pipeline Automation</h1>
+<h1 align="center">🧬 MERIDIAN</h1>
 
 <p align="center">
-  <b>A config-driven, reproducible analysis pipeline for long-read metagenomics studies.</b><br/>
-  From raw Kraken2 / Bracken / ABRicate reports to a publication-ready HTML report — in one command.
+  <b><i>Metagenomic Evaluation of Resistance, Identity &amp; Diversity through Integrated Analysis of Nanopore sequencing</i></b><br/>
+  A config-driven, reproducible workflow for taxonomic profiling and resistome, virulome, and mobilome characterisation from ONT long reads —<br/>
+  from raw Kraken2 / Bracken / ABRicate reports to a publication-ready HTML report in one command.
 </p>
 
 <p align="center">
@@ -22,9 +23,9 @@ every time the metadata changes. Absolute paths, sample IDs pasted into
 `select()` calls, manual row-index taxonomy fixes, copy-pasted chunks
 between projects — it adds up to days of error-prone work per study.
 
-**Metagenomics Pipeline Automation** replaces that workflow with a single
-`config.yaml` per study and one command to run every analysis block, from
-decontamination to the final HTML report.
+**MERIDIAN** replaces that workflow with a single `config.yaml` per study
+and one command to run every analysis block, from decontamination to the
+final HTML report.
 
 ---
 
