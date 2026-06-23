@@ -72,10 +72,27 @@ enabled_names <- c(
 )
 total_stages <- length(enabled_names)
 stage_idx    <- 0L
-# Accumulator for the per-stage breakdown printed at the end of the run.
+# Accumulators for the per-stage breakdown printed at the end of the run.
+# stage_times: numeric seconds keyed by stage name (consumed by R/13 as-is).
+# stage_mem:   peak R-allocated MB per stage (run-log only; not yet in manifest).
 stage_times  <- list()
+stage_mem    <- list()
 pipeline_log(cfg, sprintf("Plan: %d stage(s) — %s",
                           total_stages, paste(enabled_names, collapse = ", ")))
+
+# Peak R-managed memory across a stage. Uses gc()'s max-used MB column
+# (col 6 — same index peakRAM::peakRAM uses internally; the column name
+# is "(Mb)" which is ambiguous, so positional access is the robust path).
+# No extra dep needed. Caveat: only R-internal allocation is counted —
+# stages that shell out to external processes (notably `report`, which
+# spawns Quarto) will under-report peak resident set.
+measure_stage <- function(fn) {
+  gc(reset = TRUE, verbose = FALSE)
+  value <- fn()
+  g <- gc(verbose = FALSE)
+  mem_mb <- sum(as.numeric(g[, 6]), na.rm = TRUE)
+  list(value = value, mem_mb = mem_mb)
+}
 
 run_stage <- function(name, fn) {
   if (!(name %in% enabled_names)) return(invisible(NULL))
@@ -84,13 +101,14 @@ run_stage <- function(name, fn) {
   pipeline_log(cfg, sprintf("[%d/%d %3d%%] %s — start",
                             stage_idx, total_stages, pct, name))
   t0 <- Sys.time()
-  result <- fn()
-  elapsed <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
+  measured <- measure_stage(fn)
+  elapsed  <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
   stage_times[[name]] <<- elapsed
-  pipeline_log(cfg, sprintf("[%d/%d %3d%%] %s — done in %s",
+  stage_mem[[name]]   <<- measured$mem_mb
+  pipeline_log(cfg, sprintf("[%d/%d %3d%%] %s — done in %s, peak %.0f MB",
                             stage_idx, total_stages, pct, name,
-                            fmt_duration(elapsed)))
-  result
+                            fmt_duration(elapsed), measured$mem_mb))
+  measured$value
 }
 
 inputs  <- run_stage("load_inputs", function() load_inputs(cfg))
@@ -163,20 +181,27 @@ pipeline_log(cfg, sprintf("Pipeline finished — %d/%d stages complete in %s",
                           stage_idx, total_stages, fmt_duration(total_elapsed)))
 
 # Per-stage breakdown, sorted slowest -> fastest, with a Total footer.
-# Helps spot bottlenecks without scrolling the run log line by line.
+# Helps spot bottlenecks without scrolling the run log line by line. The
+# peak-MB column reports the R-process peak across the stage (max across
+# stages, not sum, in the Total footer — stages run sequentially so peak
+# is the relevant aggregate).
 if (length(stage_times) > 0) {
   st_secs <- unlist(stage_times)
+  st_mem  <- vapply(names(st_secs),
+                    function(n) stage_mem[[n]] %||% NA_real_,
+                    numeric(1))
   ord     <- order(st_secs, decreasing = TRUE)
   pct     <- 100 * st_secs / total_elapsed
   width   <- max(nchar(c(names(st_secs), "Total")))
-  lines   <- sprintf("  %-*s  %8s  %5.1f%%",
+  lines   <- sprintf("  %-*s  %8s  %5.1f%%  %7.0f MB",
                      width, names(st_secs)[ord],
                      vapply(st_secs[ord], fmt_duration, character(1)),
-                     pct[ord])
-  divider <- paste0("  ", strrep("-", width + 2 + 8 + 2 + 6))
-  total   <- sprintf("  %-*s  %8s  %5.1f%%",
+                     pct[ord], st_mem[ord])
+  divider <- paste0("  ", strrep("-", width + 2 + 8 + 2 + 6 + 2 + 10))
+  total   <- sprintf("  %-*s  %8s  %5.1f%%  %7.0f MB",
                      width, "Total",
-                     fmt_duration(total_elapsed), 100.0)
+                     fmt_duration(total_elapsed), 100.0,
+                     max(st_mem, na.rm = TRUE))
   pipeline_log(cfg, paste0("Stage breakdown (slowest first):\n",
                            paste(c(lines, divider, total), collapse = "\n")))
 }
