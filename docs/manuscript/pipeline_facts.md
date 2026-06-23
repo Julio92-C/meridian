@@ -6,9 +6,10 @@ are under `../R/` (one level up from this directory).
 
 ## What the tool is
 
-**Metagenomics Pipeline Automation** — a config-driven, modular R workflow
-that takes Kraken2 + Bracken + ABRicate + Re-centrifuge outputs and
-produces a publication-ready HTML report. Targets long-read
+**MERIDIAN** (*Metagenomic Evaluation of Resistance, Identity & Diversity
+through Integrated Analysis of Nanopore sequencing*) — a config-driven,
+modular R workflow that takes Kraken2 + Bracken + ABRicate + Re-centrifuge
+outputs and produces a publication-ready HTML report. Targets long-read
 (nanopore / PacBio) shotgun metagenomics studies.
 
 ## Why it exists (motivation)

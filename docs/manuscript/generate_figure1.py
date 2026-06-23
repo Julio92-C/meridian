@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-Figure 1 — Metagenomics Pipeline Automation: workflow schematic
+Figure 1 — MERIDIAN: workflow schematic
 High-resolution (300 DPI) publication figure.
 
 Layout (top -> bottom, diamond / hourglass):
