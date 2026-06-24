@@ -92,7 +92,7 @@ MERIDIAN is an alpha-stage workflow that consolidates a long-read shotgun metage
 
 ---
 
-**Acknowledgements.** {{TODO: acknowledgements — collaborators, reviewers, compute providers}}
+**Acknowledgements.** The authors thank the **[clinical / experimental collaborators]** who generated the chicken caecum metagenomics datasets used to develop and validate the pipeline. We are grateful to **[early-tester names / labs]** for feedback on the configuration interface and Quarto report layout, and to the School of Biomedical Science at the University of West London for hosting the project. **[Optional: compute providers — e.g. UWL / UCL HPC, cloud credits.]**
 
 **Funding.** This study was funded by a Vice-Chancellor scholarship provided by the University of West London.
 
