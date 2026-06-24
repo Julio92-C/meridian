@@ -418,7 +418,11 @@ run_alpha_diversity <- function(cleaned, cfg) {
                         colour = group) +
           ggplot2::theme_classic() +
           ggplot2::theme(legend.position = "top",
-                         text = ggplot2::element_text(size = 12))
+                         legend.title    = ggplot2::element_blank(),
+                         legend.text     = ggplot2::element_text(size = 11),
+                         axis.title      = ggplot2::element_text(size = 11),
+                         axis.text       = ggplot2::element_text(size = 9),
+                         text            = ggplot2::element_text(size = 12))
         save_panel_ggplot(file.path(fig_dir, "rarefaction_curves.png"),
                         p_rc, width = 9, height = 6, dpi = 300)
         pipeline_log(cfg, sprintf(
