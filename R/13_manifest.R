@@ -25,7 +25,14 @@
   richness                    = "Richness",
   shannon_diversity_index     = "Shannon diversity index",
   simpson_s_index             = "Simpson's index",
-  total_counts                = "Total counts"
+  total_counts                = "Total counts",
+  # Short-form aliases for the vegan fallback path (R/06 compute_diversity_from_counts
+  # emits richness/shannon/simpson directly). Mapping them to the same canonical
+  # labels the precomputed wf-metagenomics path uses keeps the manifest "metric"
+  # key uniform, so slot YAML filters (e.g. fig01_taxa_overview panel B) match
+  # regardless of which alpha source the project used.
+  shannon                     = "Shannon diversity index",
+  simpson                     = "Simpson's index"
 )
 
 # Stage primary-artifact paths (relative to project_root). The manifest
