@@ -256,17 +256,24 @@ run_resistome <- function(cleaned, cfg) {
     # link width = summed TPM. Shows at a glance which drug classes
     # dominate which treatments without scrolling through the heatmap.
     if (requireNamespace("circlize", quietly = TRUE)) {
-      drug_grp_mat <- card_drug |>
+      # Long-form (DRUG | group | TPM) — passing this to chordDiagram makes the
+      # from / to / value semantics explicit. An n×2 matrix tripped circlize
+      # 0.4.18 into reading the cell values as sector labels (lung/hospital
+      # showed numeric labels like "109321.92" instead of "Aminoglycoside");
+      # the data-frame form sidesteps that codepath. complete() preserves
+      # every (drug, group) combination as a zero so the matrix-form's
+      # values_fill = 0 behaviour is unchanged.
+      drug_grp_long <- card_drug |>
         dplyr::group_by(.data$DRUG, .data[[group]]) |>
         dplyr::summarise(TPM = sum(.data$TPM, na.rm = TRUE),
                          .groups = "drop") |>
-        tidyr::pivot_wider(names_from = dplyr::all_of(group),
-                           values_from = "TPM", values_fill = 0) |>
-        tibble::column_to_rownames("DRUG") |>
-        as.matrix()
-      if (nrow(drug_grp_mat) >= 2 && ncol(drug_grp_mat) >= 2) {
-        grid_col <- c(pal_drug[rownames(drug_grp_mat)],
-                      pal_group[colnames(drug_grp_mat)])
+        tidyr::complete(DRUG, !!rlang::sym(group),
+                        fill = list(TPM = 0))
+      drug_levels_used  <- sort(unique(drug_grp_long$DRUG))
+      group_levels_used <- sort(unique(as.character(drug_grp_long[[group]])))
+      if (length(drug_levels_used) >= 2 && length(group_levels_used) >= 2) {
+        grid_col <- c(pal_drug[drug_levels_used],
+                      pal_group[group_levels_used])
         circos_png <- file.path(fig_dir, "arg_circos_drugclass.png")
         # 3200px canvas + circle.margin only (no explicit canvas.xlim/ylim)
         # mirrors R/12's per-treatment chord renderer so the long drug-class
@@ -284,7 +291,7 @@ run_resistome <- function(cleaned, cfg) {
             unit.circle.segments = 500
           )
           circlize::chordDiagram(
-            drug_grp_mat,
+            drug_grp_long,
             grid.col        = grid_col,
             transparency    = 0.4,
             annotationTrack = "grid",
@@ -310,7 +317,7 @@ run_resistome <- function(cleaned, cfg) {
         grDevices::dev.off()
         pipeline_log(cfg, sprintf(
           "Resistome: arg_circos_drugclass.png (%d drug classes x %d groups)",
-          nrow(drug_grp_mat), ncol(drug_grp_mat)
+          length(drug_levels_used), length(group_levels_used)
         ))
       }
     } else {
