@@ -102,7 +102,7 @@ network:
 panels:
   composite_unified:    true
   composite_base_size:  8
-  composite_legend_size: 8
+  composite_legend_size: 6
   composite_margin_pt:  6
   strip_plot_title:     true
   show_title:           false
