@@ -219,6 +219,13 @@ run_relative_abundance <- function(cleaned, cfg) {
   show_legend <- ra_cfg$show_species_legend %||% TRUE
   legend_pos  <- if (isTRUE(show_legend)) "top" else "none"
 
+  # Per-project fontsize knobs. R/14 scales this standalone source PNG down
+  # into the fig05 composite cell, so cohorts with high sample counts (lung
+  # 42, hospital 64) need smaller at-source axis text to remain legible
+  # after the scale-down. Defaults preserve chicken_batch1's tuned look.
+  bar_axis_size   <- ra_cfg$bar_axis_text_size   %||% 12
+  bar_legend_size <- ra_cfg$bar_legend_text_size %||% 12
+
   p <- ggplot2::ggplot(df_pct,
                        ggplot2::aes(x = factor(sample), y = percentage, fill = name)) +
     ggplot2::geom_bar(stat = "identity") +
@@ -227,7 +234,10 @@ run_relative_abundance <- function(cleaned, cfg) {
     ggplot2::theme_classic() +
     ggplot2::theme(
       legend.position = legend_pos,
-      axis.text.x     = ggplot2::element_text(angle = 45, hjust = 1),
+      axis.text.x     = ggplot2::element_text(angle = 45, hjust = 1,
+                                              size = bar_axis_size),
+      legend.text     = ggplot2::element_text(size = bar_legend_size),
+      legend.title    = ggplot2::element_text(size = bar_legend_size + 1),
       text            = ggplot2::element_text(size = 12)
     ) +
     ggplot2::guides(fill = ggplot2::guide_legend(nrow = 10))

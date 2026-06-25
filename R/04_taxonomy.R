@@ -50,6 +50,12 @@ run_taxonomy <- function(cleaned, cfg) {
   fig_dir <- file.path(cfg$project_root, cfg$outputs$figures_dir, "taxonomy")
   dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
 
+  # Per-project pheatmap font knobs. Source PNG is scaled down by R/14 into
+  # the supplementary cell, so cohorts with denser data need larger source
+  # fonts to remain legible after the scale-down. Defaults preserve the
+  # original 8 / 8 / 10 sizing chicken_batch1 was tuned for.
+  tx_cfg <- cfg$taxonomy %||% list()
+
   df <- clean_taxa_names(cleaned$noncontaminants, cfg)
   if (nrow(df) == 0) {
     pipeline_log(cfg, "Taxonomy: no rows left after clean_taxa_names — skipping")
@@ -217,11 +223,11 @@ run_taxonomy <- function(cleaned, cfg) {
     gaps_col = gaps_col,
     color = grDevices::colorRampPalette(c("#15b379", "yellow", "#f2615a"))(100),
     border_color = NA,
-    fontsize_row = 8,
-    fontsize_col = 8,
+    fontsize_row = tx_cfg$heatmap_fontsize_row  %||% 8,
+    fontsize_col = tx_cfg$heatmap_fontsize_col  %||% 8,
     # Legend + annotation_legend font; bumped to 10 so the gradient's top
     # tick doesn't sit flush against the "Treatment_Bird" annotation header.
-    fontsize = 10
+    fontsize     = tx_cfg$heatmap_fontsize_base %||% 10
   )
 
   invisible(NULL)
