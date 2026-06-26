@@ -15,7 +15,35 @@ Automation tool. The pipeline source lives one directory up at `..`.
 
 ## Output
 
-Single file: `applications_note.md` in this directory.
+- `applications_note.md` — drafting source under version control. Edit
+  freely.
+- `applications_note.docx` — **hand-formatted** Word deliverable. See
+  the rule below.
+
+## `.docx` is source-of-truth, NOT a render target
+
+`applications_note.docx` carries manual Word formatting (track-changes
+acceptance state, custom paragraph styles, figure sizing, layout tweaks)
+that pandoc cannot round-trip. **Do NOT regenerate `.docx` from `.md`
+via `pandoc -o applications_note.docx`** — every prior re-render
+silently clobbered Julio's styling.
+
+When Julio reviews the manuscript in Word, sync changes the OTHER way
+(.docx → .md):
+
+1. `pandoc applications_note.docx -t gfm --wrap=none -o _tmp.md`
+2. `diff -u applications_note.md _tmp.md` — identify SEMANTIC changes;
+   ignore pandoc-style noise (escape backslashes, `<>` autolinks, HTML
+   `<figure>` wrappers, table column-spec width, list-item indentation)
+3. Apply each semantic change to `applications_note.md` via targeted
+   `Edit` calls, preserving the `.md`'s own styling (backticks around
+   code identifiers, multi-line affiliations, image-alt-text captions)
+4. Delete `_tmp.md` and commit
+
+If a downstream step genuinely needs a fresh `.docx`, use the
+`tracked-diff` skill (writes `<w:ins>`/`<w:del>` OOXML directly into the
+docx zip) rather than a full pandoc render — it preserves far more of
+the underlying formatting.
 
 ## What this session IS for
 
