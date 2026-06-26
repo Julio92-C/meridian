@@ -12,10 +12,10 @@ Community (R/04-R/08)   Functional (R/03 TPM + R/09-R/11 + shared a/b/DAA)
        \\                       /
      R/12 Network (centred)
        /                       \\
-Quarto Dashboard          R/14 Panels
+Quarto Dashboard          R/13 Panels
        v                       v
-  R/13 Manifest    <-     Publication outputs
-  (also fed by R/14 + Quarto)
+  R/14 Manifest    <-     Publication outputs
+  (also fed by R/13 + Quarto)
 
 Every module box is two-line (bold id + description) so long labels
 never overflow the frame. A shared-methods box under the Functional
@@ -234,9 +234,9 @@ box(CX, Y_NET, 'R/12  network', 'tripartite · chord · Sankey',
 # --- 7. OUTPUTS (two columns: dashboard+manifest / panels+publication) ------
 box(X_OUTL, Y_QRTO, 'Quarto dashboard', 'HTML · per-domain panels',
     'out', top_fs=5.8, sub_fs=5.0, w=OBW2, h=OBH2)
-box(X_OUTR, Y_QRTO, 'R/14  panels', 'composite figures +\nsupp_tables.xlsx',
+box(X_OUTR, Y_QRTO, 'R/13  panels', 'composite figures +\nsupp_tables.xlsx',
     'core', top_fs=5.8, sub_fs=5.0, w=OBW2, h=OBH2)
-box(X_OUTL, Y_MFST, 'R/13  manifest', 'manifest.json (v1.2) ·\nkind-tagged catalogue',
+box(X_OUTL, Y_MFST, 'R/14  manifest', 'manifest.json (v1.2) ·\nkind-tagged catalogue',
     'out', top_fs=5.8, sub_fs=5.0, w=OBW2, h=OBH2)
 box(X_OUTR, Y_MFST, 'Publication outputs', 'PNG / TIFF panels +\ntables workbook',
     'out', top_fs=5.8, sub_fs=5.0, w=OBW2, h=OBH2)
