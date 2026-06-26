@@ -40,6 +40,14 @@ run_panels <- function(cfg) {
   # the same in-memory dict via build_stages_index(). Empty stage_times is
   # fine — panels only needs figures[] / tables[], not status/duration_s.
   slots         <- yaml::read_yaml(yaml_path)
+  # Per-project additive overrides on top of the shared slot layout — lets
+  # one project tweak a specific slot (canvas size, composite text) without
+  # forking the whole YAML or affecting other projects that read the same
+  # default file. modifyList recurses into nested lists, so a slot_overrides
+  # block only needs the keys actually being changed.
+  if (!is.null(pcfg$slot_overrides)) {
+    slots <- modifyList(slots, pcfg$slot_overrides)
+  }
   stages_index  <- build_stages_index(cfg)
   manifest_like <- list(stages = stages_index)
   figures_index <- .panels_index_figures(manifest_like)
@@ -404,8 +412,13 @@ run_panels <- function(cfg) {
   }
 
   dpi    <- cfg$panels$dpi    %||% 300
-  width  <- cfg$panels$width  %||% (5.5 * cols)
-  height <- cfg$panels$height %||% (4.5 * rows_eq + 0.4)
+  # width_in/height_in on the slot itself (set via cfg$panels$slot_overrides)
+  # beats the project-wide cfg$panels$width/height, which in turn beats the
+  # cols/rows formula sized for typical multi-panel composites. Dense
+  # single-panel slots (a 46-row heatmap, a 50-entry legend) need more
+  # canvas than that formula gives a 1x1 grid.
+  width  <- spec$width_in  %||% cfg$panels$width  %||% (5.5 * cols)
+  height <- spec$height_in %||% cfg$panels$height %||% (4.5 * rows_eq + 0.4)
 
   # Output format toggles. PNG is the default container (and the path returned
   # to the caller / logged); TIFF + PDF are optional siblings. Disable PNG via

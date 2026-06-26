@@ -100,17 +100,17 @@ colors:
 # so lung's denser data needs larger at-source fonts to remain legible
 # after the scale-down. Bumped from defaults 8/8/10.
 taxonomy:
-  heatmap_fontsize_row:  12   # row labels (species names)
-  heatmap_fontsize_col:  10   # column labels (sample IDs)
-  heatmap_fontsize_base: 12   # legend + annotation_legend font
+  heatmap_fontsize_row:  17   # row labels (species names)
+  heatmap_fontsize_col:  15   # column labels (sample IDs)
+  heatmap_fontsize_base: 17   # legend + annotation_legend font
 
 # Per-project R/05 stacked-bar fontsize for the standalone species bar. R/14
 # scales the source PNG down into the fig05_relative_abundance_species cell;
 # at lung's 42-sample width that scale-down crushes the default 12pt x-axis
 # labels. Smaller at-source size keeps EB-* / SP-* sample IDs legible.
 relative_abundance:
-  bar_axis_text_size:   8    # x-axis sample labels (default 12)
-  bar_legend_text_size: 8    # legend text (default 12)
+  bar_axis_text_size:   5.5  # x-axis sample labels (default 12)
+  bar_legend_text_size: 4    # legend text (default 12; moot in composite — see panels.slot_overrides below)
 
 # Per-VFDB sankey filter (R/12). Trims the noisy long tail before
 # rendering so the diagram tells a story about the top virulence drivers.
@@ -136,6 +136,35 @@ panels:
   # per-stage figures under <figures_dir>/<stage>/*.png remain PNG.
   tiff:                 true
   png:                  false
+
+  # Per-slot overrides (R/14_panels.R::run_panels merges this onto the
+  # shared templates/frontiers_v2_slots.yaml via modifyList — scoped to
+  # lung only, other projects keep reading the unmodified template).
+  #
+  # figS00_heatmap_species: raster (pheatmap), so composite theme/overrides
+  # don't touch it (see .panels_build_section_grid's raster branch) — the
+  # only lever is canvas size. Default 1-panel slot canvas is 5.5x4.9in;
+  # lung's 46-species x 42-sample heatmap needs more room than that to
+  # show off the bumped fontsize_row/col/base (17/15/17 in taxonomy:).
+  #
+  # fig05_relative_abundance_species: native ggplot, so the shared slot's
+  # own composite.legend_text_size (5pt in the template) wins over both
+  # composite_legend_size above AND relative_abundance.bar_legend_text_size
+  # below (same theme key, last writer wins — see R/14_panels.R:535-541).
+  # Override it here directly rather than fighting that via R/05's knob.
+  slot_overrides:
+    supplementary:
+      figS00_heatmap_species:
+        width_in:  10
+        height_in: 9
+    main:
+      fig05_relative_abundance_species:
+        width_in:  9
+        height_in: 7.5
+        composite:
+          legend_text_size:   5
+          legend_nrow:        20
+          legend_key_size_cm: 0.2
 
 outputs:
   datasets_dir: "test_run/Datasets"
