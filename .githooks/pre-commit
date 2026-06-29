@@ -1,0 +1,34 @@
+#!/usr/bin/env bash
+# Pre-commit guard: abort if any staged .docx shrinks by more than
+# DOCX_SHRINK_PCT (default 15) vs the last committed version.
+#
+# Catches the failure mode where pandoc `md -> docx` re-renders strip
+# the embedded styles from a hand-formatted manuscript file
+# (applications_note.docx is the canonical case — see
+# docs/manuscript/CLAUDE.md).
+#
+# Bypass intentionally (e.g. you deliberately removed a large embedded
+# figure) with:
+#
+#     git commit --no-verify
+set -eu
+
+DOCX_SHRINK_PCT="${DOCX_SHRINK_PCT:-8}"
+violations=0
+
+while IFS= read -r -d '' path; do
+    case "$path" in *.docx|*.DOCX) ;; *) continue ;; esac
+    git cat-file -e "HEAD:$path" 2>/dev/null || continue
+    prev=$(git cat-file -s "HEAD:$path")
+    [ "$prev" -gt 0 ] || continue
+    new=$(wc -c < "$path" | tr -d '[:space:]')
+    drop=$(( (prev - new) * 100 / prev ))
+    if [ "$drop" -gt "$DOCX_SHRINK_PCT" ]; then
+        printf 'pre-commit: %s shrank %d%% (%d -> %d bytes) — likely a pandoc re-render that stripped formatting.\n' \
+            "$path" "$drop" "$prev" "$new" >&2
+        printf '            If intentional, re-run with: git commit --no-verify\n' >&2
+        violations=$((violations + 1))
+    fi
+done < <(git diff --cached --name-only -z --diff-filter=AM)
+
+[ "$violations" -eq 0 ] || exit 1

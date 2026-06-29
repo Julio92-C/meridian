@@ -45,6 +45,18 @@ If a downstream step genuinely needs a fresh `.docx`, use the
 docx zip) rather than a full pandoc render — it preserves far more of
 the underlying formatting.
 
+## Local baselines: `_backup/`
+
+Drop a Word-formatted snapshot into `docs/manuscript/_backup/` before
+any risky editing pass. The directory is gitignored — never committed
+to history, always available locally for restore.
+
+A repo-root pre-commit hook (`.githooks/pre-commit`) aborts commits
+where a staged `.docx` shrinks by more than 8% vs `HEAD`, catching the
+exact pandoc-clobber failure mode. Override the threshold with
+`DOCX_SHRINK_PCT=20 git commit`, or bypass entirely for a deliberate
+large-figure removal with `git commit --no-verify`.
+
 ## What this session IS for
 
 - Drafting the manuscript

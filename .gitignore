@@ -45,3 +45,7 @@ Rplots.pdf
 
 # Claude Code local
 .claude/
+
+# Manuscript .docx baselines (local snapshots, never commit — see
+# docs/manuscript/CLAUDE.md).
+/docs/manuscript/_backup/
