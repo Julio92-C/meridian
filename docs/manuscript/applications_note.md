@@ -89,7 +89,7 @@ One expected and deliberate divergence concerns the resistome stage: the ground-
 
 ## 4 Conclusion
 
-MERIDIAN consolidates long-read shotgun metagenomics analysis — taxonomy, diversity, differential abundance, resistome, virulome, and an integrated network reconstruction — into one configuration-driven R project with a single Quarto dashboard, a publication-panels stage, and a downstream-readable `manifest.json` contract. It is in active development; we are releasing this alpha-stage workflow now to invite feedback from groups running comparable analyses.
+MERIDIAN consolidates community analyses, functional profiling, and an integrated network reconstruction into one configuration-driven R project for long-read shotgun metagenomics. Single-thread end-to-end execution completes in minutes with a low memory footprint, scaling sublinearly with cohort size and grouping complexity. It is in active development; we are releasing this alpha-stage workflow now to invite feedback from groups running comparable analyses.
 
 ---
 
