@@ -29,7 +29,7 @@ This file covers three categories of change:
 
 All changes are **additive only** — old manifests continue to validate; the agent reflows or skips slots whose new kinds are absent.
 
-Bump `manifest_version` in `R/13_manifest.R` to `"1.2"` once all Category B + C items are emitted.
+Bump `manifest_version` in `R/14_manifest.R` to `"1.2"` once all Category B + C items are emitted.
 
 ---
 

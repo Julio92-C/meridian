@@ -1,6 +1,6 @@
 # Re-run only the panels stage against an already-populated <project>/test_run/.
 # Skips every upstream stage — relies on the .rds siblings written by
-# save_panel_ggplot() and on the per-stage figure scanners in R/13_manifest.R
+# save_panel_ggplot() and on the per-stage figure scanners in R/14_manifest.R
 # (which build_stages_index() walks). Cuts a ~4 minute full-pipeline iteration
 # down to ~45s while tuning composite theme overrides.
 #

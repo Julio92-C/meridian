@@ -50,7 +50,7 @@ run_taxonomy <- function(cleaned, cfg) {
   fig_dir <- file.path(cfg$project_root, cfg$outputs$figures_dir, "taxonomy")
   dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
 
-  # Per-project pheatmap font knobs. Source PNG is scaled down by R/14 into
+  # Per-project pheatmap font knobs. Source PNG is scaled down by R/13 into
   # the supplementary cell, so cohorts with denser data need larger source
   # fonts to remain legible after the scale-down. Defaults preserve the
   # original 8 / 8 / 10 sizing chicken_batch1 was tuned for.

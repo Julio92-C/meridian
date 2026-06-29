@@ -1,4 +1,4 @@
-# 14_panels.R — assemble publication-ready multi-panel figures + a
+# 13_panels.R — assemble publication-ready multi-panel figures + a
 # supplementary tables XLSX workbook from the per-stage PNGs the pipeline
 # emits plus the kind-tagged manifest. Driven by templates/frontiers_v2_slots.yaml
 # (Frontiers v2 layout) by default; override via cfg$panels$slots_yaml.
@@ -36,7 +36,7 @@ run_panels <- function(cfg) {
 
   # Panels runs BEFORE manifest in the current pipeline ordering (so the
   # manifest can catalogue what was actually rendered). Instead of round-
-  # tripping through manifest.json, ask the per-stage builders in R/13 for
+  # tripping through manifest.json, ask the per-stage builders in R/14 for
   # the same in-memory dict via build_stages_index(). Empty stage_times is
   # fine — panels only needs figures[] / tables[], not status/duration_s.
   slots         <- yaml::read_yaml(yaml_path)
@@ -255,13 +255,13 @@ run_panels <- function(cfg) {
 
 # Expand any panel spec carrying `per_group: true` into one entry per level
 # of cfg$metadata$group_cols[[1]] (controls excluded — sourced from
-# cfg_group_levels() in R/13_manifest.R). Each expanded entry inherits the
+# cfg_group_levels() in R/14_manifest.R). Each expanded entry inherits the
 # original kind / domain / composite block and gets a `group:` filter equal
 # to the sanitised level name. Sanitisation must match the convention used
 # when writing the underlying PNG — R/12_network.R::.network_build_chord
 # does `gsub("[^A-Za-z0-9_-]+", "_", lvl)`, so we apply the same here so
 # the filter matches the figures_index `group` field (which is derived from
-# the filename by R/13).
+# the filename by R/14).
 #
 # If no levels are resolvable (missing metadata, empty group column), the
 # `per_group` entry is dropped silently — the slot's `required` semantics

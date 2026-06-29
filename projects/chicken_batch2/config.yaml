@@ -118,7 +118,7 @@ network:
 # Publication panel rendering — unified fontsize across every composite cell
 # (8pt text + legend). Raster sources (pheatmap / Venn / UpSet / circlize)
 # are shrunk at the per-stage modules; ggplot panels obey these knobs via
-# R/14_panels.R::.panels_composite_theme.
+# R/13_panels.R::.panels_composite_theme.
 panels:
   composite_unified:    true
   composite_base_size:  8

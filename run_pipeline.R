@@ -45,7 +45,7 @@ pipeline_log(cfg, sprintf("Starting pipeline for study '%s'", cfg$study$id))
 
 # Cross-module stats accumulators: clear at startup so re-runs don't
 # append to stale rows. Each surface is filled by ge_alpha_kw / similar
-# helpers and finalised by R/13 when building the manifest.
+# helpers and finalised by R/14 when building the manifest.
 padj_summary_reset(cfg, "ge_alpha_kw")
 
 # Build the ordered list of stages that will actually run, so we can show
@@ -65,7 +65,7 @@ enabled_names <- c(
   if (isTRUE(cfg$stages$network))                "network",
   if (isTRUE(cfg$stages$report))                 "report",
   # Panels runs BEFORE manifest so the manifest catalogues the rendered
-  # composites (the build_stages_index() helper in R/13 scans the output
+  # composites (the build_stages_index() helper in R/14 scans the output
   # dirs panels just wrote to).
   if (isTRUE(cfg$stages$panels   %||% TRUE))     "panels",
   if (isTRUE(cfg$stages$manifest %||% TRUE))     "manifest"
@@ -73,7 +73,7 @@ enabled_names <- c(
 total_stages <- length(enabled_names)
 stage_idx    <- 0L
 # Accumulators for the per-stage breakdown printed at the end of the run.
-# stage_times: numeric seconds keyed by stage name (consumed by R/13 as-is).
+# stage_times: numeric seconds keyed by stage name (consumed by R/14 as-is).
 # stage_mem:   peak R-allocated MB per stage (run-log only; not yet in manifest).
 stage_times  <- list()
 stage_mem    <- list()
@@ -155,7 +155,7 @@ run_stage("report", function() {
 })
 
 # Publication panels + supplementary tables XLSX. Runs BEFORE manifest so
-# the manifest can catalogue the rendered composites (R/14 builds its
+# the manifest can catalogue the rendered composites (R/13 builds its
 # figures_index in-process via build_stages_index() — no manifest.json
 # round-trip). Gated by cfg$stages$panels (default TRUE).
 run_stage("panels", function() run_panels(cfg))

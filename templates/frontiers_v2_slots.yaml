@@ -451,7 +451,7 @@ supplementary:
       # Per-treatment taxon co-occurrence chords. Adapts to the number of
       # levels in cfg$metadata$group_cols[[1]]: 2 panels (A/B) for the
       # lung 2-arm design, 3 panels (A/B/C) for chicken_batch1, 4 panels
-      # (A/B/C/D) for chicken_batch2. R/14_panels.R::.panels_expand_per_group
+      # (A/B/C/D) for chicken_batch2. R/13_panels.R::.panels_expand_per_group
       # fans this out at runtime and sanitises level names to match the
       # underlying chord_<group>.png filenames written by R/12_network.R.
       - kind: chord

@@ -1,5 +1,5 @@
 # utils_panel_io.R — Save a ggplot to PNG AND a sibling .rds so the
-# publication panels stage (R/14_panels.R) can re-render the figure
+# publication panels stage (R/13_panels.R) can re-render the figure
 # natively at the composite canvas resolution instead of rasterising the
 # saved PNG via magick.
 #

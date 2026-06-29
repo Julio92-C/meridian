@@ -219,7 +219,7 @@ run_relative_abundance <- function(cleaned, cfg) {
   show_legend <- ra_cfg$show_species_legend %||% TRUE
   legend_pos  <- if (isTRUE(show_legend)) "top" else "none"
 
-  # Per-project fontsize knobs. R/14 scales this standalone source PNG down
+  # Per-project fontsize knobs. R/13 scales this standalone source PNG down
   # into the fig05 composite cell, so cohorts with high sample counts (lung
   # 42, hospital 64) need smaller at-source axis text to remain legible
   # after the scale-down. Defaults preserve chicken_batch1's tuned look.

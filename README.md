@@ -69,7 +69,7 @@ publication outputs (composite TIFFs + supplementary XLSX).
 ## 🧪 Analysis blocks
 
 Rows are listed in **execution order**. The `Module` column matches the
-file name under `R/`; `R/13_manifest.R` runs after `R/14_panels.R` by
+file name under `R/`; `R/14_manifest.R` runs after `R/13_panels.R` by
 design so the manifest catalogues the rendered composites.
 
 | Module               | Block                    | Icon | Tool / method                                                                 |
@@ -88,8 +88,8 @@ design so the manifest catalogues the rendered composites.
 | `R/11_mobilome.R`    | Mobilome                 | 🧬  | ABRicate + PlasmidFinder → MGE profile                                        |
 | `R/12_network.R`     | Network                  | 🕸️  | Tripartite Treatment × taxa × GE; igraph + Gephi-ready edges; chord + Sankey  |
 | `templates/report.qmd` | Report                 | 📄  | Quarto → single self-contained HTML dashboard per study                       |
-| `R/14_panels.R`      | Panels                   | 🖼️  | Composite multi-panel figures (TIFF / PNG / PDF) + `supplementary_tables.xlsx` |
-| `R/13_manifest.R`    | Manifest                 | 🗂️  | Kind-tagged `manifest.json` catalogue — stable JSON contract for downstream agents |
+| `R/13_panels.R`      | Panels                   | 🖼️  | Composite multi-panel figures (TIFF / PNG / PDF) + `supplementary_tables.xlsx` |
+| `R/14_manifest.R`    | Manifest                 | 🗂️  | Kind-tagged `manifest.json` catalogue — stable JSON contract for downstream agents |
 
 > Methodology reproduced from a peer-review-stage long-read metagenomics
 > manuscript. See [`reference_methodology/chicken_batch1_methods.md`](reference_methodology/chicken_batch1_methods.md)
@@ -178,8 +178,8 @@ Each stage can be skipped by flipping a flag under `stages:` in the config.
 │   ├── 10_virulome.R           VFDB / VFs
 │   ├── 11_mobilome.R           PlasmidFinder / MGEs
 │   ├── 12_network.R            tripartite + topology metrics
-│   ├── 13_manifest.R           kind-tagged manifest.json catalogue
-│   ├── 14_panels.R             composite TIFF/PNG figures + supp tables XLSX
+│   ├── 13_panels.R             composite TIFF/PNG figures + supp tables XLSX
+│   ├── 14_manifest.R           kind-tagged manifest.json catalogue
 │   └── utils_*.R               shared helpers (palette, taxa, GE profile, …)
 ├── 📁 config/                  schema + annotated template
 ├── 📁 projects/                one subfolder per study, each with config.yaml

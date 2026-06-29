@@ -202,4 +202,4 @@ uv run python scratch/demo_real.py
 
 A successful v1.1 run will show **10/10 main + 13/13 supplementary** under `runs/chicken_batch1/figures/` instead of the current 10/10 + 8/13.
 
-Bump `manifest_version` to `"1.1"` in the pipeline's writer module (R/13_manifest.R or wherever it's emitted) once these are in. The agent's `SUPPORTED_MAJOR` is `1`, so it accepts any `1.x` automatically — no agent-side change required.
+Bump `manifest_version` to `"1.1"` in the pipeline's writer module (R/14_manifest.R or wherever it's emitted) once these are in. The agent's `SUPPORTED_MAJOR` is `1`, so it accepts any `1.x` automatically — no agent-side change required.

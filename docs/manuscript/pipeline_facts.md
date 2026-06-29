@@ -50,7 +50,7 @@ every analysis block.
 | 10 | `10_virulome.R` | Virulence factor profiling (VFDB); function category extracted from ABRicate `PRODUCT`; per-domain alpha/Venn/heatmap/PCoA + PERMANOVA suite |
 | 11 | `11_mobilome.R` | Mobile genetic element profiling (PlasmidFinder); configurable replicon-family classification (Col-like, IncF, IncX, other Inc); per-domain alpha/Venn/heatmap/PCoA + PERMANOVA suite (gene- and family-level) |
 | 12 | `12_network.R` | Tripartite sample × taxon × gene ggraph network + chord (overall + per-group) + 4-tier networkD3 Sankey; Gephi-compatible node/edge CSVs; igraph topology (degree, betweenness, Louvain modularity); Bray-Curtis sample clusters |
-| 13 | `13_manifest.R` | Emits `manifest.json` describing every artefact, table schema and stage status (complete / skipped / failed). Stable JSON contract consumed by the downstream `metaomics-scribe` manuscript-drafting agent |
+| 14 | `14_manifest.R` | Emits `manifest.json` describing every artefact, table schema and stage status (complete / skipped / failed). Stable JSON contract consumed by the downstream `metaomics-scribe` manuscript-drafting agent |
 
 Plus three `R/utils_*` helpers:
 

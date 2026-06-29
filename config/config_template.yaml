@@ -117,7 +117,7 @@ network:
     rank_by:    prevalence_x_abundance              # mean_abundance | prevalence | prevalence_x_abundance
 
 # --------------------------------------------------------------------------- #
-# Publication panel rendering (R/14). All knobs are optional; defaults below  #
+# Publication panel rendering (R/13). All knobs are optional; defaults below  #
 # match the final polishing pass applied to chicken_batch1.                   #
 # --------------------------------------------------------------------------- #
 panels:

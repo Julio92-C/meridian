@@ -77,7 +77,7 @@ network:
 
 # Publication panel rendering — final polishing pass aims at a single
 # unified text size across every panel. ggplot panels obey these knobs
-# directly via R/14_panels.R::.panels_composite_theme; raster panels
+# directly via R/13_panels.R::.panels_composite_theme; raster panels
 # (pheatmap / Venn / UpSet / circlize) are sized at their source modules.
 panels:
   composite_unified:    true

@@ -67,6 +67,8 @@ The draft is well organised, technically dense and the upstream/downstream logic
 **Proposed action:** In §2 ¶1, replace "fifteen ordered modules (R/00_setup.R through R/14_panels.R)" with a phrase that makes the execution order explicit, e.g. "fifteen modules (R/00_setup.R through R/14_panels.R; R/13 writes the run manifest last, after R/14 panel assembly)". Then drop the redundant clarification in stage (5).
 **Status:** Done — 2026-06-24. Two-edit commit: §2 ¶1 reworded with parenthetical execution-order note; §2 stage (5) opening reworded from "(R/12–R/14)" to "(R/12, then R/14, then R/13)". Fig 1 caption already correct.
 
+**Follow-up — 2026-06-29:** The wording fix above was a workaround for a file-numbering mismatch that predated it (run order was swapped in commit `84299a4` but the files were never renamed to match). That mismatch is now resolved at the source: `R/13_manifest.R` → `R/14_manifest.R` and `R/14_panels.R` → `R/13_panels.R` (see `RENAME_R13_R14_HANDOFF.md`), so file numbering now matches execution order directly and the manuscript's own R/00–R/14 module-count language is no longer self-contradictory. The quoted reviewer comment and proposed action above describe the pre-rename numbering and are left as-is as the historical record of the finding; no further wording change is needed.
+
 ### Finding 4 — Abstract Results overlong + technical bolt-ons
 **Section / paragraph:** Abstract → Results
 **Reviewer-style comment:** The Results sub-section is ~165 words and ends with two technical bolt-ons ("`manifest.json` (contract v1.2) artefact catalogue tagging every figure and table by kind for downstream tooling") that belong in §2 or §3, not the Abstract.

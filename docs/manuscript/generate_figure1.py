@@ -140,11 +140,11 @@ FUNC_YS = [4.25, 3.79, 3.33, 2.87]         # R/03 (TPM) + R/09-R/11
 Y_FMETH = 2.41                             # shared-methods box (aligns with R/08)
 
 Y_NET   = 1.42
-Y_QRTO  = 0.80   # Quarto dashboard (left) + R/14 panels (right)
-Y_MFST  = 0.18   # R/13 manifest (left) + publication outputs (right)
+Y_QRTO  = 0.80   # Quarto dashboard (left) + R/13 panels (right)
+Y_MFST  = 0.18   # R/14 manifest (left) + publication outputs (right)
 
 X_OUTL  = 2.50   # left output column: Quarto -> Manifest
-X_OUTR  = 5.40   # right output column: R/14 panels -> Publication outputs
+X_OUTR  = 5.40   # right output column: R/13 panels -> Publication outputs
 
 PAD = 0.11
 
@@ -279,7 +279,7 @@ arr(CX_FUNC, Y_FMETH - CBH/2,
     CX + NBW/2 - 0.22, Y_NET + CBH/2,
     color=PAL['net'][1], rad=0.18, lw=0.85)
 
-# 8i. R/12 -> Quarto (left) and R/12 -> R/14 panels (right): from R/12's
+# 8i. R/12 -> Quarto (left) and R/12 -> R/13 panels (right): from R/12's
 # own left/right bottom corners to the centre-top of each child, mirroring
 # the R/02 -> Community/Functional corner fan-out (8d/8e).
 arr(CX - NBW/2, Y_NET - CBH/2, X_OUTL, Y_QRTO + OBH2/2,
@@ -287,11 +287,11 @@ arr(CX - NBW/2, Y_NET - CBH/2, X_OUTL, Y_QRTO + OBH2/2,
 arr(CX + NBW/2, Y_NET - CBH/2, X_OUTR, Y_QRTO + OBH2/2,
     color=PAL['core'][1], rad=-0.15, lw=0.85)
 
-# 8j. Quarto -> Manifest (same column) and R/14 -> Publication outputs
+# 8j. Quarto -> Manifest (same column) and R/13 -> Publication outputs
 arr(X_OUTL, Y_QRTO - OBH2/2, X_OUTL, Y_MFST + OBH2/2, color=PAL['out'][1], lw=0.85)
 arr(X_OUTR, Y_QRTO - OBH2/2, X_OUTR, Y_MFST + OBH2/2, color=PAL['core'][1], lw=0.85)
 
-# 8k. R/14 panels -> Manifest (cross-feed; manifest also catalogues panels)
+# 8k. R/13 panels -> Manifest (cross-feed; manifest also catalogues panels)
 arr(X_OUTR - OBW2/2 + 0.08, Y_QRTO - OBH2/2, X_OUTL + OBW2/2 - 0.08, Y_MFST + OBH2/2,
     color=PAL['core'][1], rad=0.16, lw=0.65, alpha=0.7, ls=':')
 

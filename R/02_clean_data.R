@@ -83,7 +83,7 @@ clean_data <- function(inputs, cfg) {
   #   2. controls declared but ALL absent from rcf -> assume upstream
   #      subtraction (e.g. a project-specific combine script that strips
   #      control columns after per-batch filtering); keep `controls`
-  #      populated downstream so R/06 / R/13 still know which metadata
+  #      populated downstream so R/06 / R/14 still know which metadata
   #      rows are controls, but skip this stage's filter.
   #   3. partial mismatch                          -> hard error (typo)
   declared <- cfg$metadata$controls

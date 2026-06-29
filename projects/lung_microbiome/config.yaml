@@ -44,9 +44,9 @@ metadata:
   # filters April samples, May's NC-10/NC-13 only filter May samples, and
   # June's NC-22/NC-30 only filter June samples. The 5 control rows
   # (NC-10, NC-13, NC-19, NC-22, NC-30) have also been removed from
-  # sample_metadata.csv so R/13 reports the correct 46 analysis samples
+  # sample_metadata.csv so R/14 reports the correct 46 analysis samples
   # and group_levels = [Exhale, Sputum]. `controls` left empty because
-  # there's nothing for R/02 / R/06 / R/13 to do — the upstream-tolerant
+  # there's nothing for R/02 / R/06 / R/14 to do — the upstream-tolerant
   # path in R/02 (declared-but-rcf-absent → skip filter) is still
   # available if you ever want to restore the list for documentation.
   controls: []
@@ -95,7 +95,7 @@ colors:
     Exhale: "#1F77B4"   # colorblind-safe blue
     Sputum: "#FF7F0E"   # colorblind-safe orange
 
-# Per-project R/04 pheatmap fontsize for the species heatmap. R/14 scales
+# Per-project R/04 pheatmap fontsize for the species heatmap. R/13 scales
 # the source PNG down into the figS00_heatmap_species supplementary cell,
 # so lung's denser data needs larger at-source fonts to remain legible
 # after the scale-down. Bumped from defaults 8/8/10.
@@ -104,7 +104,7 @@ taxonomy:
   heatmap_fontsize_col:  15   # column labels (sample IDs)
   heatmap_fontsize_base: 17   # legend + annotation_legend font
 
-# Per-project R/05 stacked-bar fontsize for the standalone species bar. R/14
+# Per-project R/05 stacked-bar fontsize for the standalone species bar. R/13
 # scales the source PNG down into the fig05_relative_abundance_species cell;
 # at lung's 42-sample width that scale-down crushes the default 12pt x-axis
 # labels. Smaller at-source size keeps EB-* / SP-* sample IDs legible.
@@ -123,7 +123,7 @@ network:
 # Publication panel rendering — unified fontsize across every composite cell
 # (8pt text + legend). Raster sources (pheatmap / Venn / UpSet / circlize)
 # are shrunk at the per-stage modules; ggplot panels obey these knobs via
-# R/14_panels.R::.panels_composite_theme.
+# R/13_panels.R::.panels_composite_theme.
 panels:
   composite_unified:    true
   composite_base_size:  8
@@ -137,7 +137,7 @@ panels:
   tiff:                 true
   png:                  false
 
-  # Per-slot overrides (R/14_panels.R::run_panels merges this onto the
+  # Per-slot overrides (R/13_panels.R::run_panels merges this onto the
   # shared templates/frontiers_v2_slots.yaml via modifyList — scoped to
   # lung only, other projects keep reading the unmodified template).
   #
@@ -150,7 +150,7 @@ panels:
   # fig05_relative_abundance_species: native ggplot, so the shared slot's
   # own composite.legend_text_size (5pt in the template) wins over both
   # composite_legend_size above AND relative_abundance.bar_legend_text_size
-  # below (same theme key, last writer wins — see R/14_panels.R:535-541).
+  # below (same theme key, last writer wins — see R/13_panels.R:535-541).
   # Override it here directly rather than fighting that via R/05's knob.
   slot_overrides:
     supplementary:

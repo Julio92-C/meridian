@@ -134,7 +134,7 @@ run_virulome <- function(cleaned, cfg) {
   # Gene-level VF Venn — added 2026-06-12 for the diet-effects
   # supplementary which wants treatment-overlap of individual VF genes
   # (matching the ARG and MGE rows which already operate at GENE level).
-  # Falls through R/13's auto-classifier as kind `ge_venn_vfs`.
+  # Falls through R/14's auto-classifier as kind `ge_venn_vfs`.
   ge_plot_category_venn(
     vfdb, category_col = "GENE", group = group, pal_group = pal_group,
     file = file.path(fig_dir, "venn_vfs.png"),

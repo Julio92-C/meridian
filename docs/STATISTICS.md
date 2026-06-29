@@ -44,7 +44,7 @@ Every site where the pipeline currently performs `p.adjust` (or equivalent), gro
 | Mantel triangle (4-omics) | `R/12_network.R::.network_build_mantel_triangle` | 6 upper-triangle pairs from `{taxonomy, resistome, virulome, mobilome}` | Family-adjust the upper triangle, symmetrise. Written to `network/mantel_pairwise_padj.csv` with `(mantel_r, p_raw, p_adj, method)` per pair. Title shows `"p adj <method>"`. |
 | Alpha-diversity Kruskal-Wallis | `R/06_alpha_diversity.R` | 10 metrics: Richness, Shannon, Simpson, Chao1, Pielou, Fisher, Berger-Parker, Effective species, Inverse Simpson, Total counts | Pre-pass collects all KW p-values, `padjust_p` once across the metric family, then per-metric plot titles and `alpha_stats.txt` show `"p_raw = X, p_adj (<method>) = Y"`. |
 | PERMANOVA + PERMDISP (R/07) | `R/07_beta_diversity.R` | `{Bray-Curtis, Jaccard}` as one 2-test family per test type | Bray + Jaccard PERMANOVA computed up front; same for PERMDISP; family-adjust; both PCoA panels annotated with adjusted values. CSV: `beta_diversity_padj_summary.csv` with `(distance, test, r2, p_raw, p_adj, method)`. |
-| GE-side alpha KW (cross-domain) | `R/utils_ge_profile.R::ge_alpha_kw` + `R/13_manifest.R` finaliser | Per metric, across `{resistome, virulome, mobilome}` | Each call appends raw p to a cross-module accumulator (`<datasets>/stats/ge_alpha_kw_raw.csv`); `padj_summary_finalise(cfg, "ge_alpha_kw")` runs at manifest time, adjusts within each metric family, writes `<datasets>/stats/ge_alpha_kw_padj_summary.csv`. Plot titles stay with raw p (rendered before all calls complete); the CSV is what the report surfaces. |
+| GE-side alpha KW (cross-domain) | `R/utils_ge_profile.R::ge_alpha_kw` + `R/14_manifest.R` finaliser | Per metric, across `{resistome, virulome, mobilome}` | Each call appends raw p to a cross-module accumulator (`<datasets>/stats/ge_alpha_kw_raw.csv`); `padj_summary_finalise(cfg, "ge_alpha_kw")` runs at manifest time, adjusts within each metric family, writes `<datasets>/stats/ge_alpha_kw_padj_summary.csv`. Plot titles stay with raw p (rendered before all calls complete); the CSV is what the report surfaces. |
 
 ### How the cross-module accumulator works
 
@@ -111,7 +111,7 @@ Checklist when introducing a new multi-test surface:
    - For a CSV: include columns `p_raw`, `p_adj`, `method` (so the consumer can audit the choice).
    - For a plot annotation: prefer adjusted; if showing both fits, label as `p_raw = X, p_adj (<method>) = Y`.
 4. If the family spans modules (rare), use the `padj_summary_record` / `padj_summary_finalise` accumulator instead of trying to gather across modules ad hoc.
-5. Register any new summary CSV via `table_entry` in `R/13_manifest.R` so the report can surface it.
+5. Register any new summary CSV via `table_entry` in `R/14_manifest.R` so the report can surface it.
 6. Update the surface table in this doc.
 
 ---

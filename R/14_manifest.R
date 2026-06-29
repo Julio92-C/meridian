@@ -1,4 +1,4 @@
-# 13_manifest.R — emit a single manifest.json describing what the pipeline
+# 14_manifest.R — emit a single manifest.json describing what the pipeline
 # produced this run. The downstream `metaomics-scribe` manuscript agent reads
 # this file (and nothing else from the pipeline) so the two repos couple
 # through a stable JSON contract rather than file-naming conventions.
@@ -679,7 +679,7 @@ build_stage_network <- function(cfg, stage_times) {
 # ---------------------------------------------------------------------------
 # Panels stage builder. Scans <figures_dir>/panels/{main,supplementary}/ for
 # every emitted composite (TIFF / PNG / PDF) and emits a `figures` array; the
-# supplementary tables XLSX lands in `tables`. R/14 runs BEFORE this writer,
+# supplementary tables XLSX lands in `tables`. R/13 runs BEFORE this writer,
 # so this builder catalogues what was actually rendered, not predictions.
 # ---------------------------------------------------------------------------
 
@@ -777,7 +777,7 @@ build_stage_panels <- function(cfg, stage_times) {
 # ---------------------------------------------------------------------------
 # Stages-index builder. Walks every per-stage builder and returns the
 # `stages = { taxonomy = {...}, ... }` dict. Used by `write_manifest` to fill
-# manifest.json AND by R/14_panels.R to build its figures_index in-process
+# manifest.json AND by R/13_panels.R to build its figures_index in-process
 # (panels runs before manifest in the current ordering, so it can't read
 # manifest.json — it asks for the same data structure directly).
 # ---------------------------------------------------------------------------

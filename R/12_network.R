@@ -447,7 +447,7 @@ run_network <- function(cleaned, cfg) {
       name   = "Node shape"
     ) +
     ggplot2::theme_void() +
-    # theme_void() blanks axes, but R/14_panels.R adds axis.text and
+    # theme_void() blanks axes, but R/13_panels.R adds axis.text and
     # axis.title back via .panels_composite_theme so the .rds re-render
     # ends up showing x/y coords ("0", "-2.5", ...). Force them blank
     # here so the composite stays clean regardless of theme overrides.

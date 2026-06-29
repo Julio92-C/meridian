@@ -1,6 +1,6 @@
 #!/usr/bin/env Rscript
 # reemit_manifests.R — re-emit manifest.json for one or more existing runs
-# without rerunning the full pipeline. Useful when iterating on R/13_manifest.R
+# without rerunning the full pipeline. Useful when iterating on R/14_manifest.R
 # or after pipeline output paths change.
 #
 # Usage:
@@ -8,7 +8,7 @@
 #   Rscript scripts/reemit_manifests.R projects/foo/config.yaml [more...]
 #
 # The writer falls back to filesystem evidence when stage_times is empty
-# (see stage_status() in R/13_manifest.R), so re-emitting works as long as
+# (see stage_status() in R/14_manifest.R), so re-emitting works as long as
 # the per-stage primary artifacts from the previous run are still on disk.
 
 args <- commandArgs(trailingOnly = TRUE)

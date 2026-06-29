@@ -1,4 +1,4 @@
-# Functional smoke test for save_panel_ggplot() and the R/14 .rds-prefer
+# Functional smoke test for save_panel_ggplot() and the R/13 .rds-prefer
 # path. Builds a trivial ggplot, saves via the helper, verifies the .rds
 # sibling exists and round-trips back to an identical-looking plot.
 source("R/utils_panel_io.R")
