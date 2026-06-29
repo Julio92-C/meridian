@@ -172,8 +172,16 @@ git_short_sha <- function(repo_root) {
 # artifact exists on disk, "skipped" if disabled in cfg$stages, "failed"
 # otherwise. The filesystem fallback lets the manifest be re-emitted after a
 # previous run without rerunning the full pipeline.
+#
+# Per-stage defaults must mirror run_pipeline.R: `panels` is enabled when the
+# cfg key is absent (the runner uses `%||% TRUE` for it). Without this, a
+# config that omits `stages: panels` runs the panels stage to disk but the
+# manifest silently records zero panel_composite entries.
+.STAGE_DEFAULT_ENABLED <- list(panels = TRUE)
+
 stage_status <- function(cfg, name, stage_times) {
-  enabled <- isTRUE(cfg$stages[[name]])
+  default <- isTRUE(.STAGE_DEFAULT_ENABLED[[name]])
+  enabled <- isTRUE(cfg$stages[[name]] %||% default)
   if (!enabled) return("skipped")
   if (!is.null(stage_times[[name]])) return("complete")
   spec <- .STAGE_PRIMARY[[name]]
