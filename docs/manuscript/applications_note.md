@@ -21,7 +21,7 @@ Julio C. Ortega Cambara<sup>1</sup>, Piotr Cuber<sup>4</sup>, Pedro Humberto Leb
 
 **Results.** We present **MERIDIAN** (*Metagenomic Evaluation of Resistance, Identity & Diversity through Integrated Analysis of Nanopore sequencing*), a modular R workflow that consumes bioinformatics tools outputs and produces a single Quarto HTML dashboard, publication-ready composite figures and a supplementary tables workbook. The workflow covers decontamination, TPM normalisation, taxonomy, alpha/beta diversity with PERMANOVA, two-level ALDEx2 differential abundance, resistome, virulome, and mobilome profiling, and a tripartite sample × taxon × gene network reconstruction. A study is parameterised by a single YAML file; module code is not edited per project, and every run emits a `manifest.json` artefact catalogue for downstream integration.
 
-**Availability and Implementation.** Source at https://github.com/Julio92-C/Metagenomics_pipeline_automation (MIT). Run with `git clone <repo> && Rscript run_pipeline.R config.yaml` after `renv::restore()`.
+**Availability and Implementation.** Source at https://github.com/Julio92-C/Metagenomics_pipeline_automation (MIT). This note describes release **v0.1.0** (https://github.com/Julio92-C/Metagenomics_pipeline_automation/releases/tag/v0.1.0). Run with `git clone --branch v0.1.0 <repo> && Rscript run_pipeline.R config.yaml` after `renv::restore()`.
 
 **Contact.** Hermine.Mkrtchyan@uwl.ac.uk
 
@@ -89,7 +89,7 @@ One expected and deliberate divergence concerns the resistome stage: the ground-
 
 ## 4 Conclusion
 
-MERIDIAN consolidates community analyses, functional profiling, and an integrated network reconstruction into one configuration-driven R project for long-read shotgun metagenomics. Single-thread end-to-end execution completes in minutes with a low memory footprint, scaling sublinearly with cohort size and grouping complexity. It is in active development; we are releasing this alpha-stage workflow now to invite feedback from groups running comparable analyses.
+MERIDIAN consolidates community analyses, functional profiling, and an integrated network reconstruction into one configuration-driven R project for long-read shotgun metagenomics. Single-thread end-to-end execution completes in minutes with a low memory footprint, scaling sublinearly with cohort size and grouping complexity. It is in active development; we are releasing this alpha-stage workflow (v0.1.0) now to invite feedback from groups running comparable analyses.
 
 ---
 
