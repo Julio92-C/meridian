@@ -1001,17 +1001,6 @@ ge_plot_beta <- function(df, group, pal_group, opts, fig_file,
     dplyr::distinct(.data$sample, .keep_all = TRUE) |>
     dplyr::select("sample", dplyr::all_of(group))
   meta <- meta[match(rownames(mat_t), meta$sample), , drop = FALSE]
-  # adonis2 needs >= 2 group levels among the samples that carry hits; with
-  # sparse low-biomass data all hit-positive samples can share one group.
-  n_groups <- dplyr::n_distinct(meta[[group]], na.rm = TRUE)
-  if (n_groups < 2) {
-    pipeline_log(cfg, sprintf(
-      "%s beta: %s samples span %d %s group(s) — need >= 2, skipping",
-      log_label, skip_data_label, n_groups, group
-    ))
-    return(invisible(NULL))
-  }
-
   # cmdscale() keeps only positive-eigenvalue axes; identical / collinear
   # profiles (single gene, single replicon) leave < 2 and points[, 2] would
   # be out of bounds. Check before the stats so files and plot stay in step.
@@ -1025,20 +1014,35 @@ ge_plot_beta <- function(df, group, pal_group, opts, fig_file,
   }
 
   perms <- cfg$stats$permanova_permutations %||% 9999
-  permanova <- vegan::adonis2(
-    stats::reformulate(group, "d"),
-    data = meta, permutations = perms
-  )
-  utils::capture.output(permanova, file = ds_perm_file)
-  r2 <- permanova$R2[1]
-  pv <- permanova$`Pr(>F)`[1]
-  pipeline_log(cfg, sprintf("%s PERMANOVA %s: R2 = %.3f, p_raw = %.4g",
-                            log_label, group, r2, pv))
+  # PERMANOVA/PERMDISP need >= 2 populated group levels among the ordinated
+  # samples. A GE-profile source where one group carries ~no hits (e.g.
+  # hospital_wastewater_eg: tap water has ~no ARGs) collapses to a single
+  # level here — degrade gracefully instead of letting adonis2 ->
+  # model.matrix throw the "contrasts ... 2 or more levels" error. The PCoA
+  # ordination + scores CSV are still written below.
+  n_grp <- length(unique(stats::na.omit(meta[[group]])))
+  can_contrast <- n_grp >= 2
+  permanova <- NULL; r2 <- NA_real_; pv <- NA_real_
+  if (can_contrast) {
+    permanova <- vegan::adonis2(
+      stats::reformulate(group, "d"),
+      data = meta, permutations = perms
+    )
+    utils::capture.output(permanova, file = ds_perm_file)
+    r2 <- permanova$R2[1]
+    pv <- permanova$`Pr(>F)`[1]
+    pipeline_log(cfg, sprintf("%s PERMANOVA %s: R2 = %.3f, p_raw = %.4g",
+                              log_label, group, r2, pv))
+  } else {
+    pipeline_log(cfg, sprintf(
+      "%s beta: only %d level of '%s' among %d samples — PERMANOVA/PERMDISP skipped (PCoA still written)",
+      log_label, n_grp, group, nrow(mat_t)))
+  }
 
-  bd_test <- tryCatch({
+  bd_test <- if (can_contrast) tryCatch({
     bd <- vegan::betadisper(d, factor(meta[[group]]))
     vegan::permutest(bd, permutations = perms)
-  }, error = function(e) NULL)
+  }, error = function(e) NULL) else NULL
   permdisp_p <- NA_real_
   if (!is.null(bd_test)) {
     utils::capture.output(bd_test, file = ds_disp_file)
@@ -1070,10 +1074,14 @@ ge_plot_beta <- function(df, group, pal_group, opts, fig_file,
   scores <- dplyr::left_join(scores, meta, by = "sample")
   readr::write_csv(scores, ds_pcoa_file)
 
-  annot <- sprintf(
-    "PERMANOVA R² = %.3f, p_adj (%s) = %.4g\nPERMDISP p_adj = %.4g",
-    r2, pad_method, pv_adj, permdisp_p_adj
-  )
+  annot <- if (can_contrast) {
+    sprintf(
+      "PERMANOVA R² = %.3f, p_adj (%s) = %.4g\nPERMDISP p_adj = %.4g",
+      r2, pad_method, pv_adj, permdisp_p_adj
+    )
+  } else {
+    sprintf("Single '%s' level — PERMANOVA/PERMDISP not applicable", group)
+  }
   ellipse_type <- opts$ellipse_type     %||% "norm"
   ellipse_line <- opts$ellipse_linetype %||% "dashed"
 
