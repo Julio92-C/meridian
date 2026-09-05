@@ -78,6 +78,13 @@ stats:
 # point it at the community table explicitly to run the `water_type` contrast.
 # (The gene/ARG-level DAA still correctly yields no candidates — you cannot
 # compare ARG abundance when one group has essentially no ARG hits.)
+taxonomy:
+  # Same low-depth rationale as beta_diversity below: the default count>=5
+  # floor wipes the low-depth tap samples, collapsing the (taxon x group)
+  # presence matrix to a single group so the shared/unique taxa Venn (fig01
+  # panel D) is skipped. Lower it so both water types are represented.
+  min_count_per_sample: 1
+
 beta_diversity:
   source: noncontaminants   # community PERMANOVA/PCoA (default "auto" -> ARG-linked merged)
   # Tap-water runs are very low depth; the global filters.min_count_per_sample
