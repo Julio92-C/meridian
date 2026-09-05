@@ -85,6 +85,13 @@ taxonomy:
   # panel D) is skipped. Lower it so both water types are represented.
   min_count_per_sample: 1
 
+relative_abundance:
+  # Same low-depth rationale: the global filters.min_count_per_sample (17)
+  # wipes the tap samples, so the unique/shared species composition (fig01
+  # panel F) collapses to one group and is skipped. Lower it so both water
+  # types are represented and panel F renders.
+  min_count_per_sample: 1
+
 beta_diversity:
   source: noncontaminants   # community PERMANOVA/PCoA (default "auto" -> ARG-linked merged)
   # Tap-water runs are very low depth; the global filters.min_count_per_sample
