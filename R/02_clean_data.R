@@ -16,7 +16,14 @@ clean_data <- function(inputs, cfg) {
   # "_kraken:taxid|<digits>" tail instead.
   summary_df <- as.data.frame(inputs$abricate)
   names(summary_df)[names(summary_df) == "#FILE"] <- "sample"
-  summary_df$sample <- sub("_.*", "", gsub(".fasta", "", summary_df$sample))
+  # Abricate #FILE is "<sample>_kraken2ID_PFP.fasta" across studies. Strip that
+  # tail to recover the sample id. The previous sub("_.*") truncated at the
+  # FIRST underscore, which silently mangled sample ids that themselves contain
+  # underscores (e.g. wetlands_flyway GA1_1 -> GA1, breaking the metadata join).
+  # Stripping the _kraken2ID... suffix is backward-compatible for underscore-free
+  # ids (chicken D19, hospital 1SW) and preserves the rest.
+  summary_df$sample <- sub("_kraken2ID.*$", "", summary_df$sample)
+  summary_df$sample <- sub("\\.fasta$", "", summary_df$sample)
   summary_df <- summary_df |>
     dplyr::mutate(
       sequence = sub("_kraken:taxid\\|\\d+$", "", SEQUENCE),
