@@ -1,0 +1,108 @@
+study:
+  id: wetlands_flyway
+  name: "East Atlantic Flyway wetlands: anthropogenic vs natural (ONT, PRJEB96272)"
+  description: >
+    Independent public-data validation cohort for MERIDIAN. Oxford Nanopore
+    (MinION R10.4.1) long-read shotgun metagenomics of 12 wetland sites along
+    the East Atlantic Flyway (Germany, France, Spain), 2 biological replicates
+    each = 24 DNA samples (Perlas et al. 2026, Appl Environ Microbiol,
+    doi:10.1128/aem.02543-25). Primary contrast = land_use (6 anthropogenically
+    impacted vs 6 natural sites). Chosen for the One Health wildlife/environment
+    axis and explicit One Health framing. Only the DNA shotgun subset (RBK114
+    kit runs) is included; the RPB114 RNA-virome/cDNA runs are excluded.
+    Data: ENA BioProject PRJEB96272.
+
+# PRE-STEP REQUIRED: run `Rscript projects/wetlands_flyway/prep_inputs.R` ONCE
+# before the pipeline. The upstream deposit ships Kraken2/Bracken as positional
+# combined reports and has NO Re-centrifuge output. prep_inputs.R strips the
+# Kraken2 preamble, arranges Bracken, and synthesises the rcf. Sample names in
+# the preamble already match the metadata `sample` ids (GA1_1, ...), so no
+# reconciliation is needed; Abricate is read raw (R/02 strips its _kraken2ID
+# tail). The `inputs:` paths below point at the prep outputs where relevant.
+project_root: "C:/Users/julio/Desktop/Pipeline_Validation/wetlands_flyway"
+
+inputs:
+  abricate_summary: "Reports/Abricate/summary_reportClean.csv"        # raw deposit; R/02 strips _kraken2ID tail
+  kraken2_report:   "Reports/Kraken2/kraken2_db1_combined_reports.txt"  # prep_inputs.R: preamble stripped from Reports/Kraken/
+  bracken_report:   "Reports/Bracken/bracken_arranged.csv"           # prep_inputs.R: arranged from kraken2_db2-bracken_combined_reports.txt
+  recentrifuge_csv: "Reports/Re-centrifuge/*.rcf.data.csv"           # prep_inputs.R: synthesised wetlands_flyway.rcf.data.csv (no controls)
+  diversity_csv:    "Reports/wf-metagenomics/wf-metagenomics-diversity.csv"  # precomputed alpha (Indices x samples); R/06 uses it directly
+
+metadata:
+  file: "Metadata/wetlands_flyway_metadata.csv"
+  sample_id_col: "sample"
+  group_cols:
+    - land_use                 # anthropogenic | natural — the primary 2-level contrast
+  # Two replicates share a site, so `site` is the natural clustering factor.
+  # Enable once you confirm the pipeline treats it as a random effect cleanly on
+  # a 24-sample cohort; leave ~ for the first pass.
+  random_effect: ~             # candidate: site
+  fixed_effects:
+    - land_use
+    - country                  # 3-level (Germany | France | Spain) covariate
+  controls: []                 # no negative controls deposited
+
+taxid_fixes_file: ~
+
+filters:
+  min_count_per_sample:   17
+  min_count_for_species:  500
+  min_prevalence_aldex:   2
+
+stages:
+  clean_data:             true
+  normalisation:          true
+  taxonomy:               true
+  relative_abundance:     true
+  alpha_diversity:        true
+  beta_diversity:         true
+  differential_abundance: true
+  resistome:              true
+  virulome:               true
+  mobilome:               true
+  network:                true
+  report:                 true
+  panels:                 true
+
+stats:
+  permanova_permutations: 9999
+  aldex_mc_samples:       128
+  alpha: 0.05
+  padjust_method: BH
+
+# Environmental water is ARG-poor: only ~5 of 24 samples carry ARG-linked taxa,
+# so the default ARG-linked `merged` beta source collapses to a single group and
+# the land_use PERMANOVA is skipped. Point beta at the full community table
+# (noncontaminants, all 24 samples) so the balanced 12-vs-12 contrast runs.
+# (Taxa DAA already defaults to the community table pipeline-wide.)
+beta_diversity:
+  source: noncontaminants
+
+report:
+  top_n_taxa:              25
+  rank_taxa_by:            prevalence_x_abundance
+  network_top_nodes:       50
+  network_edge_min_weight: 0.3
+  show_per_group_chord:    true
+  show_per_group_sankey:   true
+
+network:
+  sankey:
+    top_genes:  30
+    rank_by:    prevalence_x_abundance
+
+panels:
+  composite_unified:     true
+  composite_base_size:   8
+  composite_legend_size: 8
+  composite_margin_pt:   6
+  strip_plot_title:      true
+  show_title:            false
+  png:                   true
+  tiff:                  false
+
+outputs:
+  datasets_dir: "test_run/Datasets"
+  figures_dir:  "test_run/Figures"
+  report_html:  "test_run/Reports/pipeline_report.html"
+  log_file:     "test_run/Reports/pipeline.log"
