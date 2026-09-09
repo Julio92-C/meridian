@@ -13,7 +13,7 @@ save_panel_ggplot <- function(filename, plot, width, height,
                               emit_rds = TRUE) {
   ggplot2::ggsave(filename, plot,
                    width = width, height = height,
-                   dpi = dpi, bg = bg, ...)
+                   dpi = dpi, bg = bg, limitsize = FALSE, ...)
   if (isTRUE(emit_rds)) {
     rds_path <- sub("\\.(png|pdf|jpg|jpeg|svg|tif|tiff)$", ".rds",
                     filename, ignore.case = TRUE)

@@ -330,7 +330,7 @@ run_resistome <- function(cleaned, cfg) {
 
   # ---- (6) Gene-level paired count + prevalence ------------------------
   if ("TPM" %in% colnames(card) && nrow(card) > 0) {
-    gh <- max(6, 0.20 * dplyr::n_distinct(card$GENE) + 2)
+    gh <- min(48, max(6, 0.20 * dplyr::n_distinct(card$GENE) + 2))  # cap: ggsave aborts >50in on dense gene sets
     save_count_prevalence(
       card,
       file.path(fig_dir, "gene_count_prevalence.png"),
