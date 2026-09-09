@@ -249,7 +249,7 @@ run_virulome <- function(cleaned, cfg) {
 
   # ---- (6) Gene-level paired count + prevalence ------------------------
   if ("TPM" %in% colnames(vfdb) && nrow(vfdb) > 0) {
-    gh <- max(6, 0.18 * dplyr::n_distinct(vfdb$GENE) + 2)
+    gh <- min(48, max(6, 0.18 * dplyr::n_distinct(vfdb$GENE) + 2))  # cap: ggsave aborts >50in on dense gene sets
     save_count_prevalence(
       vfdb,
       file.path(fig_dir, "gene_count_prevalence.png"),
