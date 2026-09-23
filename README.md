@@ -160,6 +160,78 @@ Each stage can be skipped by flipping a flag under `stages:` in the config.
 
 ---
 
+## 🐳 Running in a container
+
+For reproducibility (a citable image tag pins the exact analysis behind the
+manuscript) and HPC / collaborator portability, MERIDIAN ships a `Dockerfile`
+that bundles the R + Quarto analysis layer with the pinned `renv` environment.
+
+> **Scope.** The image contains the analysis/reporting layer only —
+> `run_pipeline.R` → the `R/NN_*.R` modules → the Quarto report. The **upstream
+> classification tools** (basecalling, wf-metagenomics, Kraken2 / Bracken,
+> ABRicate, Re-centrifuge) are *not* included; the pipeline consumes their
+> pre-computed CSV/text outputs. Study data and per-study configs are supplied
+> at runtime via bind mounts, not baked into the image.
+
+**Runtime contract.** Mount your study directory into the container, point
+`MERIDIAN_PROJECT_ROOT` at that container path, and pass a config path as the
+argument. The override wins over the config's own `project_root:` value, so the
+*same* `config.yaml` runs unchanged natively and in-container.
+
+**Build:**
+
+```bash
+docker build -t meridian:v1.1.0 .
+```
+
+**Reproduce a bundled study** (config baked into the image):
+
+```bash
+docker run --rm \
+  -e MERIDIAN_PROJECT_ROOT=/data \
+  -v /host/path/to/study_dir:/data \
+  meridian:v1.1.0 projects/chicken_batch1/config.yaml
+```
+
+**New study** (mount your own config too):
+
+```bash
+docker run --rm \
+  -e MERIDIAN_PROJECT_ROOT=/data \
+  -v /host/study_dir:/data \
+  -v /host/my_config.yaml:/project/config.yaml \
+  meridian:v1.1.0 /project/config.yaml
+```
+
+Outputs land under the mounted study dir on the host (manifest JSON, panel
+figures, and the Quarto HTML report).
+
+### HPC (Apptainer / Singularity)
+
+Docker is the single source of truth; convert to a `.sif` on the cluster.
+
+```bash
+# 1. Build on a machine with Docker (your workstation).
+docker build -t meridian:v1.1.0 .
+
+# 2. Export to a tar and copy it to the HPC (scp/rsync).
+docker save meridian:v1.1.0 -o meridian_v1.1.0.tar
+
+# 3. Convert to a .sif on the HPC (rootless; Docker usually unavailable there).
+apptainer build meridian_v1.1.0.sif docker-archive://meridian_v1.1.0.tar
+
+# 4. Run against a real study (SLURM job script example).
+apptainer run \
+  --env MERIDIAN_PROJECT_ROOT=/data \
+  --bind /scratch/$USER/study_dir:/data \
+  meridian_v1.1.0.sif projects/chicken_batch1/config.yaml
+```
+
+A zero exit code plus the expected artifacts under the bound study dir
+(manifest JSON, panel PNGs, Quarto HTML report) constitutes a passing full run.
+
+---
+
 ## 🗂️ Repository layout
 
 ```
