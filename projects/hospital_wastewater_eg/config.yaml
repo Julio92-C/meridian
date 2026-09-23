@@ -1,0 +1,132 @@
+study:
+  id: hospital_wastewater_eg
+  name: "Egyptian hospital wastewater vs tap water (ONT, PRJNA1266479)"
+  description: >
+    Independent public-data validation cohort for MERIDIAN. Oxford Nanopore
+    (MinION R9.4.1) shotgun metagenomics of hospital wastewater (HWW) and tap
+    water from five hospitals in Cairo, Egypt across two seasons (Radwan et al.
+    2026, Sci Rep, doi:10.1038/s41598-026-49481-4). 20 samples (10 wastewater +
+    10 tap water). Primary contrast = water_type. Chosen for the One Health
+    human/clinical + built-environment axis, and because the source study
+    already screened CARD + PlasmidFinder, so the resistome/mobilome stages map
+    directly. Data: NCBI BioProject PRJNA1266479.
+
+# PRE-STEP REQUIRED: run `Rscript projects/hospital_wastewater_eg/prep_inputs.R`
+# ONCE before the pipeline. The upstream deposit uses SRA-alias sample names
+# (1SW.., 1P..), ships Kraken2/Bracken as positional combined reports, has NO
+# Re-centrifuge output, and no arranged Bracken CSV. prep_inputs.R reconciles
+# alias -> sample (HWW/TAP), arranges Bracken, synthesises the rcf, strips the
+# Kraken2 preamble, and re-keys Abricate. The `inputs:` paths below point at its
+# outputs, not the raw deposit.
+project_root: "C:/Users/julio/Desktop/Pipeline_Validation/hospital_wastewater_eg/metaOmics"
+
+inputs:
+  abricate_summary: "Reports/Abricate/summary_reportReconciled.csv"  # prep_inputs.R: #FILE re-keyed alias->sample (raw summary_reportClean.csv left intact)
+  kraken2_report:   "Reports/Kraken2/kraken2_db1_combined_reports.txt"  # prep_inputs.R: preamble stripped from Reports/Kraken/ original
+  bracken_report:   "Reports/Bracken/bracken_arranged.csv"  # prep_inputs.R: arranged from kraken2_db2-bracken_combined_reports.txt
+  recentrifuge_csv: "Reports/Re-centrifuge/*.rcf.data.csv"  # prep_inputs.R: synthesised hww_eg.rcf.data.csv (no controls -> no subtraction)
+  diversity_csv:    ~          # no wf-metagenomics CSV; R/06 falls back to vegan
+
+metadata:
+  file: "Metadata/hospital_wastewater_eg_metadata.csv"
+  sample_id_col: "sample"
+  group_cols:
+    - water_type               # wastewater | tap_water — the primary 2-level contrast
+  # `hospital` and `season` are in the CSV but blank (NA): the SRA aliases
+  # (1SW..10SW / 1P..10P) encode hospital x season, but the exact mapping is not
+  # recoverable from the deposit alone. Fill from Radwan et al. Methods/Table
+  # before promoting either to a covariate or random effect.
+  random_effect: ~
+  fixed_effects:
+    - water_type
+  # Tap water is a biological COMPARISON group, not a sequencing negative
+  # control — do NOT list it here. No negative controls were deposited.
+  controls: []
+
+taxid_fixes_file: ~
+
+filters:
+  min_count_per_sample:   17
+  min_count_for_species:  500
+  min_prevalence_aldex:   2
+
+stages:
+  clean_data:             true
+  normalisation:          true
+  taxonomy:               true
+  relative_abundance:     true
+  alpha_diversity:        true
+  beta_diversity:         true
+  differential_abundance: true
+  resistome:              true
+  virulome:               true
+  mobilome:               true
+  network:                true
+  report:                 true
+  panels:                 true
+
+stats:
+  permanova_permutations: 9999
+  aldex_mc_samples:       128
+  alpha: 0.05
+  padjust_method: BH
+
+# This cohort's resistome is wastewater-only (tap water carries ~no ARGs), so
+# the ARG-linked `merged` table collapses to a single group. Taxa DAA now
+# defaults to the community table (noncontaminants) pipeline-wide, so it needs
+# no override here. Beta diversity still defaults to the ARG-linked table, so
+# point it at the community table explicitly to run the `water_type` contrast.
+# (The gene/ARG-level DAA still correctly yields no candidates — you cannot
+# compare ARG abundance when one group has essentially no ARG hits.)
+taxonomy:
+  # Same low-depth rationale as beta_diversity below: the default count>=5
+  # floor wipes the low-depth tap samples, collapsing the (taxon x group)
+  # presence matrix to a single group so the shared/unique taxa Venn (fig01
+  # panel D) is skipped. Lower it so both water types are represented.
+  min_count_per_sample: 1
+
+relative_abundance:
+  # Same low-depth rationale: the global filters.min_count_per_sample (17)
+  # wipes the tap samples, so the unique/shared species composition (fig01
+  # panel F) collapses to one group and is skipped. Lower it so both water
+  # types are represented and panel F renders.
+  min_count_per_sample: 1
+
+beta_diversity:
+  source: noncontaminants   # community PERMANOVA/PCoA (default "auto" -> ARG-linked merged)
+  # Tap-water runs are very low depth; the global filters.min_count_per_sample
+  # (17) wipes them out here, collapsing beta to a single group. Lower the
+  # per-(taxon,sample) floor so the low-depth tap samples survive and the
+  # 2-group water_type PERMANOVA can run (at >1, all 10 tap samples keep
+  # 4-77 taxa; at >17 only 3 tap samples retain any).
+  min_count_per_sample: 1
+
+report:
+  top_n_taxa:              25
+  rank_taxa_by:            prevalence_x_abundance
+  network_top_nodes:       50
+  network_edge_min_weight: 0.3
+  show_per_group_chord:    true
+  show_per_group_sankey:   true
+
+network:
+  sankey:
+    top_genes:  30
+    rank_by:    prevalence_x_abundance
+
+panels:
+  composite_unified:     true
+  composite_base_size:   8
+  composite_legend_size: 8
+  composite_margin_pt:   6
+  strip_plot_title:      true
+  show_title:            false
+  png:                   true
+  tiff:                  false
+
+# Sandboxed outputs so the inputs tree stays untouched (mirrors chicken_batch1).
+outputs:
+  datasets_dir: "test_run/Datasets"
+  figures_dir:  "test_run/Figures"
+  report_html:  "test_run/Reports/pipeline_report.html"
+  log_file:     "test_run/Reports/pipeline.log"

@@ -59,11 +59,18 @@ da_palette <- function(levels, cfg) {
   pal
 }
 
-# Taxa counts matrix: prefer Bracken sampleCount via cleaned$merged, fall back
-# to Re-centrifuge cleaned$noncontaminants. Returns features x samples matrix.
+# Taxa counts matrix. Differential abundance of taxa is a COMMUNITY-level
+# question, so this ALWAYS references the community taxa table (Re-centrifuge
+# cleaned$noncontaminants: every taxon, every sample) by default. The
+# alternative — cleaned$merged (Bracken sampleCount restricted to taxa that
+# carry an ARG/VF/plasmid hit) — is a narrower, resistome-linked view that
+# collapses to a single group whenever a cohort group carries ~no genetic
+# elements (e.g. hospital_wastewater_eg tap water), yielding no DAA output.
+# Callers who specifically want the GE-linked view opt in with
+# `differential_abundance.source: bracken` (or `merged`).
 da_taxa_matrix <- function(cleaned, cfg) {
-  src <- cfg$differential_abundance$source %||% "auto"
-  if (src %in% c("auto", "bracken") && !is.null(cleaned$merged) &&
+  src <- cfg$differential_abundance$source %||% "noncontaminants"
+  if (src %in% c("bracken", "merged") && !is.null(cleaned$merged) &&
       "sampleCount" %in% colnames(cleaned$merged)) {
     df <- cleaned$merged
     df <- dplyr::transmute(df, sample, name, count = as.numeric(sampleCount))
