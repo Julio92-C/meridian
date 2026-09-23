@@ -57,6 +57,16 @@ metadata:
 # No manual taxid/name fixes for this study.
 taxid_fixes_file: ~
 
+# Top-level group-color override (resolved by R/utils_palette.R::
+# resolve_top_level_colors for group_cols[[1]] = `type`). Applies
+# consistently across alpha-violin, beta-PCoA, DA, and resistome/
+# virulome/mobilome bars, and hence every group-colored panel.
+# Controls (NX/N3) are stripped by R/02, so only Air/Surface remain.
+colors:
+  type:
+    Air:     "#828385"   # grey
+    Surface: "#ed8cb6"   # pink
+
 filters:
   min_count_per_sample:   17
   min_count_for_species:  500
