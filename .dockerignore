@@ -1,0 +1,26 @@
+# Host-arch renv library — Windows binaries must NOT leak into the Linux image.
+# The image rebuilds packages from renv.lock via renv::restore() instead.
+renv/library/
+renv/staging/
+
+# Manuscript deliverables + local Word baselines (not needed to run the pipeline).
+docs/manuscript/*.docx
+docs/manuscript/~$*
+docs/manuscript/_backup/
+
+# Scratch / transient outputs.
+scratch/
+*.log
+.RData
+.Rhistory
+Rplots.pdf
+
+# VCS + editor cruft.
+.git/
+.gitignore
+.githooks/
+
+# NOTE: projects/ is intentionally NOT excluded. In this repo projects/<slug>/
+# holds only small config.yaml / prep scripts (no study data — data lives under
+# the mounted project_root), and the "reproduce the manuscript" invocation bakes
+# projects/chicken_batch1/config.yaml into the image.

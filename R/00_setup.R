@@ -33,6 +33,11 @@ pipeline_log <- function(cfg, msg) {
 #' Read and validate the study config.
 load_config <- function(path) {
   cfg <- yaml::read_yaml(path)
+  # Runtime override: MERIDIAN_PROJECT_ROOT wins over the config's host path,
+  # so the SAME config.yaml runs unchanged natively and in-container. With the
+  # env var unset, native behaviour is identical (backward-compatible).
+  env_root <- Sys.getenv("MERIDIAN_PROJECT_ROOT", unset = "")
+  if (nzchar(env_root)) cfg$project_root <- env_root
   stopifnot(
     !is.null(cfg$project_root),
     dir.exists(cfg$project_root),
