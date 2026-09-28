@@ -27,6 +27,12 @@ invisible(lapply(c(mods, utils), source))
 
 cfg <- load_config(cfg_path)
 
+# Allow project_root to be overridden from the environment so a single baked-in
+# config can be pointed at a bind-mounted study directory (e.g. in a container:
+# `-e MERIDIAN_PROJECT_ROOT=/data`). Unset/empty leaves the config value as-is.
+env_root <- Sys.getenv("MERIDIAN_PROJECT_ROOT", unset = "")
+if (nzchar(env_root)) cfg$project_root <- env_root
+
 # Format a duration in seconds as a human-readable string.
 # < 60s  -> "12.3s"
 # < 1h   -> "3m 12s"
