@@ -12,23 +12,31 @@
 
 FROM bioconductor/bioconductor_docker:RELEASE_3_22
 
-# 1. Quarto (pinned) — not in the Bioc base; run_pipeline.R calls `quarto render`.
+# 1. Quarto CLI (pinned) — not in the Bioc base; run_pipeline.R shells out to
+#    `quarto render` via system2() (the CLI, not the quarto R package).
 ARG QUARTO_VERSION=1.5.57
 RUN curl -sL https://github.com/quarto-dev/quarto-cli/releases/download/v${QUARTO_VERSION}/quarto-${QUARTO_VERSION}-linux-amd64.deb \
       -o /tmp/quarto.deb && dpkg -i /tmp/quarto.deb && rm /tmp/quarto.deb
 
-# 2. renv restore — copy ONLY the lockfile first so this layer caches across
-#    code edits and only re-runs when renv.lock actually changes.
+# 2. renv restore. Copy .Rprofile + the renv bootstrap files FIRST so that
+#    starting R auto-activates the project (via renv/activate.R) and restore
+#    installs into the project library (renv/library) that the pipeline uses at
+#    runtime. Without .Rprofile here, restore runs un-activated and the runtime
+#    library ends up empty. Copying only these before the full source keeps this
+#    expensive ~283-package layer cached until renv.lock changes.
 WORKDIR /opt/meridian
-COPY renv.lock ./
+COPY .Rprofile renv.lock ./
 COPY renv/activate.R renv/settings.json ./renv/
-RUN R -e "install.packages('renv'); renv::restore(lockfile='renv.lock', prompt=FALSE)"
+RUN R -e "renv::restore(prompt = FALSE)"
 
 # 3. Copy the rest of the repo (code edits invalidate only from here down).
 COPY . /opt/meridian
 
-# 4. Build-time smoke check: toolchain + keystone packages load.
+# 4. Build-time smoke check: Quarto CLI on PATH + keystone renv package loads
+#    through the activated project library. Run via Rscript to mirror the
+#    ENTRYPOINT exactly. The pipeline uses the quarto CLI, not the quarto R
+#    package, so we deliberately do not library(quarto).
 RUN quarto --version && \
-    R -e "stopifnot(nzchar(Sys.which('quarto'))); library(ALDEx2); library(quarto)"
+    Rscript -e "cat('libPaths:', .libPaths(), sep='\n'); stopifnot(nzchar(Sys.which('quarto'))); library(ALDEx2); cat('smoke check OK\n')"
 
 ENTRYPOINT ["Rscript", "run_pipeline.R"]
