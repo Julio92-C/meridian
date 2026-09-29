@@ -31,31 +31,46 @@ Native, from the repository root (outputs land in `test_run/`, gitignored):
 Rscript run_pipeline.R tests/fixtures/chicken_batch1/config.yaml
 ```
 
-Apptainer on HPC (UCL Myriad). The container rootfs is **read-only**, so the
-inputs are staged to a writable Scratch dir and `MERIDIAN_PROJECT_ROOT` points
-the pipeline there (that env var overrides the config's `project_root`):
+**Container — `meridian.sh` (recommended).** The `meridian.sh` wrapper at the
+repo root makes the container behave exactly like the native call — you pass
+only a config. It reads `project_root` from the config, binds that host
+directory into the container unchanged, and auto-detects Apptainer (HPC) or
+Docker (laptop).
 
 ```bash
-module load apptainer
-export APPTAINER_CACHEDIR=~/Scratch/.apptainer                 # keep layers off home quota
-apptainer build ~/Scratch/meridian_v1.0.0.sif docker://ghcr.io/julio92-c/meridian:v1.0.0
+# 1. get the image once
+apptainer build meridian_v1.0.0.sif docker://ghcr.io/julio92-c/meridian:v1.0.0
 
-# stage a writable copy of the baked-in fixture, then run against it
-mkdir -p ~/Scratch/ck_test
-apptainer exec ~/Scratch/meridian_v1.0.0.sif \
-  cp -a /opt/meridian/tests/fixtures/chicken_batch1/. ~/Scratch/ck_test/
-apptainer run --pwd /opt/meridian \
-  --env MERIDIAN_PROJECT_ROOT=/data -B ~/Scratch/ck_test:/data \
-  ~/Scratch/meridian_v1.0.0.sif tests/fixtures/chicken_batch1/config.yaml
-# outputs -> ~/Scratch/ck_test/test_run/
+# 2. stage this fixture as a study directory (or use your own)
+apptainer exec meridian_v1.0.0.sif cp -a /opt/meridian/tests/fixtures/chicken_batch1/. ./study/
+
+# 3. point the config at that directory (absolute host path), then run
+sed -i "s|^project_root:.*|project_root: \"$PWD/study\"|" ./study/config.yaml
+./meridian.sh ./study/config.yaml
+# outputs -> ./study/test_run/
 ```
 
-`--pwd /opt/meridian` is required so `run_pipeline.R` and `.Rprofile` (renv
-activation) resolve; without it Apptainer runs in the host `$PWD`.
+`meridian.sh` env overrides: `MERIDIAN_SIF` (path to the `.sif`) and
+`MERIDIAN_IMAGE` (Docker image ref, default `ghcr.io/julio92-c/meridian:v1.0.0`).
+
+<details><summary>Manual invocation (what the wrapper runs)</summary>
+
+```bash
+apptainer run --pwd /opt/meridian -B "$PWD/study:$PWD/study" \
+  meridian_v1.0.0.sif "$PWD/study/config.yaml"
+# docker equivalent:
+docker run --rm -w /opt/meridian -v "$PWD/study:$PWD/study" \
+  ghcr.io/julio92-c/meridian:v1.0.0 "$PWD/study/config.yaml"
+```
+
+`--pwd /opt/meridian` (Apptainer) / `-w /opt/meridian` (Docker) is required so
+`run_pipeline.R` and `.Rprofile` (renv activation) resolve inside the image.
+</details>
 
 ## Notes
 
-- `config.yaml` uses a **repo-relative** `project_root`; override it with the
-  `MERIDIAN_PROJECT_ROOT` env var to point at any bind-mounted study directory.
+- The committed `config.yaml` uses a **repo-relative** `project_root` for native
+  runs; for the container, set it to the **absolute** host study path (as above)
+  or override with the `MERIDIAN_PROJECT_ROOT` env var.
 - No `taxid_fixes.csv` ships with this cohort (none exists); `taxid_fixes_file`
   is left null.
