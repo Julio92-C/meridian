@@ -52,3 +52,6 @@ Rplots.pdf
 
 # Test-fixture run outputs (inputs are committed; outputs are disposable).
 /tests/fixtures/*/test_run/
+
+# Keep committed test-fixture Re-centrifuge inputs (overrides *.rcf.data.csv above).
+!/tests/fixtures/**/*.rcf.data.csv

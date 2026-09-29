@@ -24,6 +24,15 @@ RUN curl -sL https://github.com/quarto-dev/quarto-cli/releases/download/v${QUART
 #    runtime. Without .Rprofile here, restore runs un-activated and the runtime
 #    library ends up empty. Copying only these before the full source keeps this
 #    expensive ~283-package layer cached until renv.lock changes.
+#
+#    CACHE DISABLED ON PURPOSE: by default renv symlinks the project library into
+#    a global cache under $HOME. In a read-only Apptainer/Singularity container
+#    those symlinks break at run time (rootfs read-only + $HOME differs from build),
+#    so renv thinks packages "need reinstalling" and fails writing to the read-only
+#    library. Disabling the cache makes restore copy real package files into the
+#    library, so the image is self-contained and load() never writes.
+ENV RENV_CONFIG_CACHE_ENABLED=FALSE \
+    RENV_CONFIG_SYNCHRONIZED_CHECK=FALSE
 WORKDIR /opt/meridian
 COPY .Rprofile renv.lock ./
 COPY renv/activate.R renv/settings.json ./renv/
