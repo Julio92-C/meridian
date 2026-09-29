@@ -24,7 +24,7 @@ Hermine V Mkrtchyan — 0000-0001-7339-7297
 
 **Results:** We present **MERIDIAN** (*Metagenomic Evaluation of Resistance, Identity & Diversity through Integrated Analysis of Nanopore sequencing*), a modular R workflow that standardises and automates downstream analysis of long-read metagenomic datasets. Consolidating outputs from established tools, it delivers a Quarto HTML dashboard, publication-ready figures and supplementary tables. Supported analyses span decontamination, TPM normalisation, taxonomic profiling, alpha and beta diversity with PERMANOVA, two-level ALDEx2 differential abundance testing, and functional profiling of antimicrobial resistance (AMR), virulence and mobile genetic element repertoires, together with a tripartite sample × taxon × gene network linking taxonomic composition to functional gene distributions. Execution is controlled through a single YAML configuration file without modifying source code, and each run emits a `manifest.json` artefact catalogue supporting reproducibility and downstream integration.
 
-**Availability and Implementation.** MERIDIAN is implemented in R under the MIT licence; source code, documentation and a Docker/Apptainer image are available at https://github.com/Julio92-C/Metagenomics_pipeline_automation (release **v1.0.0**). Dependencies are pinned with `renv`, and the pipeline is launched with `Rscript run_pipeline.R config.yaml`.
+**Availability and Implementation.** MERIDIAN is implemented in R under the MIT licence; source code, documentation and a Docker/Apptainer image are available at https://github.com/Julio92-C/meridian (release **v1.0.0**). Dependencies are pinned with `renv`, and the pipeline is launched with `Rscript run_pipeline.R config.yaml`.
 
 **Corresponding author:** Hermine.Mkrtchyan@uwl.ac.uk
 
@@ -117,7 +117,7 @@ MERIDIAN integrates community analyses, functional profiling, and an integrated 
 
 **Conflict of Interest.** The authors declare that they have no competing interests.
 
-**Data Availability.** Sequence data for the primary validation cohort (`Chicken batch 1`) are available from NCBI under BioProject PRJNA1406192. Data for the second cohort (`Chicken batch 2`) will be released upon publication of the associated study. The MERIDIAN source code, documentation, container image and configuration examples are available at https://github.com/Julio92-C/Metagenomics_pipeline_automation (release v1.0.0).
+**Data Availability.** Sequence data for the primary validation cohort (`Chicken batch 1`) are available from NCBI under BioProject PRJNA1406192. Data for the second cohort (`Chicken batch 2`) will be released upon publication of the associated study. The MERIDIAN source code, documentation, container image and configuration examples are available at https://github.com/Julio92-C/meridian (release v1.0.0).
 
 ---
 
