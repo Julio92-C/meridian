@@ -1,0 +1,91 @@
+study:
+  id: chicken_batch1_fixture
+  name: "MERIDIAN self-contained test fixture (chicken_batch1)"
+  description: >
+    Portable end-to-end test set. The pipeline inputs for the published,
+    open chicken_batch1 cohort (NCBI BioProject PRJNA1406192) are committed
+    under this directory so the whole workflow can be run from a fresh clone
+    or a container with no external data staging:
+      Rscript run_pipeline.R tests/fixtures/chicken_batch1/config.yaml
+    project_root is REPO-RELATIVE (resolved from the current working
+    directory, e.g. /opt/meridian in the container). Outputs are written
+    under test_run/ (gitignored) so the committed inputs stay clean.
+
+# Relative to the working directory (repo root / container WORKDIR).
+# Override with the MERIDIAN_PROJECT_ROOT env var to point at a bind-mounted
+# study directory instead.
+project_root: "tests/fixtures/chicken_batch1"
+
+inputs:
+  abricate_summary: "Reports/Abricate/summary_reportClean.csv"
+  kraken2_report:   "Reports/Kraken2/kraken2_db1_combined_reports.txt"
+  bracken_report:   "Reports/Kraken2/bracken_arranged.csv"
+  recentrifuge_csv: "Reports/Re-centrifuge/*.rcf.data.csv"
+  diversity_csv:    "Datasets/wf-metagenomics-diversity.csv"
+
+metadata:
+  file: "Datasets/chicken_metadata1.csv"
+  sample_id_col: "sample"
+  group_cols:
+    - Treatment
+  random_effect: ~
+  fixed_effects: [Treatment]
+  controls: []
+
+# No taxid patches shipped with this fixture (none exist for this cohort).
+taxid_fixes_file: ~
+
+filters:
+  min_count_per_sample:   17
+  min_count_for_species:  500
+  min_prevalence_aldex:   2
+
+stages:
+  clean_data:             true
+  normalisation:          true
+  taxonomy:               true
+  relative_abundance:     true
+  alpha_diversity:        true
+  beta_diversity:         true
+  differential_abundance: true
+  resistome:              true
+  virulome:               true
+  mobilome:               true
+  network:                true
+  report:                 true
+  panels:                 true
+
+stats:
+  permanova_permutations: 9999
+  aldex_mc_samples:       128
+  alpha: 0.05
+  padjust_method: BH
+
+report:
+  top_n_taxa:              25
+  rank_taxa_by:            prevalence_x_abundance
+  network_top_nodes:       50
+  network_edge_min_weight: 0.3
+  show_per_group_chord:    true
+  show_per_group_sankey:   true
+
+network:
+  sankey:
+    top_genes:   30
+    rank_by:     prevalence_x_abundance
+
+panels:
+  composite_unified:    true
+  composite_base_size:  8
+  composite_legend_size: 8
+  composite_margin_pt:  6
+  strip_plot_title:     true
+  show_title:           false
+  tiff:                 true
+  png:                  false
+
+outputs:
+  datasets_dir: "test_run/Datasets"
+  figures_dir:  "test_run/Figures"
+  report_html:  "test_run/Reports/pipeline_report.html"
+  log_file:     "test_run/Reports/pipeline.log"

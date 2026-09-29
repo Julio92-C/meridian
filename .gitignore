@@ -49,3 +49,6 @@ Rplots.pdf
 # Manuscript .docx baselines (local snapshots, never commit — see
 # docs/manuscript/CLAUDE.md).
 /docs/manuscript/_backup/
+
+# Test-fixture run outputs (inputs are committed; outputs are disposable).
+/tests/fixtures/*/test_run/
