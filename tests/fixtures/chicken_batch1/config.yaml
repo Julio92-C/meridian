@@ -19,12 +19,12 @@ project_root: "tests/fixtures/chicken_batch1"
 inputs:
   abricate_summary: "Reports/Abricate/summary_reportClean.csv"
   kraken2_report:   "Reports/Kraken2/kraken2_db1_combined_reports.txt"
-  bracken_report:   "Reports/Kraken2/bracken_arranged.csv"
+  bracken_report:   "Reports/Bracken/bracken_arranged.csv"
   recentrifuge_csv: "Reports/Re-centrifuge/*.rcf.data.csv"
-  diversity_csv:    "Datasets/wf-metagenomics-diversity.csv"
+  diversity_csv:    "Reports/wf-metagenomics/wf-metagenomics-diversity.csv"
 
 metadata:
-  file: "Datasets/chicken_metadata1.csv"
+  file: "Metadata/chicken_metadata1.csv"
   sample_id_col: "sample"
   group_cols:
     - Treatment
