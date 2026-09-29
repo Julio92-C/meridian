@@ -74,12 +74,31 @@ jobs:
             type=ref,event=pr
             type=raw,value=latest,enable=${{ startsWith(github.ref, 'refs/tags/v') }}
 
-      - name: Build (push only on tag / dispatch)
+      - name: Build image (load into local docker)
         uses: docker/build-push-action@v6
         with:
           context: .
-          push: ${{ steps.gate.outputs.push == 'true' }}
+          load: true
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           cache-from: type=gha
           cache-to: type=gha,mode=max
+
+      - name: Read-only runtime smoke test
+        # Reproduces the Apptainer/Singularity read-only rootfs: renv must
+        # activate and load keystone packages WITHOUT writing to the library.
+        # The in-Dockerfile smoke check runs at build time (writable) and cannot
+        # catch this — a broken run here means the image would fail on HPC.
+        run: |
+          IMG=$(printf '%s\n' "${{ steps.meta.outputs.tags }}" | head -n1)
+          echo "Testing $IMG with a read-only rootfs..."
+          docker run --rm --read-only --tmpfs /tmp -e HOME=/tmp \
+            --entrypoint Rscript "$IMG" \
+            -e "cat('libPaths:', .libPaths(), sep='\n'); library(ALDEx2); cat('READONLY OK\n')"
+
+      - name: Push to ghcr.io (tags / dispatch only)
+        if: steps.gate.outputs.push == 'true'
+        run: |
+          printf '%s\n' "${{ steps.meta.outputs.tags }}" | while read -r t; do
+            [ -n "$t" ] && echo "pushing $t" && docker push "$t"
+          done
