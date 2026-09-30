@@ -50,17 +50,29 @@ esac
 
 # --- pick a runtime and exec --------------------------------------------------
 run_apptainer() {   # $1 = apptainer|singularity
+  local rt="$1"
   local sif="${MERIDIAN_SIF:-$HERE/meridian_v1.0.0.sif}"
   if [ ! -f "$sif" ]; then
     echo "meridian.sh: image not found: $sif" >&2
-    echo "  build it once with:  $1 build \"$sif\" docker://${MERIDIAN_IMAGE:-$IMAGE_DEFAULT}" >&2
+    echo "  build it once with:  $rt build \"$sif\" docker://${MERIDIAN_IMAGE:-$IMAGE_DEFAULT}" >&2
     echo "  or point MERIDIAN_SIF at an existing .sif." >&2
     exit 1
   fi
-  local args=(run --pwd /opt/meridian)
+  # The report stage renders templates/report.qmd IN PLACE (Quarto writes its
+  # intermediate .md / _files next to the .qmd), and the qmd locates the repo
+  # via rprojroot -> it must live inside /opt/meridian. But the image rootfs is
+  # read-only. So stage a writable copy of templates/ and bind it over the
+  # image's templates dir; the rest of the repo stays read-only and readable.
+  local tmpl; tmpl="$(mktemp -d "${TMPDIR:-/tmp}/meridian_tmpl.XXXXXX")"
+  trap 'rm -rf "$tmpl"' EXIT
+  if ! "$rt" exec "$sif" cp -a /opt/meridian/templates/. "$tmpl/" 2>/dev/null; then
+    echo "meridian.sh: warning: could not stage a writable templates/ dir; the HTML report may fail on a read-only image." >&2
+  fi
+  local args=(run --pwd /opt/meridian -B "$tmpl:/opt/meridian/templates")
   for b in "${BINDS[@]}"; do args+=(-B "$b"); done
-  echo ">> $1: $sif" >&2
-  exec "$1" "${args[@]}" "$sif" "$CONFIG"
+  echo ">> $rt: $sif" >&2
+  "$rt" "${args[@]}" "$sif" "$CONFIG"   # not exec, so the EXIT trap cleans up
+  exit $?
 }
 
 run_docker() {
