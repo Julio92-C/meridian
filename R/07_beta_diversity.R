@@ -173,7 +173,28 @@ run_beta_diversity <- function(cleaned, cfg) {
   can_contrast <- n_grp >= 2
   r2_val <- NA_real_; p_val <- NA_real_; permdisp_p <- NA_real_
   permanova <- NULL; betadisp_test <- NULL   # stay defined for the return list
-  if (can_contrast) {
+  # Patient-aware mode: same pseudo-F / R2 / dispersion F, p from a
+  # cluster-respecting permutation null (R/utils_cluster_perm.R).
+  use_cl   <- cluster_tests_enabled(cfg)
+  clusters <- if (use_cl) cluster_vector(cfg, rownames(mat_t)) else NULL
+  if (can_contrast && use_cl) {
+    permanova <- cluster_permanova(d, meta_aligned[[group]], clusters,
+                                   nperm = cluster_nperm(cfg), seed = cluster_seed(cfg))
+    cluster_write_beta_txt(permanova, file.path(fig_dir, "permanova.txt"),
+                           group, cfg$metadata$random_effect, "PERMANOVA (Bray-Curtis)")
+    r2_val <- permanova$R2
+    p_val  <- permanova$p.value
+    pipeline_log(cfg, sprintf("PERMANOVA %s: R2 = %.3f, p_raw = %.4g (%s)",
+                              group, r2_val, p_val, cluster_tag(permanova)))
+
+    betadisp_test <- cluster_permdisp(d, meta_aligned[[group]], clusters,
+                                      nperm = cluster_nperm(cfg), seed = cluster_seed(cfg))
+    cluster_write_beta_txt(betadisp_test, file.path(fig_dir, "permdisp.txt"),
+                           group, cfg$metadata$random_effect, "PERMDISP (Bray-Curtis)")
+    permdisp_p <- betadisp_test$p.value
+    pipeline_log(cfg, sprintf("PERMDISP %s: p_raw = %.4g (%s)",
+                              group, permdisp_p, cluster_tag(betadisp_test)))
+  } else if (can_contrast) {
     permanova <- vegan::adonis2(
       stats::reformulate(group, "d"),
       data         = meta_aligned,
@@ -244,7 +265,24 @@ run_beta_diversity <- function(cleaned, cfg) {
     readr::write_csv(scores_j,
                      file.path(out_dir, "beta_diversity_jaccard_pcoa.csv"))
 
-    if (can_contrast) {
+    if (can_contrast && use_cl) {
+      perm_j <- cluster_permanova(d_jac, meta_aligned[[group]], clusters,
+                                  nperm = cluster_nperm(cfg), seed = cluster_seed(cfg))
+      cluster_write_beta_txt(perm_j, file.path(fig_dir, "jaccard_permanova.txt"),
+                             group, cfg$metadata$random_effect, "PERMANOVA (Jaccard)")
+      r2_j <- perm_j$R2
+      p_j  <- perm_j$p.value
+      pipeline_log(cfg, sprintf("PERMANOVA Jaccard %s: R2 = %.3f, p_raw = %.4g (%s)",
+                                group, r2_j, p_j, cluster_tag(perm_j)))
+
+      bd_j_test <- cluster_permdisp(d_jac, meta_aligned[[group]], clusters,
+                                    nperm = cluster_nperm(cfg), seed = cluster_seed(cfg))
+      cluster_write_beta_txt(bd_j_test, file.path(fig_dir, "jaccard_permdisp.txt"),
+                             group, cfg$metadata$random_effect, "PERMDISP (Jaccard)")
+      permdisp_j_p <- bd_j_test$p.value
+      pipeline_log(cfg, sprintf("PERMDISP Jaccard %s: p_raw = %.4g (%s)",
+                                group, permdisp_j_p, cluster_tag(bd_j_test)))
+    } else if (can_contrast) {
       perm_j <- vegan::adonis2(
         stats::reformulate(group, "d_jac"),
         data         = meta_aligned,
@@ -314,6 +352,9 @@ run_beta_diversity <- function(cleaned, cfg) {
   } else {
     sprintf("Single '%s' level — PERMANOVA/PERMDISP not applicable", group)
   }
+  cl_note <- if (use_cl && can_contrast)
+    sprintf("\n(p: %s-aware permutation)", cfg$metadata$random_effect) else ""
+  annot_label <- paste0(annot_label, cl_note)
 
   # ---- 9. Bray-Curtis PCoA scatter + ellipses --------------------------
   p <- ggplot2::ggplot(scores,
@@ -366,6 +407,7 @@ run_beta_diversity <- function(cleaned, cfg) {
     } else {
       sprintf("Single '%s' level — PERMANOVA/PERMDISP not applicable", group)
     }
+    annot_j <- paste0(annot_j, cl_note)
     p_jac <- ggplot2::ggplot(scores_j,
               ggplot2::aes(x = PC1, y = PC2, colour = .data[[group]])) +
       ggplot2::geom_point(size = 3) +

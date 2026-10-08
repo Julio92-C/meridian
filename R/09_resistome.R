@@ -415,12 +415,16 @@ run_resistome <- function(cleaned, cfg) {
 
     kw <- if (dplyr::n_distinct(per_sample[[group]]) >= 2) {
       tryCatch(
-        kruskal.test(stats::reformulate(group, "count"), data = per_sample),
+        if (cluster_tests_enabled(cfg)) {
+          kw_test(per_sample$count, per_sample[[group]], per_sample$sample, cfg)
+        } else {
+          kruskal.test(stats::reformulate(group, "count"), data = per_sample)
+        },
         error = function(e) NULL
       )
     } else NULL
     kw_label <- if (!is.null(kw))
-      sprintf("Kruskal-Wallis p = %.3g", kw$p.value)
+      sprintf("%s = %.3g", kw_name(kw, long = TRUE), kw$p.value)
     else "Kruskal-Wallis p = NA"
 
     p_count <- ggplot2::ggplot(per_sample,

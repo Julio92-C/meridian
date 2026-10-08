@@ -246,14 +246,28 @@ run_alpha_diversity <- function(cleaned, cfg) {
   # arbitrary-dependence variant).
   pad_method <- padjust_method(cfg)
   kw_p_raw   <- setNames(rep(NA_real_, length(metrics)), metrics)
+  # Patient-aware mode (cfg$stats$random_effect_tests): same KW H statistic,
+  # p from a cluster-respecting permutation null (R/utils_cluster_perm.R).
+  use_cl <- cluster_tests_enabled(cfg)
+  kw_tag <- NULL
   for (m in metrics) {
     sub <- div[!is.na(div[[m]]), , drop = FALSE]
     if (nrow(sub) < 2 || dplyr::n_distinct(sub[[group]]) < 2) next
     kw <- tryCatch(
-      kruskal.test(reformulate(group, m), data = sub),
+      if (use_cl) {
+        cluster_kw(sub[[m]], sub[[group]], cluster_vector(cfg, sub$sample),
+                   nperm = cluster_nperm(cfg), seed = cluster_seed(cfg))
+      } else {
+        kruskal.test(reformulate(group, m), data = sub)
+      },
       error = function(e) NULL
     )
     if (!is.null(kw)) kw_p_raw[[m]] <- kw$p.value
+    if (use_cl && !is.null(kw)) kw_tag <- cluster_tag(kw)
+  }
+  if (!is.null(kw_tag)) {
+    pipeline_log(cfg, sprintf("Alpha diversity: KW p-values via %s (%s)",
+                              kw_tag, cfg$metadata$random_effect))
   }
   kw_p_adj <- padjust_p(kw_p_raw, cfg)
 
@@ -276,7 +290,8 @@ run_alpha_diversity <- function(cleaned, cfg) {
     p_val     <- kw_p_raw[[m]]
     p_val_adj <- kw_p_adj[[m]]
     label_kw <- sprintf(
-      "KW p = %s   |   p_adj (%s) = %s",
+      "%s = %s   |   p_adj (%s) = %s",
+      if (use_cl) "KW p (patient perm)" else "KW p",
       if (is.na(p_val))     "NA" else format(p_val,     digits = 3),
       pad_method,
       if (is.na(p_val_adj)) "NA" else format(p_val_adj, digits = 3)
