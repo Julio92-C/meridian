@@ -8,6 +8,7 @@
 source(file.path("..", "..", "R", "00_setup.R"))        # padjust_*
 source(file.path("..", "..", "R", "utils_panel_io.R"))
 source(file.path("..", "..", "R", "utils_ge_profile.R"))
+source(file.path("..", "..", "R", "utils_cluster_perm.R"))   # cluster_tests_enabled() etc.
 
 # Three genes so the Bray-Curtis PCoA has 2 positive axes (two genes over
 # three samples is collinear and hits the separate < 2 axes skip).

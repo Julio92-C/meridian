@@ -117,28 +117,25 @@ run_beta_diversity <- function(cleaned, cfg) {
   dropped  <- setdiff(rownames(mat), keep_ids)
   if (length(dropped) > 0) {
     pipeline_log(cfg, sprintf(
-      "Beta diversity: dropped %d table column(s) not in metadata or with no '%s' value",
+      "Beta diversity: dropping %d sample(s) with NA %s (table column not in metadata or blank group value)",
       length(dropped), group))
   }
   mat <- mat[rownames(mat) %in% keep_ids, , drop = FALSE]
   mat <- mat[rowSums(mat) > 0, , drop = FALSE]
 
-  # Metadata is read up front so samples with an NA group value (blank cell,
-  # or a sample absent from the metadata) can be dropped BEFORE the distance
-  # step: adonis2() uses na.fail and would abort the stage on them.
-  meta <- readr::read_csv(
-    file.path(cfg$project_root, cfg$metadata$file), show_col_types = FALSE
-  )
-  meta[[sid]] <- as.character(meta[[sid]])
-  if (group %in% colnames(meta)) {
-    grp_chk <- meta[[group]][match(rownames(mat), meta[[sid]])]
-    ok_grp  <- !is.na(grp_chk)
-    if (!all(ok_grp)) {
+  # Optional minimum depth per sample (reads summed over the taxa left after the
+  # count floor). Off by default. Very shallow samples give sparse, extreme
+  # profiles that can drive a PERMANOVA on their own (lung: <100-read sputum
+  # samples, mostly from young patients, produced an age-band effect).
+  min_reads <- bd_cfg$min_sample_reads %||% 0
+  if (min_reads > 0) {
+    shallow <- rownames(mat)[rowSums(mat) < min_reads]
+    if (length(shallow) > 0) {
       pipeline_log(cfg, sprintf(
-        "Beta diversity: dropping %d sample(s) with NA %s", sum(!ok_grp), group
-      ))
-      mat <- mat[ok_grp, , drop = FALSE]
+        "Beta diversity: dropped %d sample(s) with < %s reads (min_sample_reads): %s",
+        length(shallow), format(min_reads), paste(shallow, collapse = ", ")))
     }
+    mat <- mat[rowSums(mat) >= min_reads, , drop = FALSE]
   }
   if (nrow(mat) < 3) {
     pipeline_log(cfg, sprintf(
