@@ -66,7 +66,7 @@ The workflow is implemented as a stand-alone R project, rather than an installab
 
 We validated the pipeline against two long-read chicken caecum metagenomic studies. The primary dataset (`Chicken batch 1`, PC_JC_2024-11-29; 18 samples; 3 dietary groups — Dulse, Reference diet, Soyabean meal) is publicly available under NCBI BioProject PRJNA1406192 and has approximately 46 hand-edited R scripts with corresponding validated figures and tables, so each stage can be compared output-for-output against the corresponding ground-truth artefact. The second dataset (`Chicken batch 2`, JC_FL_2025-05-20; 32 samples), for which public release is pending publication of the associated study, was used for scalability and feature coverage: samples were organised into a 4-level composite `Treatment_Bird` grouping (Control_W4, Control_W5, Dulse_W4, Dulse_W5) with a random effect (`block`, pens 1–8), two declared negative controls (CTRL1, CTRL2), and a larger per-stage feature load. Two purpose-built validation scripts (`scripts/diff_normdata.R` and `scripts/probe_taxid_parse.R`) provide numerical-diff and regression checks on the most error-prone intermediates, and `run_pipeline.R` auto-instruments per-stage wall time and peak R-process memory (via a `gc()`-bracketed wrapper equivalent to the `peakRAM` methodology) and prints a slowest-first breakdown to the run log.
 
-**Table 1.** Per-stage primary output on the two validation cohorts (B1 = Chicken batch 1, n=18; B2 = Chicken batch 2, n=32). Same statistical settings (PERMANOVA 9999 permutations, ALDEx2 `mc.samples` = 128); 2026-06-23 sequential run.
+**Table 1.** Per-stage primary output on the two validation cohorts (B1 = Chicken batch 1, n=18; B2 = Chicken batch 2, n=32). Same statistical settings (PERMANOVA 9999 permutations, ALDEx2 `mc.samples` = 128); 2026-06-23 sequential run. The `beta_diversity` row is from a 2026-10-19 rerun of that stage after R/07 was changed to ordinate the community taxa table instead of the gene-hit subset.
 
 | Stage | B1 primary output | B2 primary output |
 | --- | --- | --- |
@@ -76,7 +76,7 @@ We validated the pipeline against two long-read chicken caecum metagenomic studi
 | taxonomy | 2,971 / 11,196 (taxon, sample) rows kept (count ≥ 5) | 5,570 / 6,549 (taxon, sample) rows kept |
 | relative_abundance | 1,700 / 72,152 rows kept (count > 17); top-50 + Others | 7,557 / 18,073 rows kept; top-50 + Others |
 | alpha_diversity | 9 metrics × 18 samples; KW per metric | 9 metrics × 32 samples; KW per metric |
-| beta_diversity | PERMANOVA R² = 0.145, p = 0.22; PERMDISP p = 0.027 | PERMANOVA R² = 0.121, p = 0.15; PERMDISP p = 0.053 |
+| beta_diversity | PERMANOVA R² = 0.192, p = 0.015; PERMDISP p = 0.095 | PERMANOVA R² = 0.118, p = 0.23; PERMDISP p = 0.86 |
 | differential_abundance | 31 taxa + 157 gene features; 3 pairwise contrasts | 53 taxa + 221 gene features; 6 pairwise contrasts |
 | resistome (CARD) | 348 rows / 85 genes / 18 drug classes | 648 rows / 99 genes / 20 drug classes |
 | virulome (VFDB) | 320 rows / 140 genes / 6 VF functions (17 / 18 samples) | 492 rows / 156 genes / 8 VF functions (26 / 32 samples) |
