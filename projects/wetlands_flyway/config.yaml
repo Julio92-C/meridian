@@ -74,7 +74,8 @@ stats:
 # so the default ARG-linked `merged` beta source collapses to a single group and
 # the land_use PERMANOVA is skipped. Point beta at the full community table
 # (noncontaminants, all 24 samples) so the balanced 12-vs-12 contrast runs.
-# (Taxa DAA already defaults to the community table pipeline-wide.)
+# (Taxa DAA and, since the R/07 source fix, beta diversity default to the
+# community table pipeline-wide; the line below is kept explicit.)
 beta_diversity:
   source: noncontaminants
 

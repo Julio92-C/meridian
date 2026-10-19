@@ -93,7 +93,7 @@ relative_abundance:
   min_count_per_sample: 1
 
 beta_diversity:
-  source: noncontaminants   # community PERMANOVA/PCoA (default "auto" -> ARG-linked merged)
+  source: noncontaminants   # community PERMANOVA/PCoA (the default since the R/07 source fix; kept explicit)
   # Tap-water runs are very low depth; the global filters.min_count_per_sample
   # (17) wipes them out here, collapsing beta to a single group. Lower the
   # per-(taxon,sample) floor so the low-depth tap samples survive and the

@@ -4,10 +4,13 @@
 # taxaNormProfile_PCoA.R from the reference chicken_batch1 scripts but is
 # parameterised by config — no hardcoded sample IDs, treatments, or palettes.
 #
-# Data source priority (configurable via cfg$beta_diversity$source):
-#   1. "bracken"        — cleaned$merged (Bracken table with metadata)
-#   2. "noncontaminants" — cleaned$noncontaminants (Re-centrifuge counts)
-#   "auto" picks bracken when available, otherwise noncontaminants.
+# Data source (cfg$beta_diversity$source):
+#   "noncontaminants" (default) — cleaned$noncontaminants, the community taxa
+#                                 table (every taxon, every sample).
+#   "bracken" / "merged"        — cleaned$merged: Bracken sampleCount for taxa
+#                                 that carry an ARG/VF/plasmid hit only, one row
+#                                 per gene hit. A resistome-linked view, opt-in.
+#   "auto" is kept for old configs and means "bracken" when available.
 
 `%||%` <- function(a, b) if (is.null(a)) b else a
 
@@ -41,11 +44,16 @@ beta_palette <- function(levels, cfg) {
   pal
 }
 
-# Pick the long-form (sample, name, count) table the user wants to ordinate.
-# Bracken's per-sample read counts live under `sampleCount` in cleaned$merged.
+# Pick the long-form (sample, name, count) table to ordinate. Beta diversity of
+# taxa is a COMMUNITY-level question, so the default is the community taxa table
+# (as for taxa DAA in R/08). cleaned$merged is an inner join of the gene-hit
+# table with Bracken: it keeps only gene-carrying taxa and repeats each taxon's
+# count once per gene hit, which distorts the ordination (on the lung cohort it
+# used 172 of 2,881 taxa and hid a batch difference). Opt in with
+# `beta_diversity.source: bracken` (or `merged`).
 beta_source_table <- function(cleaned, cfg) {
-  src <- cfg$beta_diversity$source %||% "auto"
-  if (src %in% c("auto", "bracken") && !is.null(cleaned$merged)) {
+  src <- cfg$beta_diversity$source %||% "noncontaminants"
+  if (src %in% c("auto", "bracken", "merged") && !is.null(cleaned$merged)) {
     df <- cleaned$merged
     if (!"sampleCount" %in% colnames(df)) {
       stop("Beta diversity: cleaned$merged has no `sampleCount` column")
@@ -93,6 +101,26 @@ run_beta_diversity <- function(cleaned, cfg) {
     tidyr::pivot_wider(names_from = name, values_from = count, values_fill = 0)
   mat <- as.matrix(wide[, -1])
   rownames(mat) <- wide$sample
+
+  # Ordinate only metadata samples with a group value. The community table can
+  # carry columns that are not samples (e.g. Re-centrifuge EXCLUSIVE/CTRL/SHARED
+  # summary columns on chicken_batch2) or samples absent from the metadata;
+  # adonis2 fails on their NA group.
+  meta <- readr::read_csv(
+    file.path(cfg$project_root, cfg$metadata$file), show_col_types = FALSE
+  )
+  meta[[sid]] <- as.character(meta[[sid]])
+  if (!group %in% colnames(meta)) {
+    stop(sprintf("Beta diversity: group column '%s' not in metadata", group))
+  }
+  keep_ids <- meta[[sid]][!is.na(meta[[group]])]
+  dropped  <- setdiff(rownames(mat), keep_ids)
+  if (length(dropped) > 0) {
+    pipeline_log(cfg, sprintf(
+      "Beta diversity: dropped %d table column(s) not in metadata or with no '%s' value",
+      length(dropped), group))
+  }
+  mat <- mat[rownames(mat) %in% keep_ids, , drop = FALSE]
   mat <- mat[rowSums(mat) > 0, , drop = FALSE]
 
   # Metadata is read up front so samples with an NA group value (blank cell,
