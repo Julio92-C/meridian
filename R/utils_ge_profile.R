@@ -273,13 +273,18 @@ ge_alpha_kw <- function(alpha, group, metric, cfg, log_label) {
 # heatmap as missing row labels + a dropped annotation_row sidebar (rownames
 # = NULL meant cat_per_gene[rownames(.), ] aligned to nothing).
 ge_minmax_per_col <- function(mat) {
-  result <- apply(mat, 2, function(x) {
+  # apply() collapses to a vector when the matrix has a single row (one
+  # gene) or a single column (one sample); build the result with explicit
+  # dims so the matrix shape and dimnames always survive.
+  mat <- as.matrix(mat)
+  result <- matrix(0, nrow = nrow(mat), ncol = ncol(mat),
+                   dimnames = dimnames(mat))
+  for (j in seq_len(ncol(mat))) {
+    x <- mat[, j]
+    if (!any(is.finite(x))) next
     rng <- range(x, na.rm = TRUE)
-    if (diff(rng) == 0) return(rep(0, length(x)))
-    (x - rng[1]) / diff(rng)
-  })
-  if (is.matrix(result) && all(dim(result) == dim(mat))) {
-    dimnames(result) <- dimnames(mat)
+    if (diff(rng) == 0) next
+    result[, j] <- (x - rng[1]) / diff(rng)
   }
   result
 }
@@ -623,6 +628,9 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
                                   legend_title        = "value",
                                   fontsize_legend     = 8,
                                   fontsize_annotation = 8) {
+  # Nothing to draw (e.g. no gene carries a recognised category): skip
+  # rather than hand pheatmap an empty matrix.
+  if (nrow(df) == 0) return(invisible(NULL))
   gene_wide <- df |>
     dplyr::group_by(.data$GENE, .data$sample) |>
     dplyr::summarise(TPM = sum(.data$TPM, na.rm = TRUE), .groups = "drop") |>
@@ -753,6 +761,7 @@ ge_plot_category_heatmap <- function(df, category_col, group, pal_group,
                                       legend_title        = "value",
                                       fontsize_legend     = 8,
                                       fontsize_annotation = 8) {
+  if (nrow(df) == 0) return(invisible(NULL))
   cat_wide <- df |>
     dplyr::group_by(.data[[category_col]], .data$sample) |>
     dplyr::summarise(TPM = sum(.data$TPM, na.rm = TRUE), .groups = "drop") |>
