@@ -20,6 +20,27 @@
 - Dashboard (templates/report.qmd) shows the group figure first and the
   per-sample figure second; manifest entries added.
 - Add testthat test (tests/testthat/test-relab-topn.R).
+- Sparse / low-biomass hardening: degenerate inputs now skip the one affected
+  artifact with a `pipeline_log` line instead of aborting the run.
+  - PCoA with < 2 informative axes (identical or collinear profiles, e.g. a single
+    taxon / gene / replicon) is skipped in R/07 (Bray; Jaccard is skipped on its own)
+    and in `ge_plot_beta` (resistome / virulome / mobilome).
+  - Samples with an NA group are dropped (logged) before PERMANOVA, heatmap gaps and
+    Venn in R/04, R/07 and the GE stages (`ge_ensure_group_column`).
+  - pheatmap "breaks are not unique" on constant matrices: the min-max scaled GE gene /
+    category heatmaps pass fixed 0-1 breaks (they render); R/04, R/05 genus and R/08
+    top-30 heatmaps skip with a log line. R/05 genus heatmap also needs >= 2 samples.
+  - R/08 `design:` (aldex.glm) skips with a log line when a design factor has a single
+    level or there is no residual df; volcano / dot-plot legends use named labels.
+  - R/10 VF x ARG correlation drops constant (all-NA correlation) rows / columns before
+    clustering.
+  - `ge_compute_alpha`: Shannon is computed per sample (an n x 1 matrix used to recycle
+    one wrong value across all samples).
+  - R/12 re-joins the group column from metadata when it is not in `fixed_effects`
+    (skips the network stage with a message if impossible); R/13 composite `ggsave`
+    uses `limitsize = FALSE`; `save_widget_safe()` retries `saveWidget` with
+    `selfcontained = FALSE` when pandoc is missing (R/05, R/07, R/12).
+  - Add testthat tests (tests/testthat/test-sparse-guards.R).
 
 # MERIDIAN 1.0.2
 
