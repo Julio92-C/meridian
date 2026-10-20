@@ -437,12 +437,10 @@ run_relative_abundance <- function(cleaned, cfg) {
     # selfcontained=TRUE still extracts plotly assets into <name>_files/ during
     # render; on re-run dir.create() warns that the libdir already exists.
     # Warnings are benign housekeeping — suppress to keep the log clean.
-    suppressWarnings(
-      htmlwidgets::saveWidget(
-        plotly::ggplotly(p),
-        file = file.path(fig_dir, "relative_abundance.html"),
-        selfcontained = TRUE
-      )
+    save_widget_safe(
+      plotly::ggplotly(p),
+      file = file.path(fig_dir, "relative_abundance.html"),
+      selfcontained = TRUE, cfg = cfg
     )
   }
 
@@ -575,7 +573,10 @@ run_relative_abundance <- function(cleaned, cfg) {
       )
     }
 
-    if (nrow(raw) > 0 && dplyr::n_distinct(raw$genus) >= 2) {
+    # Clustering both axes needs >= 2 genera AND >= 2 samples: a single sample
+    # column gives an empty dist and pheatmap dies in hclust.
+    if (nrow(raw) > 0 && dplyr::n_distinct(raw$genus) >= 2 &&
+        dplyr::n_distinct(raw$sample) >= 2) {
       samp_total <- raw |>
         dplyr::group_by(.data$sample) |>
         dplyr::summarise(samp_total = sum(.data$count, na.rm = TRUE),
@@ -624,25 +625,30 @@ run_relative_abundance <- function(cleaned, cfg) {
         ann_colors <- setNames(list(ann_pal), facet_by)
       }
 
-      pheatmap::pheatmap(
-        z,
-        clustering_distance_rows = d_rows,
-        clustering_distance_cols = d_cols,
-        clustering_method        = "complete",
-        color = grDevices::colorRampPalette(
-          c("white", "#fee08b", "#d73027"))(100),
-        annotation_col    = samp_ann,
-        annotation_colors = ann_colors,
-        border_color      = NA,
-        fontsize_row = 8, fontsize_col = 8, fontsize = 8,
-        filename = file.path(fig_dir, "genus_heatmap_top30.png"),
-        width    = max(8, 0.4  * ncol(z) + 4),
-        height   = max(6, 0.25 * nrow(z) + 2.5)
-      )
-      pipeline_log(cfg, sprintf(
-        "Relative abundance: genus_heatmap_top30.png (%d genera x %d samples)",
-        nrow(z), ncol(z)
-      ))
+      if (length(unique(as.vector(z))) < 2) {
+        pipeline_log(cfg,
+          "Relative abundance: genus heatmap matrix is constant — heatmap skipped")
+      } else {
+        pheatmap::pheatmap(
+          z,
+          clustering_distance_rows = d_rows,
+          clustering_distance_cols = d_cols,
+          clustering_method        = "complete",
+          color = grDevices::colorRampPalette(
+            c("white", "#fee08b", "#d73027"))(100),
+          annotation_col    = samp_ann,
+          annotation_colors = ann_colors,
+          border_color      = NA,
+          fontsize_row = 8, fontsize_col = 8, fontsize = 8,
+          filename = file.path(fig_dir, "genus_heatmap_top30.png"),
+          width    = max(8, 0.4  * ncol(z) + 4),
+          height   = max(6, 0.25 * nrow(z) + 2.5)
+        )
+        pipeline_log(cfg, sprintf(
+          "Relative abundance: genus_heatmap_top30.png (%d genera x %d samples)",
+          nrow(z), ncol(z)
+        ))
+      }
     } else {
       pipeline_log(cfg,
         "Relative abundance: not enough genus data — heatmap skipped")
