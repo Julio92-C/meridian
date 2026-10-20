@@ -431,14 +431,14 @@ run_panels <- function(cfg) {
   if (emit_png) {
     ggplot2::ggsave(out_path, composed_final,
                      width = width, height = height,
-                     dpi = dpi, bg = "white")
+                     dpi = dpi, bg = "white", limitsize = FALSE)
   }
 
   if (emit_tiff) {
     tiff_path <- sub("\\.png$", ".tiff", out_path)
     ggplot2::ggsave(tiff_path, composed_final,
                      width = width, height = height,
-                     dpi = dpi, bg = "white",
+                     dpi = dpi, bg = "white", limitsize = FALSE,
                      device = grDevices::tiff,
                      compression = "lzw")
   }
@@ -446,7 +446,7 @@ run_panels <- function(cfg) {
   if (emit_pdf) {
     pdf_path <- sub("\\.png$", ".pdf", out_path)
     ggplot2::ggsave(pdf_path, composed_final,
-                     width = width, height = height,
+                     width = width, height = height, limitsize = FALSE,
                      device = grDevices::cairo_pdf)
   }
 

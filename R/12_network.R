@@ -44,6 +44,24 @@ run_network <- function(cleaned, cfg) {
 
   group <- cfg$metadata$group_cols[[1]]
 
+  # cleaned$merged only carries metadata columns listed in fixed_effects /
+  # random_effect. If the grouping column is not among them, re-join it from
+  # the metadata file; if that is impossible skip the stage (the builders
+  # below all select the group column and would otherwise abort).
+  if (!group %in% colnames(df_all)) {
+    df_all <- tryCatch(
+      ge_ensure_group_column(df_all, cfg, group, "Network"),
+      error = function(e) NULL
+    )
+    if (is.null(df_all) || nrow(df_all) == 0) {
+      pipeline_log(cfg, sprintf(
+        "Network: group column '%s' not available (not in fixed_effects and not re-joinable from metadata) — skipping network stage",
+        group
+      ))
+      return(invisible(NULL))
+    }
+  }
+
   # --- Tripartite network ----------------------------------------------
   min_count_net <- ncfg$min_sample_count %||% 10
   df_net <- df_all |>
@@ -1086,10 +1104,8 @@ run_network <- function(cleaned, cfg) {
   # As with R/05 / R/07: saveWidget(selfcontained=TRUE) still leaves a
   # benign <name>_files/ directory after rendering; suppressWarnings keeps
   # the run log clean on re-runs. Falls through if pandoc is missing.
-  suppressWarnings(
-    htmlwidgets::saveWidget(sk, normalizePath(html_path, mustWork = FALSE),
-                            selfcontained = selfcontained)
-  )
+  save_widget_safe(sk, normalizePath(html_path, mustWork = FALSE),
+                   selfcontained = selfcontained, cfg = cfg)
   invisible(NULL)
 }
 
