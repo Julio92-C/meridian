@@ -11,7 +11,7 @@
   <img alt="Quarto" src="https://img.shields.io/badge/Quarto-HTML%20report-74AADB?logo=quarto&logoColor=white">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey">
   <img alt="License" src="https://img.shields.io/badge/license-MIT-blue">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.0.1-blue">
+  <img alt="Version" src="https://img.shields.io/badge/version-1.0.2-blue">
   <img alt="Status" src="https://img.shields.io/badge/status-alpha-orange">
 </p>
 

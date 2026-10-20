@@ -14,12 +14,12 @@
 #
 # Runtime is auto-detected: Apptainer/Singularity if present (HPC), else Docker
 # (laptop). Overrides via environment:
-#   MERIDIAN_SIF     path to the .sif        (default: <script dir>/meridian_v1.0.1.sif)
-#   MERIDIAN_IMAGE   docker/oras image ref   (default: ghcr.io/julio92-c/meridian:v1.0.1)
+#   MERIDIAN_SIF     path to the .sif        (default: <script dir>/meridian_v1.0.2.sif)
+#   MERIDIAN_IMAGE   docker/oras image ref   (default: ghcr.io/julio92-c/meridian:v1.0.2)
 #
 set -euo pipefail
 
-IMAGE_DEFAULT="ghcr.io/julio92-c/meridian:v1.0.1"
+IMAGE_DEFAULT="ghcr.io/julio92-c/meridian:v1.0.2"
 
 # --- args ---------------------------------------------------------------------
 CONFIG="${1:-}"
@@ -51,7 +51,7 @@ esac
 # --- pick a runtime and exec --------------------------------------------------
 run_apptainer() {   # $1 = apptainer|singularity
   local rt="$1"
-  local sif="${MERIDIAN_SIF:-$HERE/meridian_v1.0.1.sif}"
+  local sif="${MERIDIAN_SIF:-$HERE/meridian_v1.0.2.sif}"
   if [ ! -f "$sif" ]; then
     echo "meridian.sh: image not found: $sif" >&2
     echo "  build it once with:  $rt build \"$sif\" docker://${MERIDIAN_IMAGE:-$IMAGE_DEFAULT}" >&2

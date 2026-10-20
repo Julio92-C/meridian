@@ -140,6 +140,14 @@ run_beta_diversity <- function(cleaned, cfg) {
 
   # ---- 7. PERMANOVA ------------------------------------------------------
   meta_aligned <- meta[match(rownames(mat_t), meta[[sid]]), , drop = FALSE]
+  n_groups <- dplyr::n_distinct(meta_aligned[[group]], na.rm = TRUE)
+  if (n_groups < 2) {
+    pipeline_log(cfg, sprintf(
+      "Beta diversity: samples span %d %s group(s) — need >= 2 for PERMANOVA, skipping",
+      n_groups, group
+    ))
+    return(invisible(NULL))
+  }
   permanova <- vegan::adonis2(
     stats::reformulate(group, "d"),
     data         = meta_aligned,
