@@ -936,6 +936,16 @@ ge_plot_beta <- function(df, group, pal_group, opts, fig_file,
     dplyr::distinct(.data$sample, .keep_all = TRUE) |>
     dplyr::select("sample", dplyr::all_of(group))
   meta <- meta[match(rownames(mat_t), meta$sample), , drop = FALSE]
+  # adonis2 needs >= 2 group levels among the samples that carry hits; with
+  # sparse low-biomass data all hit-positive samples can share one group.
+  n_groups <- dplyr::n_distinct(meta[[group]], na.rm = TRUE)
+  if (n_groups < 2) {
+    pipeline_log(cfg, sprintf(
+      "%s beta: %s samples span %d %s group(s) — need >= 2, skipping",
+      log_label, skip_data_label, n_groups, group
+    ))
+    return(invisible(NULL))
+  }
 
   perms <- cfg$stats$permanova_permutations %||% 9999
   permanova <- vegan::adonis2(
