@@ -115,7 +115,7 @@ clean_data <- function(inputs, cfg) {
   sample_cols <- setdiff(colnames(rcf_named),
                          c("taxid", "name",
                            "phylum", "class", "order", "family", "genus",
-                           "Classifier", controls))
+                           "tax_rank", "Classifier", controls))
 
   pivoted <- rcf_named |>
     tidyr::pivot_longer(cols = dplyr::all_of(sample_cols),
@@ -283,7 +283,11 @@ build_taxid_ancestry <- function(kraken2) {
       cols[[rk_name]][[i]] <- cur[[rk_name]]
     }
   }
+  # `tax_rank` is the row's own kraken2 rank code (S = species, S1 = strain
+  # / subspecies, G, F, ...). R/05 keeps rank "S" only so strain rows do not
+  # double-count their parent species.
   data.frame(taxid  = td,
+             tax_rank = rk,
              phylum = cols$phylum,
              class  = cols$class,
              order  = cols$order,

@@ -227,6 +227,9 @@ fig <- list(
       c(...)[[1]]
     }
     list(
+      # Per-group mean composition (main figure). Older runs lack it; img_card
+      # then shows an empty "Missing" card rather than breaking the render.
+      relabu_group_png   = file.path(fig_root, "relative_abundance", "relative_abundance_group.png"),
       relabu_png         = pick_first(
         file.path(fig_root, "relative_abundance", "relative_abundance.png"),
         file.path(fig_root, "relative_abundance", "stacked_bar.png")
@@ -525,7 +528,12 @@ link_card(fig$taxonomy$heatmap,
 ## Row {.tabset}
 
 ```{r}
-#| title: Relative abundance
+#| title: Relative abundance by group
+img_card(fig$composition$relabu_group_png, alt = "Relative abundance by group")
+```
+
+```{r}
+#| title: Per-sample relative abundance
 img_card(fig$composition$relabu_png, alt = "Per-sample relative abundance")
 ```
 

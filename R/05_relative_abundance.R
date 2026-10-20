@@ -11,10 +11,13 @@
 #   2. Apply a per-(taxon, sample) count floor.
 #   3. Optionally join metadata so the relative abundance bar can be facetted by group.
 #   4. Compute per-sample relative abundance %.
-#   5. Identify the top-N taxa by total count; collapse everything else into
+#   5. Identify the top-N taxa by MEAN per-sample relative abundance (not total
+#      counts, which favour the deepest samples); collapse everything else into
 #      "Others" so the palette only has to cover top_n + 1 levels.
 #   6. Relative abundance stacked bar (PNG + plotly HTML) and total-count plot
-#      (PNG, log10 scale with median line and count labels).
+#      (PNG, log10 scale with median line and count labels). A per-group
+#      stacked bar (mean of the per-sample %) is the main figure; the per-sample
+#      bar is the supplementary one.
 
 `%||%` <- function(a, b) if (is.null(a)) b else a
 
@@ -41,31 +44,45 @@ relab_palette <- function(n, cfg) {
   rep_len(pal, n)
 }
 
-# Compact stacked-bar render for filtered species partitions (v1.1
-# unique/shared composition plots, Frontiers Fig S1/S2). Mirrors the
-# main 6a render in run_relative_abundance() but skips the plotly HTML
-# and dataset CSV — callers only need the PNG. Takes long-form
-# (sample, name, count, [facet_by]) and applies the same top-N + Others
-# + taxa ordering recipe so the legend style matches.
-ra_render_stacked_bar <- function(df_in, facet_by, ra_cfg, cfg,
-                                   file_path, log_label) {
-  if (nrow(df_in) == 0) {
-    pipeline_log(cfg, sprintf("%s: no rows — skipping %s", log_label,
-                              basename(file_path)))
-    return(invisible(NULL))
-  }
+# "Others" is always this light grey, in every R/05 figure; taxon colours are
+# drawn so they never use it.
+RA_OTHERS_COLOUR <- "#BDBDBD"
+
+# Named colour vector over `taxa_levels` (in that order): taxa get relab_palette
+# colours minus the Others grey, `others_label` gets RA_OTHERS_COLOUR.
+ra_taxa_palette <- function(taxa_levels, others_label, cfg) {
+  taxa <- setdiff(taxa_levels, others_label)
+  pal  <- relab_palette(length(taxa) + 3L, cfg)
+  pal  <- pal[!toupper(pal) %in% toupper(RA_OTHERS_COLOUR)]
+  out  <- setNames(rep_len(pal, length(taxa)), taxa)
+  if (others_label %in% taxa_levels) out[others_label] <- RA_OTHERS_COLOUR
+  out[taxa_levels]
+}
+
+# Shared top-N + Others recipe for every R/05 composition figure. Takes
+# long-form (sample, name, count, [facet_by]) and returns
+#   df_pct      per-(sample, name[, facet]) count + % with non-top taxa
+#               collapsed into others_label, `name` a factor in stack order
+#   top_taxa    the top_n taxa, ranked by MEAN per-sample % (a sample where the
+#               taxon is absent counts as 0, so the ranking is not driven by
+#               the deepest samples)
+#   taxa_levels legend / stack order (largest total % first, Others last)
+ra_prepare_composition <- function(df_in, facet_by, ra_cfg) {
+  top_n        <- ra_cfg$top_n        %||% 15
+  others_label <- ra_cfg$others_label %||% "Others"
+
   df_pct <- df_in |>
     dplyr::group_by(sample) |>
     dplyr::mutate(percentage = count / sum(count, na.rm = TRUE) * 100) |>
     dplyr::ungroup()
-
-  top_n        <- ra_cfg$top_n        %||% 50
-  others_label <- ra_cfg$others_label %||% "Others"
+  n_samples <- dplyr::n_distinct(df_pct$sample)
 
   top_taxa <- df_pct |>
     dplyr::group_by(name) |>
-    dplyr::summarise(total = sum(count, na.rm = TRUE), .groups = "drop") |>
-    dplyr::slice_max(total, n = top_n, with_ties = FALSE) |>
+    dplyr::summarise(mean_pct = sum(percentage, na.rm = TRUE) / n_samples,
+                     .groups = "drop") |>
+    dplyr::arrange(dplyr::desc(mean_pct), name) |>
+    dplyr::slice_head(n = top_n) |>
     dplyr::pull(name)
 
   df_pct <- df_pct |>
@@ -77,17 +94,58 @@ ra_render_stacked_bar <- function(df_in, facet_by, ra_cfg, cfg,
       .groups    = "drop"
     )
 
+  # Order taxa globally by total % so the legend matches the largest stacks.
   taxa_levels <- df_pct |>
     dplyr::group_by(name) |>
     dplyr::summarise(total = sum(percentage, na.rm = TRUE), .groups = "drop") |>
     dplyr::arrange(dplyr::desc(total)) |>
     dplyr::pull(name)
+  # "Others" pinned to the bottom of the stack regardless of size.
   taxa_levels <- c(setdiff(taxa_levels, others_label),
                    intersect(others_label, taxa_levels))
   df_pct$name <- factor(df_pct$name, levels = taxa_levels)
 
+  list(df_pct = df_pct, top_taxa = top_taxa, taxa_levels = taxa_levels,
+       others_label = others_label, top_n = top_n)
+}
+
+# Per-group mean of the per-sample % (top-N + Others frame from
+# ra_prepare_composition). A taxon absent from a sample counts as 0, so each
+# group's bar sums to 100. `label` carries "<group> (n=<samples>)".
+ra_group_means <- function(df_pct, facet_by) {
+  d <- df_pct |>
+    dplyr::mutate(group = as.character(.data[[facet_by]]))
+  n_per_group <- d |>
+    dplyr::distinct(sample, group) |>
+    dplyr::count(group, name = "n_samples")
+  d |>
+    dplyr::group_by(group, name) |>
+    dplyr::summarise(total = sum(percentage, na.rm = TRUE), .groups = "drop") |>
+    dplyr::left_join(n_per_group, by = "group") |>
+    dplyr::mutate(mean_percentage = total / n_samples,
+                  label = sprintf("%s (n=%d)", group, n_samples)) |>
+    dplyr::select(group, name, n_samples, mean_percentage, label)
+}
+
+# Compact stacked-bar render for filtered species partitions (v1.1
+# unique/shared composition plots, Frontiers Fig S1/S2). Mirrors the
+# main 6a render in run_relative_abundance() but skips the plotly HTML
+# and dataset CSV — callers only need the PNG. Takes long-form
+# (sample, name, count, [facet_by]) and applies the same top-N + Others
+# + taxa ordering recipe (ra_prepare_composition) so the legend style matches.
+ra_render_stacked_bar <- function(df_in, facet_by, ra_cfg, cfg,
+                                   file_path, log_label) {
+  if (nrow(df_in) == 0) {
+    pipeline_log(cfg, sprintf("%s: no rows — skipping %s", log_label,
+                              basename(file_path)))
+    return(invisible(NULL))
+  }
+  prep         <- ra_prepare_composition(df_in, facet_by, ra_cfg)
+  df_pct       <- prep$df_pct
+  taxa_levels  <- prep$taxa_levels
+
   n_levels    <- length(taxa_levels)
-  palette     <- relab_palette(n_levels, cfg)
+  palette     <- ra_taxa_palette(taxa_levels, prep$others_label, cfg)
   show_legend <- ra_cfg$show_legend %||% TRUE
   legend_pos  <- if (isTRUE(show_legend)) "top" else "none"
 
@@ -124,8 +182,22 @@ run_relative_abundance <- function(cleaned, cfg) {
   dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE)
   dir.create(ds_dir,  recursive = TRUE, showWarnings = FALSE)
 
-  # ---- 1. Clean taxa names ------------------------------------------------
-  df <- clean_taxa_names(cleaned$noncontaminants, cfg)
+  # ---- 1. Species rank only, then clean taxa names -----------------------
+  # R/02 carries each row's kraken2 rank code in `tax_rank`. Keep "S" only so
+  # strain / subspecies rows (S1, S2, ...) don't double-count their species.
+  raw_nc <- cleaned$noncontaminants
+  if ("tax_rank" %in% colnames(raw_nc)) {
+    n_rows <- nrow(raw_nc)
+    raw_nc <- dplyr::filter(raw_nc, .data$tax_rank %in% "S")
+    pipeline_log(cfg, sprintf(
+      "Relative abundance: %d/%d rows at species rank (kraken2 rank S)",
+      nrow(raw_nc), n_rows
+    ))
+  } else {
+    pipeline_log(cfg,
+      "Relative abundance: no tax_rank column — strain rows not filtered")
+  }
+  df <- clean_taxa_names(raw_nc, cfg)
   if (nrow(df) == 0) {
     pipeline_log(cfg, "Relative abundance: no rows after clean_taxa_names — skipping")
     return(invisible(NULL))
@@ -165,41 +237,13 @@ run_relative_abundance <- function(cleaned, cfg) {
     }
   }
 
-  # ---- 4. Per-sample % ----------------------------------------------------
-  df_pct <- df |>
-    dplyr::group_by(sample) |>
-    dplyr::mutate(percentage = count / sum(count, na.rm = TRUE) * 100) |>
-    dplyr::ungroup()
-
-  # ---- 5. Top-N + collapse rest into "Others" -----------------------------
-  top_n         <- ra_cfg$top_n         %||% 50
-  others_label  <- ra_cfg$others_label  %||% "Others"
-
-  top_taxa <- df_pct |>
-    dplyr::group_by(name) |>
-    dplyr::summarise(total = sum(count, na.rm = TRUE), .groups = "drop") |>
-    dplyr::slice_max(total, n = top_n, with_ties = FALSE) |>
-    dplyr::pull(name)
-
-  df_pct <- df_pct |>
-    dplyr::mutate(name = ifelse(name %in% top_taxa, name, others_label)) |>
-    dplyr::group_by(sample, name, dplyr::across(dplyr::any_of(facet_by))) |>
-    dplyr::summarise(
-      count      = sum(count, na.rm = TRUE),
-      percentage = sum(percentage, na.rm = TRUE),
-      .groups    = "drop"
-    )
-
-  # Order taxa globally by total % so the legend matches the largest stacks.
-  taxa_levels <- df_pct |>
-    dplyr::group_by(name) |>
-    dplyr::summarise(total = sum(percentage, na.rm = TRUE), .groups = "drop") |>
-    dplyr::arrange(dplyr::desc(total)) |>
-    dplyr::pull(name)
-  # "Others" pinned to the bottom of the stack regardless of size.
-  taxa_levels <- c(setdiff(taxa_levels, others_label),
-                   intersect(others_label, taxa_levels))
-  df_pct$name <- factor(df_pct$name, levels = taxa_levels)
+  # ---- 4-5. Per-sample %, top-N by mean % + collapse rest into "Others" --
+  prep         <- ra_prepare_composition(df, facet_by, ra_cfg)
+  df_pct       <- prep$df_pct
+  top_taxa     <- prep$top_taxa
+  taxa_levels  <- prep$taxa_levels
+  top_n        <- prep$top_n
+  others_label <- prep$others_label
 
   # Long-form tidy table for the dashboard composition card. Kept separate
   # from the "Others"-collapsed plotting frame so the report can re-rank by
@@ -207,7 +251,7 @@ run_relative_abundance <- function(cleaned, cfg) {
   readr::write_csv(df_pct, file.path(ds_dir, "composition_long.csv"))
 
   n_levels <- length(taxa_levels)
-  palette  <- relab_palette(n_levels, cfg)
+  palette  <- ra_taxa_palette(taxa_levels, others_label, cfg)
   pipeline_log(cfg, sprintf(
     "Relative abundance: %d top taxa + %s (palette sized to %d)",
     min(top_n, length(top_taxa)),
@@ -255,6 +299,50 @@ run_relative_abundance <- function(cleaned, cfg) {
   save_panel_ggplot(file.path(fig_dir, "relative_abundance.png"), p,
                   width = pw, height = ph, dpi = 300)
 
+  # ---- 6a-group. Per-group mean composition (main figure) ----------------
+  # One stacked bar per level of facet_by: mean of the per-sample % over that
+  # group's samples, same top-N taxa and colours as the per-sample bar above.
+  if (!is.null(facet_by) && facet_by %in% colnames(df_pct)) {
+    grp_df <- ra_group_means(df_pct, facet_by)
+    grp_df$name  <- factor(grp_df$name, levels = taxa_levels)
+    grp_lvls     <- unique(grp_df$label[order(grp_df$group)])
+    grp_df$label <- factor(grp_df$label, levels = grp_lvls)
+    readr::write_csv(
+      dplyr::transmute(grp_df, !!facet_by := group, taxon = as.character(name),
+                       n_samples, mean_percentage),
+      file.path(ds_dir, "relative_abundance_group.csv")
+    )
+    pg <- ggplot2::ggplot(grp_df,
+                          ggplot2::aes(x = label, y = mean_percentage, fill = name)) +
+      ggplot2::geom_bar(stat = "identity") +
+      ggplot2::scale_fill_manual(values = palette) +
+      ggplot2::labs(x = facet_by, y = "Mean relative abundance (%)",
+                    fill = "Taxa") +
+      ggplot2::theme_classic() +
+      ggplot2::theme(
+        legend.position = if (isTRUE(show_legend)) "right" else "none",
+        # Rotate the "<group> (n=..)" labels only when there are enough groups
+        # for them to collide.
+        axis.text.x     = ggplot2::element_text(
+          angle = if (length(grp_lvls) > 4) 45 else 0,
+          hjust = if (length(grp_lvls) > 4) 1 else 0.5,
+          size  = bar_axis_size),
+        legend.text     = ggplot2::element_text(size = bar_legend_size),
+        legend.title    = ggplot2::element_text(size = bar_legend_size + 1),
+        text            = ggplot2::element_text(size = 12)
+      ) +
+      ggplot2::guides(fill = ggplot2::guide_legend(ncol = 1))
+    n_grp <- length(grp_lvls)
+    save_panel_ggplot(file.path(fig_dir, "relative_abundance_group.png"), pg,
+                      width = max(7, 0.9 * n_grp + 5),
+                      height = max(6, 0.3 * n_levels + 2), dpi = 300)
+    pipeline_log(cfg, sprintf(
+      "Relative abundance: relative_abundance_group.png (%d groups)", n_grp))
+  } else {
+    pipeline_log(cfg,
+      "Relative abundance: no facet column — group composition skipped")
+  }
+
   # ---- 6a-stream. Per-treatment streamgraph (2026-06-12 polish) ---------
   # Mirrors templates/panels_ref/relativate_abundace.png — per-(treatment,
   # category) mean % as a smoothed stacked area. Lives in composite panel
@@ -275,8 +363,11 @@ run_relative_abundance <- function(cleaned, cfg) {
       group_col    = facet_by,
       value_col    = "count",
       palette      = stream_palette,
+      categories   = top_taxa,
+      top_n        = top_n,
+      others_label = others_label,
       fill_label   = "Species",
-      title        = "Species composition by treatment"
+      title        = paste("Species composition by", facet_by)
     )
   }
 
@@ -319,16 +410,9 @@ run_relative_abundance <- function(cleaned, cfg) {
     # built per rank via relab_palette (the project core palette) so
     # colours are consistent with the rest of the pipeline.
     if (!is.null(facet_by) && facet_by %in% colnames(df_rank)) {
-      rank_levels_ordered <- df_rank |>
-        dplyr::group_by(.data$name) |>
-        dplyr::summarise(total = sum(.data$count, na.rm = TRUE),
-                         .groups = "drop") |>
-        dplyr::arrange(dplyr::desc(.data$total)) |>
-        dplyr::pull(.data$name)
-      rank_palette <- setNames(
-        relab_palette(length(rank_levels_ordered) + 1L, cfg),
-        c(rank_levels_ordered, "Others")
-      )
+      rank_prep    <- ra_prepare_composition(df_rank, facet_by, ra_cfg)
+      rank_palette <- ra_taxa_palette(rank_prep$taxa_levels,
+                                      rank_prep$others_label, cfg)
       save_stream_composition(
         df_rank,
         file.path(fig_dir,
@@ -337,10 +421,13 @@ run_relative_abundance <- function(cleaned, cfg) {
         group_col    = facet_by,
         value_col    = "count",
         palette      = rank_palette,
+        categories   = rank_prep$top_taxa,
+        top_n        = rank_prep$top_n,
+        others_label = rank_prep$others_label,
         # Capitalised display label for fig01 F (taxa class stream).
         fill_label   = paste0(toupper(substr(rank_col, 1, 1)),
                                 substr(rank_col, 2, nchar(rank_col))),
-        title        = sprintf("Composition by treatment (%s level)", rank_col)
+        title        = sprintf("Composition by %s (%s level)", facet_by, rank_col)
       )
     }
   }

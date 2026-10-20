@@ -229,13 +229,20 @@ build_stage_relative_abundance <- function(cfg, stage_times) {
     tables     = Filter(Negate(is.null), list(
       table_entry(cfg, ds_path(cfg, "relative_abundance/composition_long.csv"),
                   kind = "composition_long",
-                  description = "Long-form per-sample taxon relative abundance, filtered to count > min_count_per_sample.")
+                  description = "Long-form per-sample taxon relative abundance, filtered to count > min_count_per_sample."),
+      table_entry(cfg, ds_path(cfg, "relative_abundance/relative_abundance_group.csv"),
+                  kind = "composition_group",
+                  description = "Per-group mean of the per-sample relative abundance (%) for the top-N taxa plus Others, with n samples per group.")
     )),
     figures    = Filter(Negate(is.null), list(
+      figure_entry(cfg, fig_path(cfg, "relative_abundance/relative_abundance_group.png"),
+                   kind = "composition_stacked_bar_group", groups = as.list(groups),
+                   rank = "species",
+                   caption_seed = "Stacked-bar composition of the top taxa, one bar per group (mean of the per-sample relative abundance; n samples per group in the axis labels), species level."),
       figure_entry(cfg, fig_path(cfg, "relative_abundance/relative_abundance.png"),
                    kind = "composition_stacked_bar", groups = as.list(groups),
                    rank = "species",
-                   caption_seed = "Stacked-bar composition of the top taxa per sample, faceted by group."),
+                   caption_seed = "Stacked-bar composition of the top taxa per sample, faceted by group (supplementary)."),
       figure_entry(cfg, fig_path(cfg, "relative_abundance/relative_abundance_class.png"),
                    kind = "composition_stacked_bar", groups = as.list(groups),
                    rank = "class",
