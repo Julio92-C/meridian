@@ -102,6 +102,28 @@ measure_stage <- function(fn) {
   list(value = value, mem_mb = mem_mb)
 }
 
+# Stage safety net: an error in an analysis stage is logged, appended to
+# <reports>/stage_errors.csv (read by the report banner and R/14's
+# stage_status) and the run moves on, so one failing figure on sparse data
+# doesn't cost the whole report. load_inputs / clean_data stay fatal: every
+# later stage depends on them. `stages: strict: true` exits non-zero at the
+# end (after report + manifest) when any stage failed.
+.FATAL_STAGES <- c("load_inputs", "clean_data")
+stage_errors  <- list()
+stage_errors_path <- stage_errors_file(cfg)
+if (file.exists(stage_errors_path)) file.remove(stage_errors_path)
+
+record_stage_error <- function(name, e) {
+  msg <- gsub("[\r\n]+", " ", conditionMessage(e))
+  stage_errors[[name]] <<- msg
+  pipeline_log(cfg, sprintf("STAGE FAILED: %s — %s", name, msg))
+  dir.create(dirname(stage_errors_path), recursive = TRUE, showWarnings = FALSE)
+  first <- !file.exists(stage_errors_path)
+  utils::write.table(data.frame(stage = name, error = msg),
+                     stage_errors_path, sep = ",", row.names = FALSE,
+                     col.names = first, append = !first, qmethod = "double")
+}
+
 run_stage <- function(name, fn) {
   if (!(name %in% enabled_names)) return(invisible(NULL))
   stage_idx <<- stage_idx + 1L
@@ -109,7 +131,15 @@ run_stage <- function(name, fn) {
   pipeline_log(cfg, sprintf("[%d/%d %3d%%] %s — start",
                             stage_idx, total_stages, pct, name))
   t0 <- Sys.time()
-  measured <- measure_stage(fn)
+  if (name %in% .FATAL_STAGES) {
+    measured <- measure_stage(fn)
+  } else {
+    measured <- tryCatch(measure_stage(fn), error = function(e) {
+      record_stage_error(name, e)
+      NULL
+    })
+    if (is.null(measured)) return(invisible(NULL))
+  }
   elapsed  <- as.numeric(difftime(Sys.time(), t0, units = "secs"))
   stage_times[[name]] <<- elapsed
   stage_mem[[name]]   <<- measured$mem_mb
@@ -186,7 +216,7 @@ run_stage("manifest", function() {
 
 total_elapsed <- as.numeric(difftime(Sys.time(), pipeline_start, units = "secs"))
 pipeline_log(cfg, sprintf("Pipeline finished — %d/%d stages complete in %s",
-                          stage_idx, total_stages, fmt_duration(total_elapsed)))
+                          stage_idx - length(stage_errors), total_stages, fmt_duration(total_elapsed)))
 
 # Per-stage breakdown, sorted slowest -> fastest, with a Total footer.
 # Helps spot bottlenecks without scrolling the run log line by line. The
@@ -212,4 +242,13 @@ if (length(stage_times) > 0) {
                      max(st_mem, na.rm = TRUE))
   pipeline_log(cfg, paste0("Stage breakdown (slowest first):\n",
                            paste(c(lines, divider, total), collapse = "\n")))
+}
+
+if (length(stage_errors) > 0) {
+  pipeline_log(cfg, sprintf(
+    "WARNING: %d stage(s) failed: %s (details: %s)",
+    length(stage_errors), paste(names(stage_errors), collapse = ", "),
+    stage_errors_path
+  ))
+  if (isTRUE(cfg$stages$strict)) quit(save = "no", status = 1)
 }

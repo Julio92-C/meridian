@@ -183,6 +183,9 @@ stage_status <- function(cfg, name, stage_times) {
   default <- isTRUE(.STAGE_DEFAULT_ENABLED[[name]])
   enabled <- isTRUE(cfg$stages[[name]] %||% default)
   if (!enabled) return("skipped")
+  # Errors caught by run_pipeline.R's stage safety net win over partial
+  # artifacts the stage may have written before failing.
+  if (name %in% read_stage_errors(cfg)$stage) return("failed")
   if (!is.null(stage_times[[name]])) return("complete")
   spec <- .STAGE_PRIMARY[[name]]
   if (!is.null(spec)) {

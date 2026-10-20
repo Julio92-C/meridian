@@ -1,5 +1,13 @@
 # MERIDIAN (unreleased)
 
+- Stage safety net (run_pipeline.R): an error in an analysis stage (normalisation
+  through network), the report, panels or manifest no longer aborts the run. The
+  error is logged as `STAGE FAILED: <stage> — <message>`, appended to
+  `<reports>/stage_errors.csv`, shown in a red box at the top of the report
+  sidebar, and the stage is marked `failed` in manifest.json. `load_inputs` and
+  `clean_data` stay fatal. Set `stages: strict: true` to exit non-zero at the end
+  of the run when any stage failed.
+
 - Relative abundance (R/05): top-N taxa are now ranked by MEAN per-sample
   relative abundance (%) instead of total raw counts (which favoured the deepest
   samples), and the default `relative_abundance.top_n` is 15 (was 50). One shared

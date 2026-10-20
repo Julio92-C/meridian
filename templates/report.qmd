@@ -420,7 +420,24 @@ html body .value-box .value-box-showcase { font-size: 1.2rem !important; }
 
 ```{r}
 #| title: Run
+# Stages caught by run_pipeline.R's safety net: the report still renders, but
+# their sections are missing or partial, so flag them on every page.
+stage_err <- read_stage_errors(cfg)
+failed_box <- if (nrow(stage_err) > 0) {
+  htmltools::div(
+    style = paste("background:#f8d7da;border:1px solid #dc3545;color:#58151c;",
+                  "border-radius:4px;padding:6px 8px;margin-bottom:8px;font-size:12px;"),
+    htmltools::strong(sprintf("%d stage(s) failed", nrow(stage_err))),
+    htmltools::tags$ul(style = "margin:4px 0 0 0;padding-left:16px;",
+      lapply(seq_len(nrow(stage_err)), function(i) htmltools::tags$li(
+        htmltools::code(stage_err$stage[i]), ": ", stage_err$error[i]
+      ))
+    ),
+    htmltools::em("Their sections below are missing or partial; see Reports/pipeline.log.")
+  )
+}
 htmltools::tagList(
+  failed_box,
   htmltools::h4(cfg$study$name),
   htmltools::p(htmltools::strong("ID: "), cfg$study$id),
   htmltools::p(htmltools::strong("Primary group: "), group),

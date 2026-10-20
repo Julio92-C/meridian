@@ -30,6 +30,21 @@ pipeline_log <- function(cfg, msg) {
   cat(line, "\n", file = log_path, append = TRUE)
 }
 
+#' Path of the per-run stage error table (next to the run log). Written by
+#' run_pipeline.R's stage safety net; read by R/14 and the report banner.
+stage_errors_file <- function(cfg) {
+  file.path(cfg$project_root, dirname(cfg$outputs$log_file), "stage_errors.csv")
+}
+
+#' Stage errors recorded in this run as a data.frame(stage, error); 0 rows if none.
+read_stage_errors <- function(cfg) {
+  path <- stage_errors_file(cfg)
+  if (!file.exists(path)) {
+    return(data.frame(stage = character(0), error = character(0)))
+  }
+  utils::read.csv(path, stringsAsFactors = FALSE)
+}
+
 #' Read and validate the study config.
 load_config <- function(path) {
   cfg <- yaml::read_yaml(path)
