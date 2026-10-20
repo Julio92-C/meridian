@@ -58,6 +58,10 @@ run_mobilome <- function(cleaned, cfg) {
 
   group        <- cfg$metadata$group_cols[[1]]
   pfdb         <- ge_ensure_group_column(pfdb, cfg, group, label)
+  if (nrow(pfdb) == 0) {
+    pipeline_log(cfg, "Mobilome: no rows with a non-NA group — skipping")
+    return(invisible(NULL))
+  }
   group_levels <- sort(unique(as.character(pfdb[[group]])))
   pal_group    <- resolve_top_level_colors(group, group_levels, cfg) %||%
                   ge_named_palette(group_levels, mcfg$group_colors,

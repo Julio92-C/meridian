@@ -57,6 +57,10 @@ run_resistome <- function(cleaned, cfg) {
 
   group        <- cfg$metadata$group_cols[[1]]
   card         <- ge_ensure_group_column(card, cfg, group, label)
+  if (nrow(card) == 0) {
+    pipeline_log(cfg, "Resistome: no rows with a non-NA group — skipping")
+    return(invisible(NULL))
+  }
   group_levels <- sort(unique(as.character(card[[group]])))
   pal_group    <- resolve_top_level_colors(group, group_levels, cfg) %||%
                   ge_named_palette(group_levels, rcfg$group_colors,

@@ -29,3 +29,31 @@ save_panel_ggplot <- function(filename, plot, width, height,
   }
   invisible(filename)
 }
+
+# Save an htmlwidget, tolerating hosts without pandoc. selfcontained = TRUE
+# needs pandoc (via rmarkdown); when it is missing saveWidget() throws, which
+# used to abort the whole stage. Retry with selfcontained = FALSE (assets in a
+# sibling <name>_files/ dir) and log a line; if that fails too, log and skip
+# only this widget. Returns TRUE/FALSE invisibly.
+save_widget_safe <- function(widget, file, selfcontained = TRUE, cfg = NULL) {
+  say <- function(msg) {
+    if (exists("pipeline_log", mode = "function")) pipeline_log(cfg, msg)
+    else message(msg)
+  }
+  try_save <- function(sc) {
+    tryCatch({
+      suppressWarnings(htmlwidgets::saveWidget(widget, file, selfcontained = sc))
+      TRUE
+    }, error = function(e) conditionMessage(e))
+  }
+  res <- try_save(selfcontained)
+  if (isTRUE(res)) return(invisible(TRUE))
+  if (isTRUE(selfcontained)) {
+    say(sprintf("saveWidget(selfcontained = TRUE) failed for %s (%s) — retrying with selfcontained = FALSE",
+                basename(file), res))
+    res <- try_save(FALSE)
+    if (isTRUE(res)) return(invisible(TRUE))
+  }
+  say(sprintf("saveWidget failed for %s (%s) — skipping html", basename(file), res))
+  invisible(FALSE)
+}

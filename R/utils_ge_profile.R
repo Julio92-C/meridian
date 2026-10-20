@@ -152,7 +152,22 @@ ge_load_norm_table <- function(cfg, log_label) {
 # R/03 only attaches fixed_effects + random_effect to the normalised table.
 # When the requested group column isn't already present, re-join metadata.
 ge_ensure_group_column <- function(df, cfg, group, log_label) {
-  if (group %in% colnames(df)) return(df)
+  if (!group %in% colnames(df)) df <- .ge_join_group_column(df, cfg, group, log_label)
+  # Samples whose group is NA (blank metadata cell) would put an NA level
+  # into heatmap gaps / adonis2 (na.fail). Drop them here, once, for every
+  # downstream GE plot.
+  na_rows <- is.na(df[[group]])
+  if (any(na_rows)) {
+    pipeline_log(cfg, sprintf(
+      "%s: dropping %d row(s) from %d sample(s) with NA %s",
+      log_label, sum(na_rows), dplyr::n_distinct(df$sample[na_rows]), group
+    ))
+    df <- df[!na_rows, , drop = FALSE]
+  }
+  df
+}
+
+.ge_join_group_column <- function(df, cfg, group, log_label) {
   sid  <- cfg$metadata$sample_id_col
   meta <- readr::read_csv(file.path(cfg$project_root, cfg$metadata$file),
                           show_col_types = FALSE)
@@ -225,7 +240,12 @@ ge_compute_alpha <- function(df, group, value_col = "TPM") {
   out <- data.frame(
     sample   = rownames(mat),
     richness = rowSums(mat > 0),
-    shannon  = vegan::diversity(mat, "shannon"),
+    # Row-wise: vegan::diversity() drop()s an n x 1 matrix to one community
+    # and returns a single scalar that data.frame() would recycle across all
+    # samples (single-gene / single-replicon case).
+    shannon  = vapply(seq_len(nrow(mat)), function(i) {
+      vegan::diversity(mat[i, ], "shannon")
+    }, numeric(1)),
     stringsAsFactors = FALSE
   )
   dplyr::left_join(out, group_per_sample, by = "sample")
@@ -712,6 +732,10 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
     cluster_rows      = FALSE,
     cluster_cols      = FALSE,
     color             = grDevices::colorRampPalette(palette)(100),
+    # Values are min-max scaled to [0, 1]; fixed breaks keep pheatmap from
+    # deriving them from the data range, which fails ("breaks are not
+    # unique") when the matrix is constant (single gene / category).
+    breaks            = seq(0, 1, length.out = 101),
     border_color      = NA,
     show_rownames     = TRUE,
     show_colnames     = TRUE,
@@ -808,6 +832,10 @@ ge_plot_category_heatmap <- function(df, category_col, group, pal_group,
     cluster_rows      = FALSE,
     cluster_cols      = FALSE,
     color             = grDevices::colorRampPalette(palette)(100),
+    # Values are min-max scaled to [0, 1]; fixed breaks keep pheatmap from
+    # deriving them from the data range, which fails ("breaks are not
+    # unique") when the matrix is constant (single gene / category).
+    breaks            = seq(0, 1, length.out = 101),
     border_color      = NA,
     annotation_col    = sample_group,
     annotation_colors = ann_colors,
@@ -914,6 +942,15 @@ ge_plot_beta <- function(df, group, pal_group, opts, fig_file,
   mat <- as.matrix(wide[, -1, drop = FALSE])
   rownames(mat) <- wide$sample
   mat <- mat[rowSums(mat) > 0, , drop = FALSE]
+  # adonis2 uses na.fail: drop samples with an NA group before anything else.
+  grp_lookup <- df |>
+    dplyr::distinct(.data$sample, .keep_all = TRUE)
+  ok_grp <- !is.na(grp_lookup[[group]][match(rownames(mat), grp_lookup$sample)])
+  if (!all(ok_grp)) {
+    pipeline_log(cfg, sprintf("%s beta: dropping %d sample(s) with NA %s",
+                              log_label, sum(!ok_grp), group))
+    mat <- mat[ok_grp, , drop = FALSE]
+  }
   if (nrow(mat) < 3) {
     pipeline_log(cfg, sprintf(
       "%s beta: only %d samples with %s — need >= 3, skipping",
@@ -943,6 +980,18 @@ ge_plot_beta <- function(df, group, pal_group, opts, fig_file,
     pipeline_log(cfg, sprintf(
       "%s beta: %s samples span %d %s group(s) — need >= 2, skipping",
       log_label, skip_data_label, n_groups, group
+    ))
+    return(invisible(NULL))
+  }
+
+  # cmdscale() keeps only positive-eigenvalue axes; identical / collinear
+  # profiles (single gene, single replicon) leave < 2 and points[, 2] would
+  # be out of bounds. Check before the stats so files and plot stay in step.
+  pcoa <- stats::cmdscale(d, eig = TRUE, k = 2)
+  if (ncol(pcoa$points) < 2) {
+    pipeline_log(cfg, sprintf(
+      "%s beta: < 2 PCoA axes (degenerate distances) — skipping beta",
+      log_label
     ))
     return(invisible(NULL))
   }
@@ -984,7 +1033,6 @@ ge_plot_beta <- function(df, group, pal_group, opts, fig_file,
     log_label, pad_method, pv_adj, permdisp_p_adj
   ))
 
-  pcoa <- stats::cmdscale(d, eig = TRUE, k = 2)
   var_expl <- pcoa$eig / sum(pcoa$eig[pcoa$eig > 0]) * 100
   scores <- data.frame(
     sample = rownames(mat_t),

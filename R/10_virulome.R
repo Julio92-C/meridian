@@ -55,6 +55,10 @@ run_virulome <- function(cleaned, cfg) {
 
   group        <- cfg$metadata$group_cols[[1]]
   vfdb         <- ge_ensure_group_column(vfdb, cfg, group, label)
+  if (nrow(vfdb) == 0) {
+    pipeline_log(cfg, "Virulome: no rows with a non-NA group — skipping")
+    return(invisible(NULL))
+  }
   group_levels <- sort(unique(as.character(vfdb[[group]])))
   pal_group    <- resolve_top_level_colors(group, group_levels, cfg) %||%
                   ge_named_palette(group_levels, vcfg$group_colors,
@@ -316,6 +320,23 @@ run_virulome <- function(cleaned, cfg) {
     vf_mat  <- .reindex_zero(vf_mat,  all_samples)
     arg_mat <- .reindex_zero(arg_mat, all_samples)
     common <- all_samples
+    # A constant (e.g. all-zero) VF function / drug-class vector has no
+    # Spearman rank variance: cor.test() gives NA for the whole row/column
+    # and hclust then dies on NA distances. Drop them before correlating.
+    .varying <- function(m) {
+      vapply(seq_len(ncol(m)), function(j) length(unique(m[, j])) > 1,
+             logical(1))
+    }
+    keep_vf  <- .varying(vf_mat)
+    keep_arg <- .varying(arg_mat)
+    if (!all(keep_vf) || !all(keep_arg)) {
+      pipeline_log(cfg, sprintf(
+        "Virulome: VFxARG corr dropping %d constant VF function(s) and %d constant drug class(es)",
+        sum(!keep_vf), sum(!keep_arg)
+      ))
+      vf_mat  <- vf_mat[,  keep_vf,  drop = FALSE]
+      arg_mat <- arg_mat[, keep_arg, drop = FALSE]
+    }
     if (length(common) >= 3 && ncol(vf_mat) >= 2 && ncol(arg_mat) >= 2) {
 
       r_mat <- matrix(NA_real_, nrow = ncol(vf_mat), ncol = ncol(arg_mat),
