@@ -271,7 +271,7 @@ ra_build_sample_plot <- function(df_pct, facet_by, palette, layout, ra_cfg,
   d$sample <- as.character(d$sample)
   d$sample <- factor(d$sample, levels = ra_order_samples(d, others_label))
   d$name <- factor(as.character(d$name), levels = names(palette))
-  bar_axis_size   <- ra_cfg$bar_axis_text_size   %||% 12
+  bar_axis_size   <- ra_cfg$bar_axis_text_size   %||% 9
   bar_legend_size <- ra_cfg$bar_legend_text_size %||% 12
 
   sizes <- NULL
@@ -360,7 +360,8 @@ ra_render_stacked_bar <- function(df_in, facet_by, ra_cfg, cfg,
     ggplot2::theme_classic() +
     ggplot2::theme(
       legend.position = legend_pos,
-      axis.text.x     = ggplot2::element_text(angle = 45, hjust = 1),
+      axis.text.x     = ggplot2::element_text(angle = 45, hjust = 1,
+                                         size = ra_cfg$bar_axis_text_size %||% 9),
       text            = ggplot2::element_text(size = 12)
     ) +
     ggplot2::guides(fill = ggplot2::guide_legend(ncol = 1))
@@ -486,8 +487,8 @@ run_relative_abundance <- function(cleaned, cfg) {
   # Per-project fontsize knobs. R/13 scales this standalone source PNG down
   # into the fig05 composite cell, so cohorts with high sample counts (lung
   # 42, hospital 64) need smaller at-source axis text to remain legible
-  # after the scale-down. Defaults preserve chicken_batch1's tuned look.
-  bar_axis_size   <- ra_cfg$bar_axis_text_size   %||% 12
+  # after the scale-down. Default 9 pt keeps tick labels secondary to the bars.
+  bar_axis_size   <- ra_cfg$bar_axis_text_size   %||% 9
   bar_legend_size <- ra_cfg$bar_legend_text_size %||% 12
 
   group_order <- ra_cfg$group_order
