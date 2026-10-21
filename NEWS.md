@@ -1,5 +1,17 @@
 # MERIDIAN (unreleased)
 
+- Fix (R/05): the species-rank filter no longer drops rows whose kraken2 rank is
+  unknown (blank `lvl_type`, e.g. hospital_microbiome's synthetic lookup, or a
+  taxid missing from kraken2). Only known non-"S" ranks (S1, S2, G, ...) are
+  removed; if no row has a known rank the filter is skipped and logged.
+- Stage safety net: stages that read the normalised table (resistome, virulome,
+  mobilome, network) are skipped, logged ("upstream stage normalisation failed")
+  and recorded in `stage_errors.csv` ("skipped: upstream normalisation failed")
+  when normalisation fails, instead of reusing a previous run's
+  `genetable_normdata.csv`. Publication panels (R/13) ignore the figures/tables
+  of any failed stage so stale PNGs are not assembled into composites. No files
+  are deleted from the output directories.
+
 - Stage safety net (run_pipeline.R): an error in an analysis stage (normalisation
   through network), the report, panels or manifest no longer aborts the run. The
   error is logged as `STAGE FAILED: <stage> — <message>`, appended to

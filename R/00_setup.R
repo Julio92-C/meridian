@@ -45,6 +45,24 @@ read_stage_errors <- function(cfg) {
   utils::read.csv(path, stringsAsFactors = FALSE)
 }
 
+#' Stage dependency map: stages that consume another stage's on-disk output.
+#' resistome / virulome / mobilome / network all read genetable_normdata.csv
+#' (ge_load_norm_table), so a failed normalisation would otherwise let them
+#' silently use a previous run's table.
+.STAGE_UPSTREAM <- list(
+  resistome = "normalisation",
+  virulome  = "normalisation",
+  mobilome  = "normalisation",
+  network   = "normalisation"
+)
+
+#' Names of the upstream stages of `name` that are in `failed` (character vector
+#' of failed stage names, or a stage_errors data.frame). character(0) if none.
+upstream_failed <- function(name, failed, deps = .STAGE_UPSTREAM) {
+  if (is.data.frame(failed)) failed <- failed$stage
+  intersect(deps[[name]] %||% character(0), failed)
+}
+
 #' Read and validate the study config.
 load_config <- function(path) {
   cfg <- yaml::read_yaml(path)

@@ -19,3 +19,14 @@ test_that("read_stage_errors is empty without a file and reads written rows", {
   expect_equal(stage_status(cfg, "network",  list(network = 3)), "failed")
   expect_equal(stage_status(cfg, "taxonomy", list(taxonomy = 3)), "complete")
 })
+
+test_that("upstream_failed flags GE/network stages when normalisation failed", {
+  expect_equal(upstream_failed("resistome", "normalisation"), "normalisation")
+  expect_equal(upstream_failed("virulome", data.frame(stage = "normalisation", error = "x")),
+               "normalisation")
+  for (s in c("mobilome", "network"))
+    expect_equal(upstream_failed(s, c("taxonomy", "normalisation")), "normalisation")
+  expect_length(upstream_failed("resistome", character(0)), 0)
+  expect_length(upstream_failed("resistome", "taxonomy"), 0)
+  expect_length(upstream_failed("taxonomy", "normalisation"), 0)
+})

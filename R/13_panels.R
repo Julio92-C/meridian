@@ -50,6 +50,17 @@ run_panels <- function(cfg) {
   }
   stages_index  <- build_stages_index(cfg)
   manifest_like <- list(stages = stages_index)
+  # Stages that failed in this run may still have older PNG/CSV files on disk
+  # from a previous run. Drop their entries so slots/tables treat them as
+  # missing instead of assembling stale artifacts (files are left untouched).
+  failed_stages <- read_stage_errors(cfg)$stage
+  if (length(failed_stages) > 0) {
+    pipeline_log(cfg, sprintf(
+      "Panels: ignoring outputs of failed stage(s): %s",
+      paste(failed_stages, collapse = ", ")))
+    manifest_like$stages <- manifest_like$stages[
+      !(names(manifest_like$stages) %in% failed_stages)]
+  }
   figures_index <- .panels_index_figures(manifest_like)
   tables_index  <- .panels_index_tables(manifest_like)
 

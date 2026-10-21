@@ -130,6 +130,14 @@ run_stage <- function(name, fn) {
   pct <- round(100 * (stage_idx - 1) / total_stages)
   pipeline_log(cfg, sprintf("[%d/%d %3d%%] %s — start",
                             stage_idx, total_stages, pct, name))
+  up <- upstream_failed(name, names(stage_errors))
+  if (length(up) > 0) {
+    pipeline_log(cfg, sprintf("upstream stage %s failed — skipping %s",
+                              paste(up, collapse = ", "), name))
+    record_stage_error(name, simpleError(sprintf(
+      "skipped: upstream %s failed", paste(up, collapse = ", "))))
+    return(invisible(NULL))
+  }
   t0 <- Sys.time()
   if (name %in% .FATAL_STAGES) {
     measured <- measure_stage(fn)
