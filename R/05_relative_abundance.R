@@ -127,6 +127,208 @@ ra_group_means <- function(df_pct, facet_by) {
     dplyr::select(group, name, n_samples, mean_percentage, label)
 }
 
+# ---------------------------------------------------------------------------
+# Layout / ordering helpers (relative_abundance: per_sample, group_order,
+# main_panel). Pure functions so they can be unit-tested. Every `cfg` argument
+# accepts either the full pipeline config or just its `relative_abundance`
+# block.
+# ---------------------------------------------------------------------------
+
+.ra_block <- function(cfg) {
+  if (is.null(cfg)) return(list())
+  if (!is.null(cfg$relative_abundance)) return(cfg$relative_abundance)
+  if (any(c("top_n", "per_sample", "main_panel", "group_order") %in% names(cfg))) {
+    return(cfg)
+  }
+  list()
+}
+
+# "2x2" / "1X2" -> list(nrow, ncol); NULL for NULL / "auto" / unparsable.
+ra_parse_layout <- function(x) {
+  if (is.null(x) || length(x) != 1L || is.na(x)) return(NULL)
+  s <- tolower(trimws(as.character(x)))
+  m <- regmatches(s, regexec("^([0-9]+)\\s*x\\s*([0-9]+)$", s))[[1]]
+  if (length(m) != 3L) return(NULL)
+  r <- as.integer(m[2]); cc <- as.integer(m[3])
+  if (r < 1L || cc < 1L) return(NULL)
+  list(nrow = r, ncol = cc)
+}
+
+# Decide whether / how to draw a per-sample figure.
+#   1-2 groups -> 1x2; 3-4 -> 2x2; 5-6 -> 3x2; >6 groups or > max_samples
+#   samples -> skipped (unless enabled: true). layout: "RxC" overrides the
+#   automatic grid. Returns list(layout = list(nrow, ncol) | NULL, reason).
+ra_per_sample_plan <- function(n_groups, n_samples, cfg) {
+  ps      <- .ra_block(cfg)$per_sample %||% list()
+  enabled <- ps$enabled %||% "auto"
+  if (is.character(enabled)) {
+    enabled <- switch(tolower(enabled), "true" = TRUE, "false" = FALSE, "auto")
+  }
+  max_samples <- ps$max_samples %||% 40
+  if (isFALSE(enabled)) {
+    return(list(layout = NULL, reason = "per_sample.enabled is false"))
+  }
+  forced <- isTRUE(enabled)
+  n_groups <- max(1L, as.integer(n_groups))
+  if (!forced) {
+    if (n_groups > 6L) {
+      return(list(layout = NULL, reason = sprintf("%d groups (> 6)", n_groups)))
+    }
+    if (n_samples > max_samples) {
+      return(list(layout = NULL,
+                  reason = sprintf("%d samples (> max_samples = %d)",
+                                   as.integer(n_samples), as.integer(max_samples))))
+    }
+  }
+  lay <- ra_parse_layout(ps$layout)
+  if (is.null(lay)) {
+    lay <- if (n_groups <= 2L) list(nrow = 1L, ncol = 2L)
+           else if (n_groups <= 4L) list(nrow = 2L, ncol = 2L)
+           else if (n_groups <= 6L) list(nrow = 3L, ncol = 2L)
+           else list(nrow = as.integer(ceiling(n_groups / 2)), ncol = 2L)
+  } else if (lay$nrow * lay$ncol < n_groups) {
+    # An explicit grid that is too small would silently drop facets.
+    lay$nrow <- as.integer(ceiling(n_groups / lay$ncol))
+  }
+  list(layout = lay, reason = NULL)
+}
+
+ra_auto_layout <- function(n_groups, n_samples, cfg) {
+  ra_per_sample_plan(n_groups, n_samples, cfg)$layout
+}
+
+# Group levels in plotting order: group_order entries that exist (in the
+# given order) first, then any remaining levels alphabetically.
+ra_group_levels <- function(groups, group_order = NULL) {
+  present <- sort(unique(as.character(stats::na.omit(groups))))
+  if (is.null(group_order) || length(group_order) == 0) return(present)
+  go <- unique(as.character(unlist(group_order)))
+  c(go[go %in% present], setdiff(present, go))
+}
+
+# Sample order for the per-sample bars: by dominant (highest %) taxon - taxa
+# in legend (factor-level) order, "Others" ignored unless it is all a sample
+# has - then by that taxon's % (descending), then sample name.
+# `df` needs sample, name, percentage. Returns a character vector.
+ra_order_samples <- function(df, others_label = "Others") {
+  lv <- if (is.factor(df$name)) levels(df$name)
+        else sort(unique(as.character(df$name)))
+  d <- data.frame(sample = as.character(df$sample),
+                  name = as.character(df$name),
+                  pct = as.numeric(df$percentage),
+                  stringsAsFactors = FALSE)
+  d <- d[!is.na(d$pct), , drop = FALSE]
+  d <- d[order(d$sample, -d$pct, match(d$name, lv)), , drop = FALSE]
+  has_named <- tapply(d$name != others_label, d$sample, any)
+  pick <- function(s) {
+    x <- d[d$sample == s, , drop = FALSE]
+    if (isTRUE(has_named[[s]])) x <- x[x$name != others_label, , drop = FALSE]
+    x[1, , drop = FALSE]
+  }
+  samples <- unique(d$sample)
+  dom <- do.call(rbind, lapply(samples, pick))
+  dom$taxon_rank <- match(dom$name, lv)
+  dom[order(dom$taxon_rank, -dom$pct, dom$sample), "sample"]
+}
+
+# Which composition figure feeds the fig05 panel. `available` is a character
+# vector drawn from c("group", "stream", "sample"). The wanted figure
+# (relative_abundance.main_panel, default "group") wins when present; else the
+# first available of group -> stream -> sample. NULL when none.
+RA_MAIN_PANEL_FILES <- c(group  = "relative_abundance_group",
+                         stream = "relative_abundance_stream",
+                         sample = "relative_abundance")
+ra_main_panel_wanted <- function(cfg) {
+  w <- tolower(as.character(.ra_block(cfg)$main_panel %||% "group"))[1]
+  if (!w %in% names(RA_MAIN_PANEL_FILES)) "group" else w
+}
+ra_main_panel_source <- function(cfg, available) {
+  cand <- unique(c(ra_main_panel_wanted(cfg), names(RA_MAIN_PANEL_FILES)))
+  hit  <- cand[cand %in% available]
+  if (length(hit) == 0) NULL else hit[1]
+}
+
+# Safe file-name fragment for a split_by level (same rule R/13 uses for
+# per-group slot filters). Levels that would overwrite a built-in figure get a
+# "_level" suffix.
+ra_safe_level <- function(x) {
+  s <- gsub("[^A-Za-z0-9_-]+", "_", as.character(x))
+  reserved <- c("group", "stream", "class", "order", "family", "genus", "")
+  if (tolower(s) %in% reserved || grepl("^stream_", s, ignore.case = TRUE)) {
+    s <- paste0(s, "_level")
+  }
+  s
+}
+
+# Per-sample stacked bars faceted by the primary group. `df_pct` is the
+# top-N + Others frame (sample, name, percentage, <facet_by>); `palette` the
+# shared named colour vector (names = legend order, Others last). Returns
+# list(plot, width, height).
+ra_build_sample_plot <- function(df_pct, facet_by, palette, layout, ra_cfg,
+                                 group_order = NULL, show_legend = TRUE) {
+  others_label <- ra_cfg$others_label %||% "Others"
+  d <- df_pct
+  d$sample <- as.character(d$sample)
+  d$sample <- factor(d$sample, levels = ra_order_samples(d, others_label))
+  d$name <- factor(as.character(d$name), levels = names(palette))
+  bar_axis_size   <- ra_cfg$bar_axis_text_size   %||% 12
+  bar_legend_size <- ra_cfg$bar_legend_text_size %||% 12
+
+  sizes <- NULL
+  if (!is.null(facet_by) && facet_by %in% colnames(d)) {
+    g  <- as.character(d[[facet_by]])
+    lv <- ra_group_levels(g, group_order)
+    n_per <- vapply(lv, function(l) length(unique(as.character(d$sample[g == l]))),
+                    integer(1))
+    sizes <- as.integer(n_per)
+    lbl <- sprintf("%s (n=%d)", lv, sizes)
+    d$.facet <- factor(lbl[match(g, lv)], levels = lbl)
+  }
+
+  n_samp <- dplyr::n_distinct(d$sample)
+  nr <- layout$nrow; nc <- layout$ncol
+  n_fac <- length(sizes)
+  if (n_fac == 0L) { nr <- 1L; nc <- 1L; sizes <- n_samp; n_fac <- 1L }
+  single_row <- nr == 1L
+  # Width the bars actually need: all samples in a single row; otherwise the
+  # widest facet of each grid column (facet_wrap gives equal column widths).
+  if (single_row) {
+    span <- sum(sizes)
+  } else {
+    col_of <- ((seq_len(n_fac) - 1L) %% nc) + 1L
+    span <- sum(tapply(sizes, col_of, max))
+  }
+  pw <- min(60, max(10, 0.3 * span + 3))
+  bar_in  <- (pw - 3) / max(span, 1)
+  tick_pt <- max(3, min(bar_axis_size, round(bar_in * 72 / 1.6, 1)))
+  ph <- if (single_row) 7 else max(7, 3.2 * nr + 2.5)
+  ph <- max(ph, 0.3 * length(palette) + 2)
+
+  p <- ggplot2::ggplot(d, ggplot2::aes(x = .data$sample, y = .data$percentage,
+                                       fill = .data$name)) +
+    ggplot2::geom_bar(stat = "identity") +
+    ggplot2::scale_fill_manual(values = palette, drop = FALSE) +
+    ggplot2::labs(x = NULL, y = "Relative abundance (%)", fill = "Taxa") +
+    ggplot2::theme_classic() +
+    ggplot2::theme(
+      legend.position = if (isTRUE(show_legend)) "right" else "none",
+      axis.text.x     = ggplot2::element_text(angle = 45, hjust = 1,
+                                              size = tick_pt),
+      legend.text     = ggplot2::element_text(size = bar_legend_size),
+      legend.title    = ggplot2::element_text(size = bar_legend_size + 1),
+      text            = ggplot2::element_text(size = 12)
+    ) +
+    ggplot2::guides(fill = ggplot2::guide_legend(ncol = 1))
+  if (".facet" %in% colnames(d)) {
+    p <- p + if (single_row) {
+      ggplot2::facet_grid(~ .facet, scales = "free_x", space = "free_x")
+    } else {
+      ggplot2::facet_wrap(~ .facet, nrow = nr, ncol = nc, scales = "free_x")
+    }
+  }
+  list(plot = p, width = pw, height = ph)
+}
+
 # Compact stacked-bar render for filtered species partitions (v1.1
 # unique/shared composition plots, Frontiers Fig S1/S2). Mirrors the
 # main 6a render in run_relative_abundance() but skips the plotly HTML
@@ -147,7 +349,8 @@ ra_render_stacked_bar <- function(df_in, facet_by, ra_cfg, cfg,
   n_levels    <- length(taxa_levels)
   palette     <- ra_taxa_palette(taxa_levels, prep$others_label, cfg)
   show_legend <- ra_cfg$show_legend %||% TRUE
-  legend_pos  <- if (isTRUE(show_legend)) "top" else "none"
+  # Single-column legend on the right keeps "Others" as the last entry.
+  legend_pos  <- if (isTRUE(show_legend)) "right" else "none"
 
   p <- ggplot2::ggplot(df_pct,
                        ggplot2::aes(x = factor(sample), y = percentage, fill = name)) +
@@ -160,14 +363,14 @@ ra_render_stacked_bar <- function(df_in, facet_by, ra_cfg, cfg,
       axis.text.x     = ggplot2::element_text(angle = 45, hjust = 1),
       text            = ggplot2::element_text(size = 12)
     ) +
-    ggplot2::guides(fill = ggplot2::guide_legend(nrow = 10))
+    ggplot2::guides(fill = ggplot2::guide_legend(ncol = 1))
   if (!is.null(facet_by)) {
     p <- p + ggplot2::facet_wrap(stats::as.formula(paste("~", facet_by)),
                                  scales = "free_x", nrow = 1)
   }
   n_samples <- length(unique(df_pct$sample))
   pw <- max(10, 0.5 * n_samples + 3)
-  ph <- if (isTRUE(show_legend)) max(7, 6 + ceiling(n_levels / 10) * 0.4) else 6
+  ph <- max(6, 0.3 * n_levels + 2)
   save_panel_ggplot(file_path, p, width = pw, height = ph, dpi = 300)
   pipeline_log(cfg, sprintf("%s: %d species, %d samples → %s",
                             log_label, dplyr::n_distinct(df_in$name),
@@ -236,12 +439,14 @@ run_relative_abundance <- function(cleaned, cfg) {
 
   # ---- 3. Optional metadata join for facetting ----------------------------
   facet_by <- ra_cfg$facet_by %||% cfg$metadata$group_cols[[1]]
+  sid  <- cfg$metadata$sample_id_col
+  meta <- tryCatch(
+    readr::read_csv(file.path(cfg$project_root, cfg$metadata$file),
+                    show_col_types = FALSE),
+    error = function(e) NULL
+  )
   if (!is.null(facet_by) && nzchar(facet_by)) {
-    sid  <- cfg$metadata$sample_id_col
-    meta <- readr::read_csv(
-      file.path(cfg$project_root, cfg$metadata$file), show_col_types = FALSE
-    )
-    if (facet_by %in% colnames(meta)) {
+    if (!is.null(meta) && facet_by %in% colnames(meta)) {
       df <- dplyr::inner_join(df, meta[, c(sid, facet_by)],
                               by = c("sample" = sid))
     } else {
@@ -275,9 +480,8 @@ run_relative_abundance <- function(cleaned, cfg) {
     n_levels
   ))
 
-  # ---- 6a. Relative abundance stacked bar --------------------------------
+  # ---- 6a. Per-sample relative abundance stacked bars ---------------------
   show_legend <- ra_cfg$show_species_legend %||% TRUE
-  legend_pos  <- if (isTRUE(show_legend)) "top" else "none"
 
   # Per-project fontsize knobs. R/13 scales this standalone source PNG down
   # into the fig05 composite cell, so cohorts with high sample counts (lung
@@ -286,74 +490,167 @@ run_relative_abundance <- function(cleaned, cfg) {
   bar_axis_size   <- ra_cfg$bar_axis_text_size   %||% 12
   bar_legend_size <- ra_cfg$bar_legend_text_size %||% 12
 
-  p <- ggplot2::ggplot(df_pct,
-                       ggplot2::aes(x = factor(sample), y = percentage, fill = name)) +
-    ggplot2::geom_bar(stat = "identity") +
-    ggplot2::scale_fill_manual(values = palette) +
-    ggplot2::labs(x = "Sample", y = "Relative abundance (%)", fill = "Taxa") +
-    ggplot2::theme_classic() +
-    ggplot2::theme(
-      legend.position = legend_pos,
-      axis.text.x     = ggplot2::element_text(angle = 45, hjust = 1,
-                                              size = bar_axis_size),
-      legend.text     = ggplot2::element_text(size = bar_legend_size),
-      legend.title    = ggplot2::element_text(size = bar_legend_size + 1),
-      text            = ggplot2::element_text(size = 12)
-    ) +
-    ggplot2::guides(fill = ggplot2::guide_legend(nrow = 10))
-
-  if (!is.null(facet_by)) {
-    p <- p + ggplot2::facet_wrap(stats::as.formula(paste("~", facet_by)),
-                                 scales = "free_x", nrow = 1)
+  group_order <- ra_cfg$group_order
+  has_group   <- !is.null(facet_by) && facet_by %in% colnames(df_pct)
+  grp_lvls_all <- if (has_group) {
+    ra_group_levels(df_pct[[facet_by]], group_order)
+  } else character(0)
+  if (has_group && !is.null(group_order)) {
+    unknown <- setdiff(as.character(unlist(group_order)), grp_lvls_all)
+    if (length(unknown) > 0) {
+      pipeline_log(cfg, sprintf(
+        "Relative abundance: group_order entries not in the data ignored: %s",
+        paste(unknown, collapse = ", ")))
+    }
   }
 
-  # Size canvas to sample count so labels stay readable across studies.
-  n_samples <- length(unique(df_pct$sample))
-  pw <- max(10, 0.5 * n_samples + 3)
-  ph <- if (isTRUE(show_legend)) max(7, 6 + ceiling(n_levels / 10) * 0.4) else 6
+  # Drop a stale figure (+ its .rds sibling) so R/13 and the manifest never
+  # pick up the output of an earlier run when the figure is now skipped.
+  ra_drop_stale <- function(png) {
+    for (f in c(png, sub("\\.png$", ".rds", png))) {
+      if (file.exists(f)) suppressWarnings(file.remove(f))
+    }
+  }
 
-  save_panel_ggplot(file.path(fig_dir, "relative_abundance.png"), p,
-                  width = pw, height = ph, dpi = 300)
+  # Draw one per-sample figure for the samples in `d` (a slice of df_pct).
+  # Returns the ggplot, or NULL when the layout rules skip it.
+  ra_sample_figure <- function(d, file, label) {
+    n_groups <- if (has_group) dplyr::n_distinct(d[[facet_by]]) else 1L
+    n_samp   <- dplyr::n_distinct(d$sample)
+    plan <- ra_per_sample_plan(n_groups, n_samp, ra_cfg)
+    if (is.null(plan$layout)) {
+      ra_drop_stale(file)
+      pipeline_log(cfg, sprintf(
+        paste0("Relative abundance: %s skipped (%s); set ",
+               "relative_abundance.per_sample.split_by to a metadata column ",
+               "for one figure per level, or per_sample.enabled: true to ",
+               "force it"),
+        label, plan$reason))
+      return(NULL)
+    }
+    built <- ra_build_sample_plot(d, if (has_group) facet_by else NULL,
+                                  palette, plan$layout, ra_cfg,
+                                  group_order = group_order,
+                                  show_legend = show_legend)
+    save_panel_ggplot(file, built$plot, width = built$width,
+                      height = built$height, dpi = 300)
+    pipeline_log(cfg, sprintf(
+      "Relative abundance: %s (%d groups, %d samples, %dx%d layout)",
+      basename(file), n_groups, n_samp, plan$layout$nrow, plan$layout$ncol))
+    built$plot
+  }
+
+  p <- ra_sample_figure(df_pct, file.path(fig_dir, "relative_abundance.png"),
+                        "relative_abundance.png")
+
+  # ---- 6a-split. One per-sample figure per level of per_sample.split_by ----
+  # Same global taxa set + colours (df_pct / palette are computed once over
+  # all samples), so the figures are directly comparable.
+  split_by  <- ra_cfg$per_sample$split_by
+  split_idx <- file.path(ds_dir, "relative_abundance_split_index.csv")
+  if (file.exists(split_idx)) suppressWarnings(file.remove(split_idx))
+  if (!is.null(split_by) && nzchar(split_by)) {
+    if (is.null(meta) || !split_by %in% colnames(meta)) {
+      pipeline_log(cfg, sprintf(
+        "Relative abundance: per_sample.split_by column '%s' not in metadata — split figures skipped",
+        split_by))
+    } else {
+      sp <- meta[, c(cfg$metadata$sample_id_col, split_by)]
+      colnames(sp) <- c("sample", ".split")
+      sp <- dplyr::distinct(sp, .data$sample, .keep_all = TRUE)
+      sp$sample <- as.character(sp$sample)
+      d_all <- df_pct
+      d_all$sample <- as.character(d_all$sample)
+      d_all <- dplyr::left_join(d_all, sp, by = "sample")
+      lvls  <- sort(unique(stats::na.omit(as.character(d_all$.split))))
+      safe  <- make.unique(vapply(lvls, ra_safe_level, character(1)), sep = "_")
+      rows  <- list()
+      for (i in seq_along(lvls)) {
+        fn <- sprintf("relative_abundance_%s.png", safe[i])
+        d  <- d_all[!is.na(d_all$.split) & d_all$.split == lvls[i], , drop = FALSE]
+        pp <- ra_sample_figure(d, file.path(fig_dir, fn),
+                               sprintf("%s (%s = %s)", fn, split_by, lvls[i]))
+        if (!is.null(pp)) {
+          rows[[length(rows) + 1]] <- data.frame(
+            split_by = split_by, level = lvls[i], file = fn,
+            stringsAsFactors = FALSE)
+        }
+      }
+      if (length(rows) > 0) {
+        readr::write_csv(dplyr::bind_rows(rows), split_idx)
+      }
+    }
+  }
 
   # ---- 6a-group. Per-group mean composition (main figure) ----------------
   # One stacked bar per level of facet_by: mean of the per-sample % over that
-  # group's samples, same top-N taxa and colours as the per-sample bar above.
-  if (!is.null(facet_by) && facet_by %in% colnames(df_pct)) {
+  # group's samples, same top-N taxa and colours as the per-sample bars above.
+  # Honours relative_abundance.group_order; with more than 12 groups the bars
+  # run horizontally and the axis font shrinks with the group count so every
+  # label stays visible.
+  if (has_group) {
     grp_df <- ra_group_means(df_pct, facet_by)
-    grp_df$name  <- factor(grp_df$name, levels = taxa_levels)
-    grp_lvls     <- unique(grp_df$label[order(grp_df$group)])
-    grp_df$label <- factor(grp_df$label, levels = grp_lvls)
+    grp_df$name <- factor(grp_df$name, levels = taxa_levels)
+    lab_map  <- unique(grp_df[, c("group", "label")])
+    grp_lvls <- lab_map$label[match(grp_lvls_all, lab_map$group)]
+    n_grp    <- length(grp_lvls)
+    flip     <- n_grp > 12
+    grp_df   <- grp_df[order(match(grp_df$group, grp_lvls_all),
+                             as.integer(grp_df$name)), , drop = FALSE]
     readr::write_csv(
       dplyr::transmute(grp_df, !!facet_by := group, taxon = as.character(name),
                        n_samples, mean_percentage),
       file.path(ds_dir, "relative_abundance_group.csv")
     )
+    # coord_flip draws the first level at the bottom; reverse so the first
+    # group (group_order / alphabetical) reads at the top.
+    grp_df$label <- factor(grp_df$label, levels = if (flip) rev(grp_lvls) else grp_lvls)
+    disp_group <- gsub("_", " ", facet_by, fixed = TRUE)
+
+    g_height <- if (flip) {
+      max(6, 0.3 * n_levels + 2, min(30, 0.25 * n_grp + 2))
+    } else {
+      max(6, 0.3 * n_levels + 2)
+    }
+    g_width <- if (flip) 9 else max(7, 1.4 * n_grp + 5)
+    # Horizontal bars: fit one label per row (7/10 of the row height).
+    grp_axis_pt <- if (flip) {
+      max(3, min(bar_axis_size, round(0.7 * 72 * (g_height - 2) / n_grp, 1)))
+    } else bar_axis_size
+
     pg <- ggplot2::ggplot(grp_df,
                           ggplot2::aes(x = label, y = mean_percentage, fill = name)) +
       ggplot2::geom_bar(stat = "identity") +
       ggplot2::scale_fill_manual(values = palette) +
-      ggplot2::labs(x = facet_by, y = "Mean relative abundance (%)",
+      ggplot2::labs(x = disp_group, y = "Mean relative abundance (%)",
                     fill = "Taxa") +
       ggplot2::theme_classic() +
       ggplot2::theme(
         legend.position = if (isTRUE(show_legend)) "right" else "none",
-        # Rotate the "<group> (n=..)" labels only when there are enough groups
-        # for them to collide.
-        axis.text.x     = ggplot2::element_text(
-          angle = if (length(grp_lvls) > 4) 45 else 0,
-          hjust = if (length(grp_lvls) > 4) 1 else 0.5,
-          size  = bar_axis_size),
         legend.text     = ggplot2::element_text(size = bar_legend_size),
         legend.title    = ggplot2::element_text(size = bar_legend_size + 1),
         text            = ggplot2::element_text(size = 12)
       ) +
       ggplot2::guides(fill = ggplot2::guide_legend(ncol = 1))
-    n_grp <- length(grp_lvls)
+    if (flip) {
+      pg <- pg + ggplot2::coord_flip() +
+        ggplot2::theme(
+          axis.text.y = ggplot2::element_text(size = grp_axis_pt),
+          axis.text.x = ggplot2::element_text(size = bar_axis_size))
+    } else {
+      # Rotate the "<group> (n=..)" labels only when there are enough groups
+      # for them to collide.
+      pg <- pg + ggplot2::theme(
+        axis.text.x = ggplot2::element_text(
+          angle = if (n_grp > 4) 45 else 0,
+          hjust = if (n_grp > 4) 1 else 0.5,
+          size  = bar_axis_size))
+    }
     save_panel_ggplot(file.path(fig_dir, "relative_abundance_group.png"), pg,
-                      width = max(7, 0.9 * n_grp + 5),
-                      height = max(6, 0.3 * n_levels + 2), dpi = 300)
+                      width = g_width, height = g_height, dpi = 300)
     pipeline_log(cfg, sprintf(
-      "Relative abundance: relative_abundance_group.png (%d groups)", n_grp))
+      "Relative abundance: relative_abundance_group.png (%d groups%s)",
+      n_grp, if (flip) sprintf(", horizontal, %.1f pt labels", grp_axis_pt) else ""))
   } else {
     pipeline_log(cfg,
       "Relative abundance: no facet column — group composition skipped")
@@ -370,6 +667,12 @@ run_relative_abundance <- function(cleaned, cfg) {
   # colors match the standalone stacked bar exactly. Categories outside
   # the top_n (and the Others bin) still get a colour via the named
   # vector — scale_fill_manual ignores extras.
+  #
+  # Group column is factored in group_order so the stream's x order matches
+  # the group bars (build_stream_composition keeps an existing factor).
+  if (has_group) {
+    df[[facet_by]] <- factor(as.character(df[[facet_by]]), levels = grp_lvls_all)
+  }
   if (!is.null(facet_by)) {
     stream_palette <- setNames(palette, taxa_levels)
     save_stream_composition(
@@ -448,7 +751,7 @@ run_relative_abundance <- function(cleaned, cfg) {
     }
   }
 
-  if (requireNamespace("plotly", quietly = TRUE) &&
+  if (!is.null(p) && requireNamespace("plotly", quietly = TRUE) &&
       requireNamespace("htmlwidgets", quietly = TRUE)) {
     # selfcontained=TRUE still extracts plotly assets into <name>_files/ during
     # render; on re-run dir.create() warns that the libdir already exists.

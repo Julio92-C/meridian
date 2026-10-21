@@ -226,6 +226,24 @@ build_stage_relative_abundance <- function(cfg, stage_times) {
   status <- stage_status(cfg, "relative_abundance", stage_times)
   if (status == "skipped") return(NULL)
   groups <- cfg_group_levels(cfg)
+  # per_sample.split_by figures (relative_abundance_<level>.png): R/05 lists
+  # them in relative_abundance_split_index.csv each run, so stale files from
+  # earlier runs are never picked up.
+  split_figs <- list()
+  split_idx  <- file.path(cfg$project_root,
+                          ds_path(cfg, "relative_abundance/relative_abundance_split_index.csv"))
+  if (file.exists(split_idx)) {
+    si <- tryCatch(readr::read_csv(split_idx, show_col_types = FALSE,
+                                   progress = FALSE), error = function(e) NULL)
+    for (i in seq_len(if (is.null(si)) 0L else nrow(si))) {
+      split_figs[[length(split_figs) + 1]] <- figure_entry(
+        cfg, fig_path(cfg, file.path("relative_abundance", si$file[i])),
+        kind = "composition_stacked_bar_split", groups = as.list(groups),
+        rank = "species",
+        caption_seed = sprintf("Stacked-bar composition of the top taxa per sample, faceted by group, for %s = %s (same taxa and colours as the full-cohort figure).",
+                               si$split_by[i], si$level[i]))
+    }
+  }
   list(
     status     = status,
     duration_s = stage_times[["relative_abundance"]],
@@ -297,7 +315,7 @@ build_stage_relative_abundance <- function(cfg, stage_times) {
       figure_entry(cfg, fig_path(cfg, "relative_abundance/genus_heatmap_top30.png"),
                    kind = "genus_heatmap", groups = as.list(groups),
                    caption_seed = "Heatmap of the top 30 genera by mean relative abundance, hierarchically clustered on both axes (Bray-Curtis, complete linkage).")
-    ))
+    )) |> c(Filter(Negate(is.null), split_figs))
   )
 }
 

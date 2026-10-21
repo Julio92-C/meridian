@@ -94,6 +94,28 @@ stats:
   padjust_method: BH                # BH | BY | bonferroni | holm | hochberg | none
 
 # --------------------------------------------------------------------------- #
+# Relative-abundance figures (R/05). Every key is optional; the values shown   #
+# are the defaults. Override per project in projects/<slug>/config.yaml.       #
+# --------------------------------------------------------------------------- #
+# relative_abundance:
+#   top_n: 15                # taxa shown (by mean per-sample %); rest -> "Others"
+#   main_panel: group        # group | stream | sample - figure used by the fig05 panel
+#                            #   (falls back group -> stream -> sample if it was not made)
+#   group_order: null        # e.g. [Control, Low, High]; x order of the group bars
+#                            #   and stream (default: alphabetical)
+#   bar_axis_text_size: 12   # axis label pt (group bars shrink automatically when
+#                            #   there are > 12 groups and the bars turn horizontal)
+#   bar_legend_text_size: 12
+#   per_sample:              # relative_abundance.png (one bar per sample)
+#     enabled: auto          # auto | true | false  (true forces it past the limits)
+#     max_samples: 40        # auto: skip above this many samples
+#     layout: auto           # auto | "RxC" e.g. "1x2", "2x2", "3x2"
+#                            #   auto = 1-2 groups 1x2, 3-4 groups 2x2, 5-6 groups 3x2;
+#                            #   > 6 groups -> skipped (logged)
+#     split_by: null         # metadata column: one relative_abundance_<level>.png per
+#                            #   level (same taxa + colours), faceted by the group column
+
+# --------------------------------------------------------------------------- #
 # Quarto dashboard display caps. Statistics are always computed on the full   #
 # unfiltered data — these only limit what plots / reactable tables show, so   #
 # the report stays legible regardless of cohort size.                         #

@@ -182,7 +182,9 @@ main:
       legend_text_size: 5
       legend_key_size_cm: 0.2
     panels:
-      - kind: composition_stacked_bar
+      # composition_main = the R/05 figure chosen by
+      # relative_abundance.main_panel (group | stream | sample; default group).
+      - kind: composition_main
 
   # fig06-08 (per-domain RA standalones for ARG / VF / MGE genes) and
   # fig10-12 (per-domain category-level heatmaps) removed 2026-06-12.

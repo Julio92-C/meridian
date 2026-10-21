@@ -1,5 +1,25 @@
 # MERIDIAN (unreleased)
 
+- Relative abundance (R/05) is now configurable under `relative_abundance:`
+  (all keys optional): `main_panel` (group | stream | sample, default group)
+  chooses the figure behind the fig05 panel (R/13 resolves it through the new
+  `composition_main` slot kind, using the figure's `.rds` for a native panel
+  and falling back group -> stream -> sample, with a log line, if it is
+  missing); `group_order` fixes the x order of the group bars and the stream;
+  `per_sample.{enabled,max_samples,layout,split_by}` control
+  `relative_abundance.png`: automatic 1x2 / 2x2 / 3x2 facet grid by number of
+  groups (skipped, with a log line naming `split_by`, above 6 groups or
+  `max_samples` samples), facet strips "<level> (n=K)", samples ordered by
+  dominant taxon, facet width proportional to sample count in single-row
+  layouts, and `split_by` for one figure per metadata level
+  (`relative_abundance_<level>.png`, shared taxa and colours, listed in the
+  manifest). Group bars switch to horizontal with a shrinking axis font above
+  12 groups; "Others" is the last entry of a single-column legend in every R/05
+  figure.
+- Heatmaps (resistome / virulome / mobilome): a matrix with a single gene or
+  category row is min-max scaled across samples instead of per column (which
+  gave a solid colour), with the legend titled "Scaled TPM (0-1, across
+  samples)".
 - Fix (R/05): the species-rank filter no longer drops rows whose kraken2 rank is
   unknown (blank `lvl_type`, e.g. hospital_microbiome's synthetic lookup, or a
   taxid missing from kraken2). Only known non-"S" ranks (S1, S2, G, ...) are

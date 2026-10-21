@@ -309,6 +309,30 @@ ge_minmax_per_col <- function(mat) {
   result
 }
 
+# Scaling for the heatmap helpers. Normally per-column min-max
+# (ge_minmax_per_col). With exactly ONE row (single gene / category) every
+# column is constant, so per-column scaling is all zero and the heatmap is a
+# single flat colour; scale that row across samples instead and relabel the
+# legend. A row that is itself constant across samples keeps the all-zero
+# result (the fixed 0-1 breaks in the callers handle it).
+# Returns list(mat, legend_title).
+ge_scale_for_heatmap <- function(mat, legend_title = "value") {
+  mat <- as.matrix(mat)
+  if (nrow(mat) == 1L && ncol(mat) > 1L) {
+    x <- mat[1, ]
+    if (any(is.finite(x))) {
+      rng <- range(x, na.rm = TRUE)
+      if (diff(rng) > 0) {
+        out <- mat
+        out[1, ] <- (x - rng[1]) / diff(rng)
+        return(list(mat = out,
+                    legend_title = "Scaled TPM (0-1, across samples)"))
+      }
+    }
+  }
+  list(mat = ge_minmax_per_col(mat), legend_title = legend_title)
+}
+
 # Boxplot + jittered dots of `metric` ~ `group`, fill by group. Violin
 # was removed 2026-06-12 — the per-sample dots already communicate the
 # distribution shape, and the box + dot combo is the reviewer-preferred
@@ -673,7 +697,9 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
   if (!is.null(top_n) && nrow(gene_wide) > top_n) {
     gene_wide <- gene_wide[seq_len(top_n), , drop = FALSE]
   }
-  gene_scaled <- ge_minmax_per_col(gene_wide)
+  sc <- ge_scale_for_heatmap(gene_wide, legend_title)
+  gene_scaled  <- sc$mat
+  legend_title <- sc$legend_title
 
   cat_per_gene <- df |>
     dplyr::distinct(.data$GENE, .keep_all = TRUE) |>
@@ -795,7 +821,9 @@ ge_plot_category_heatmap <- function(df, category_col, group, pal_group,
     as.matrix()
   cat_wide   <- cat_wide[order(rowSums(cat_wide), decreasing = TRUE), ,
                           drop = FALSE]
-  cat_scaled <- ge_minmax_per_col(cat_wide)
+  sc <- ge_scale_for_heatmap(cat_wide, legend_title)
+  cat_scaled   <- sc$mat
+  legend_title <- sc$legend_title
 
   sample_group <- df |>
     dplyr::distinct(.data$sample, .keep_all = TRUE) |>
