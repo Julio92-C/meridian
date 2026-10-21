@@ -1,4 +1,4 @@
-# MERIDIAN (unreleased)
+# MERIDIAN 1.1.0
 
 - Relative abundance (R/05) is now configurable under `relative_abundance:`
   (all keys optional): `main_panel` (group | stream | sample, default group)
