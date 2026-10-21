@@ -71,6 +71,20 @@ run_taxonomy <- function(cleaned, cfg) {
   if (!group %in% colnames(joined)) {
     stop(sprintf("Taxonomy: group column '%s' not found in metadata", group))
   }
+  # Samples with an NA group (blank metadata cell) would put an NA level into
+  # the Venn columns and the heatmap gaps (gaps_col = NA aborts pheatmap).
+  n_na_grp <- sum(is.na(joined[[group]]))
+  if (n_na_grp > 0) {
+    pipeline_log(cfg, sprintf(
+      "Taxonomy: dropping %d row(s) from sample(s) with NA %s",
+      n_na_grp, group
+    ))
+    joined <- joined[!is.na(joined[[group]]), , drop = FALSE]
+    if (nrow(joined) == 0) {
+      pipeline_log(cfg, "Taxonomy: no rows left after NA-group drop — skipping")
+      return(invisible(NULL))
+    }
+  }
 
   # Per-(taxon, sample) count threshold. Evaluated row-by-row in long form,
   # so a taxon can be kept in samples where it crosses the threshold and
@@ -184,6 +198,13 @@ run_taxonomy <- function(cleaned, cfg) {
     tibble::column_to_rownames("name") |>
     as.matrix()
   heat_mat <- heat_mat[order(rowMeans(heat_mat), decreasing = TRUE), , drop = FALSE]
+  # pheatmap builds its colour breaks from the data range; a constant matrix
+  # (e.g. one retained taxon in one sample = a single 100%) -> "breaks are
+  # not unique". Percentages are not 0-1 scaled, so skip the heatmap only.
+  if (length(unique(as.vector(heat_mat))) < 2) {
+    pipeline_log(cfg, "Taxonomy: heatmap matrix is constant — skipping taxa_heatmap")
+    return(invisible(NULL))
+  }
 
   ann_col <- joined |>
     dplyr::select(sample, dplyr::all_of(group)) |>

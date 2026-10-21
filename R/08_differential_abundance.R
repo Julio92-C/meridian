@@ -135,8 +135,18 @@ da_build_design <- function(design_str, meta_use, sid, level) {
   for (v in vars) {
     if (is.character(meta_sub[[v]])) meta_sub[[v]] <- factor(meta_sub[[v]])
   }
+  # model.matrix() aborts ("contrasts can be applied only to factors with 2
+  # or more levels") when a design factor has a single level among the
+  # complete-case samples. Report it instead so the caller can skip.
+  ok_rows <- stats::complete.cases(meta_sub[, vars, drop = FALSE])
+  one_level <- vars[vapply(vars, function(v) {
+    dplyr::n_distinct(meta_sub[[v]][ok_rows]) < 2
+  }, logical(1))]
+  if (length(one_level) > 0) {
+    return(list(form = form, vars = vars, mm = NULL, degenerate = one_level))
+  }
   list(form = form, vars = vars,
-       mm = stats::model.matrix(form, data = meta_sub))
+       mm = stats::model.matrix(form, data = meta_sub), degenerate = NULL)
 }
 
 # aldex.glm path — fits the supplied design across all samples in one shot.
@@ -145,7 +155,15 @@ da_build_design <- function(design_str, meta_use, sid, level) {
 # p < alpha.
 da_run_glm <- function(level, mat, meta_use, sid, design_str,
                        mc, denom, alpha, ds_dir, feature_col, cfg) {
+  skip_degenerate <- function(ds) {
+    pipeline_log(cfg, sprintf(
+      "DA[%s] glm: design variable(s) %s have < 2 levels among the samples — skipping glm",
+      level, paste(ds$degenerate, collapse = ", ")
+    ))
+    invisible(NULL)
+  }
   ds <- da_build_design(design_str, meta_use, sid, level)
+  if (!is.null(ds$degenerate)) return(skip_degenerate(ds))
   vars <- ds$vars
   # Drop samples with NA in any design variable so model.matrix and the
   # counts matrix line up; warn if anything was dropped.
@@ -160,6 +178,7 @@ da_run_glm <- function(level, mat, meta_use, sid, design_str,
     keep_cols <- intersect(colnames(mat), as.character(meta_use[[sid]]))
     mat <- mat[, keep_cols, drop = FALSE]
     ds <- da_build_design(design_str, meta_use, sid, level)
+    if (!is.null(ds$degenerate)) return(skip_degenerate(ds))
   }
   mm <- ds$mm
   if (nrow(mm) != ncol(mat)) {
@@ -169,6 +188,13 @@ da_run_glm <- function(level, mat, meta_use, sid, design_str,
   if (ncol(mm) < 2) {
     stop(sprintf("DA[%s] design: model.matrix has no non-intercept terms (only '%s')",
                  level, paste(colnames(mm), collapse = ", ")))
+  }
+  if (nrow(mm) <= ncol(mm)) {
+    pipeline_log(cfg, sprintf(
+      "DA[%s] glm: %d samples <= %d coefficients (no residual df) — skipping glm",
+      level, nrow(mm), ncol(mm)
+    ))
+    return(invisible(NULL))
   }
   pipeline_log(cfg, sprintf(
     "DA[%s] glm: design=%s (coefficients: %s)",
@@ -496,7 +522,7 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
 
     # Custom volcano: effect vs -log10(q).
     qcol <- intersect(c("wi.eBH", "we.eBH"), colnames(res_df))[1]
-    if (!is.na(qcol)) {
+    if (!is.na(qcol) && any(is.finite(-log10(res_df[[qcol]])))) {
       graphics::par(mfrow = c(1, 1), mar = c(5, 4, 3, 1))
       graphics::plot(
         res_df$effect, -log10(res_df[[qcol]]), pch = 20,
@@ -537,7 +563,8 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
                           linetype = "dashed", colour = "red") +
       ggplot2::scale_color_manual(values = c(`TRUE` = "#d62728",
                                               `FALSE` = "#7f7f7f"),
-                                   labels = c("ns", sprintf("q < %.2f", alpha))) +
+                                   labels = c(`FALSE` = "ns",
+                                              `TRUE` = sprintf("q < %.2f", alpha))) +
       ggplot2::labs(
         title = sprintf("%s — effect vs -log10(q)", cn),
         x = "ALDEx2 effect (CLR diff)",
@@ -634,26 +661,31 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
         ann_col    <- data.frame(Treatment = grp_run,
                                   row.names = colnames(sub_mat))
         ann_colors <- list(Treatment = pal[grp_lvls])
-        pheatmap::pheatmap(
-          z,
-          cluster_rows = FALSE,
-          cluster_cols = FALSE,
-          color = grDevices::colorRampPalette(
-            c("#0612bd", "#bbbbbd", "#bd0606")
-          )(100),
-          border_color      = NA,
-          annotation_col    = ann_col,
-          annotation_colors = ann_colors,
-          gaps_col          = gaps_col,
-          fontsize_row = 8, fontsize_col = 8, fontsize = 8,
-          filename = file.path(fig_dir, "top30_daa_heatmap.png"),
-          width  = max(8, 0.4  * ncol(sub_mat) + 4),
-          height = max(6, 0.22 * nrow(sub_mat) + 2.5)
-        )
-        pipeline_log(cfg, sprintf(
-          "DA[%s] top30_daa_heatmap.png (%d features x %d samples)",
-          level, nrow(sub_mat), ncol(sub_mat)
-        ))
+        if (length(unique(as.vector(z))) < 2) {
+          pipeline_log(cfg, sprintf(
+            "DA[%s] top30 heatmap: z-scored matrix is constant — heatmap skipped", level))
+        } else {
+          pheatmap::pheatmap(
+            z,
+            cluster_rows = FALSE,
+            cluster_cols = FALSE,
+            color = grDevices::colorRampPalette(
+              c("#0612bd", "#bbbbbd", "#bd0606")
+            )(100),
+            border_color      = NA,
+            annotation_col    = ann_col,
+            annotation_colors = ann_colors,
+            gaps_col          = gaps_col,
+            fontsize_row = 8, fontsize_col = 8, fontsize = 8,
+            filename = file.path(fig_dir, "top30_daa_heatmap.png"),
+            width  = max(8, 0.4  * ncol(sub_mat) + 4),
+            height = max(6, 0.22 * nrow(sub_mat) + 2.5)
+          )
+          pipeline_log(cfg, sprintf(
+            "DA[%s] top30_daa_heatmap.png (%d features x %d samples)",
+            level, nrow(sub_mat), ncol(sub_mat)
+          ))
+        }
       }
     }
 
@@ -755,9 +787,9 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
                                         na.value = "grey60") +
           ggplot2::scale_shape_manual(values = c(`TRUE`  = 16,
                                                   `FALSE` = 1),
-                                       labels = c("ns",
-                                                  sprintf("q < %.2g",
-                                                          alpha_dt))) +
+                                       labels = c(`FALSE` = "ns",
+                                                  `TRUE` = sprintf("q < %.2g",
+                                                                   alpha_dt))) +
           ggplot2::facet_wrap(~ pair, nrow = 1) +
           ggplot2::labs(x = "ALDEx2 effect (CLR diff)", y = NULL,
                         colour = "Direction", shape = "Significance") +

@@ -1,3 +1,87 @@
+# MERIDIAN 1.1.0
+
+- Relative abundance (R/05) is now configurable under `relative_abundance:`
+  (all keys optional): `main_panel` (group | stream | sample, default group)
+  chooses the figure behind the fig05 panel (R/13 resolves it through the new
+  `composition_main` slot kind, using the figure's `.rds` for a native panel
+  and falling back group -> stream -> sample, with a log line, if it is
+  missing); `group_order` fixes the x order of the group bars and the stream;
+  `per_sample.{enabled,max_samples,layout,split_by}` control
+  `relative_abundance.png`: automatic 1x2 / 2x2 / 3x2 facet grid by number of
+  groups (skipped, with a log line naming `split_by`, above 6 groups or
+  `max_samples` samples), facet strips "<level> (n=K)", samples ordered by
+  dominant taxon, facet width proportional to sample count in single-row
+  layouts, and `split_by` for one figure per metadata level
+  (`relative_abundance_<level>.png`, shared taxa and colours, listed in the
+  manifest). Group bars switch to horizontal with a shrinking axis font above
+  12 groups; "Others" is the last entry of a single-column legend in every R/05
+  figure.
+- Heatmaps (resistome / virulome / mobilome): a matrix with a single gene or
+  category row is min-max scaled across samples instead of per column (which
+  gave a solid colour), with the legend titled "Scaled TPM (0-1, across
+  samples)".
+- Fix (R/05): the species-rank filter no longer drops rows whose kraken2 rank is
+  unknown (blank `lvl_type`, e.g. hospital_microbiome's synthetic lookup, or a
+  taxid missing from kraken2). Only known non-"S" ranks (S1, S2, G, ...) are
+  removed; if no row has a known rank the filter is skipped and logged.
+- Stage safety net: stages that read the normalised table (resistome, virulome,
+  mobilome, network) are skipped, logged ("upstream stage normalisation failed")
+  and recorded in `stage_errors.csv` ("skipped: upstream normalisation failed")
+  when normalisation fails, instead of reusing a previous run's
+  `genetable_normdata.csv`. Publication panels (R/13) ignore the figures/tables
+  of any failed stage so stale PNGs are not assembled into composites. No files
+  are deleted from the output directories.
+
+- Stage safety net (run_pipeline.R): an error in an analysis stage (normalisation
+  through network), the report, panels or manifest no longer aborts the run. The
+  error is logged as `STAGE FAILED: <stage> — <message>`, appended to
+  `<reports>/stage_errors.csv`, shown in a red box at the top of the report
+  sidebar, and the stage is marked `failed` in manifest.json. `load_inputs` and
+  `clean_data` stay fatal. Set `stages: strict: true` to exit non-zero at the end
+  of the run when any stage failed.
+
+- Relative abundance (R/05): top-N taxa are now ranked by MEAN per-sample
+  relative abundance (%) instead of total raw counts (which favoured the deepest
+  samples), and the default `relative_abundance.top_n` is 15 (was 50). One shared
+  helper (`ra_prepare_composition`) serves the per-sample, per-rank and group plots.
+- Relative abundance is species rank only: R/02 now carries the kraken2 rank code
+  as `tax_rank`, and R/05 keeps rank "S" so strain / subspecies rows no longer
+  double-count their parent species.
+- New main figure `relative_abundance_group.png` (+ `relative_abundance/relative_abundance_group.csv`):
+  one stacked bar per `facet_by` level, mean of the per-sample %, n per group in
+  the axis labels. The per-sample `relative_abundance.png` is kept as the
+  supplementary figure; streamgraphs are unchanged in kind.
+- "Others" is always light grey `#BDBDBD` in all R/05 figures; taxon colours never use it.
+- Streamgraphs: title is "Species composition by <group>" (was hard-coded
+  "treatment"), and the unlabelled grey band is fixed. It was a taxon in the stream's
+  own top-12 (ranked by a different measure) that had no entry in the count-ranked
+  palette, so it fell back to `na.value` grey and had no legend key. The stream now
+  receives the same top-N and palette as the bars (`build_stream_composition(categories=)`).
+- Dashboard (templates/report.qmd) shows the group figure first and the
+  per-sample figure second; manifest entries added.
+- Add testthat test (tests/testthat/test-relab-topn.R).
+- Sparse / low-biomass hardening: degenerate inputs now skip the one affected
+  artifact with a `pipeline_log` line instead of aborting the run.
+  - PCoA with < 2 informative axes (identical or collinear profiles, e.g. a single
+    taxon / gene / replicon) is skipped in R/07 (Bray; Jaccard is skipped on its own)
+    and in `ge_plot_beta` (resistome / virulome / mobilome).
+  - Samples with an NA group are dropped (logged) before PERMANOVA, heatmap gaps and
+    Venn in R/04, R/07 and the GE stages (`ge_ensure_group_column`).
+  - pheatmap "breaks are not unique" on constant matrices: the min-max scaled GE gene /
+    category heatmaps pass fixed 0-1 breaks (they render); R/04, R/05 genus and R/08
+    top-30 heatmaps skip with a log line. R/05 genus heatmap also needs >= 2 samples.
+  - R/08 `design:` (aldex.glm) skips with a log line when a design factor has a single
+    level or there is no residual df; volcano / dot-plot legends use named labels.
+  - R/10 VF x ARG correlation drops constant (all-NA correlation) rows / columns before
+    clustering.
+  - `ge_compute_alpha`: Shannon is computed per sample (an n x 1 matrix used to recycle
+    one wrong value across all samples).
+  - R/12 re-joins the group column from metadata when it is not in `fixed_effects`
+    (skips the network stage with a message if impossible); R/13 composite `ggsave`
+    uses `limitsize = FALSE`; `save_widget_safe()` retries `saveWidget` with
+    `selfcontained = FALSE` when pandoc is missing (R/05, R/07, R/12).
+  - Add testthat tests (tests/testthat/test-sparse-guards.R).
+
 # MERIDIAN 1.0.2
 
 - Fix: beta diversity (`ge_plot_beta()` for resistome / virulome / mobilome,

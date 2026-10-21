@@ -183,6 +183,9 @@ stage_status <- function(cfg, name, stage_times) {
   default <- isTRUE(.STAGE_DEFAULT_ENABLED[[name]])
   enabled <- isTRUE(cfg$stages[[name]] %||% default)
   if (!enabled) return("skipped")
+  # Errors caught by run_pipeline.R's stage safety net win over partial
+  # artifacts the stage may have written before failing.
+  if (name %in% read_stage_errors(cfg)$stage) return("failed")
   if (!is.null(stage_times[[name]])) return("complete")
   spec <- .STAGE_PRIMARY[[name]]
   if (!is.null(spec)) {
@@ -223,19 +226,44 @@ build_stage_relative_abundance <- function(cfg, stage_times) {
   status <- stage_status(cfg, "relative_abundance", stage_times)
   if (status == "skipped") return(NULL)
   groups <- cfg_group_levels(cfg)
+  # per_sample.split_by figures (relative_abundance_<level>.png): R/05 lists
+  # them in relative_abundance_split_index.csv each run, so stale files from
+  # earlier runs are never picked up.
+  split_figs <- list()
+  split_idx  <- file.path(cfg$project_root,
+                          ds_path(cfg, "relative_abundance/relative_abundance_split_index.csv"))
+  if (file.exists(split_idx)) {
+    si <- tryCatch(readr::read_csv(split_idx, show_col_types = FALSE,
+                                   progress = FALSE), error = function(e) NULL)
+    for (i in seq_len(if (is.null(si)) 0L else nrow(si))) {
+      split_figs[[length(split_figs) + 1]] <- figure_entry(
+        cfg, fig_path(cfg, file.path("relative_abundance", si$file[i])),
+        kind = "composition_stacked_bar_split", groups = as.list(groups),
+        rank = "species",
+        caption_seed = sprintf("Stacked-bar composition of the top taxa per sample, faceted by group, for %s = %s (same taxa and colours as the full-cohort figure).",
+                               si$split_by[i], si$level[i]))
+    }
+  }
   list(
     status     = status,
     duration_s = stage_times[["relative_abundance"]],
     tables     = Filter(Negate(is.null), list(
       table_entry(cfg, ds_path(cfg, "relative_abundance/composition_long.csv"),
                   kind = "composition_long",
-                  description = "Long-form per-sample taxon relative abundance, filtered to count > min_count_per_sample.")
+                  description = "Long-form per-sample taxon relative abundance, filtered to count > min_count_per_sample."),
+      table_entry(cfg, ds_path(cfg, "relative_abundance/relative_abundance_group.csv"),
+                  kind = "composition_group",
+                  description = "Per-group mean of the per-sample relative abundance (%) for the top-N taxa plus Others, with n samples per group.")
     )),
     figures    = Filter(Negate(is.null), list(
+      figure_entry(cfg, fig_path(cfg, "relative_abundance/relative_abundance_group.png"),
+                   kind = "composition_stacked_bar_group", groups = as.list(groups),
+                   rank = "species",
+                   caption_seed = "Stacked-bar composition of the top taxa, one bar per group (mean of the per-sample relative abundance; n samples per group in the axis labels), species level."),
       figure_entry(cfg, fig_path(cfg, "relative_abundance/relative_abundance.png"),
                    kind = "composition_stacked_bar", groups = as.list(groups),
                    rank = "species",
-                   caption_seed = "Stacked-bar composition of the top taxa per sample, faceted by group."),
+                   caption_seed = "Stacked-bar composition of the top taxa per sample, faceted by group (supplementary)."),
       figure_entry(cfg, fig_path(cfg, "relative_abundance/relative_abundance_class.png"),
                    kind = "composition_stacked_bar", groups = as.list(groups),
                    rank = "class",
@@ -287,7 +315,7 @@ build_stage_relative_abundance <- function(cfg, stage_times) {
       figure_entry(cfg, fig_path(cfg, "relative_abundance/genus_heatmap_top30.png"),
                    kind = "genus_heatmap", groups = as.list(groups),
                    caption_seed = "Heatmap of the top 30 genera by mean relative abundance, hierarchically clustered on both axes (Bray-Curtis, complete linkage).")
-    ))
+    )) |> c(Filter(Negate(is.null), split_figs))
   )
 }
 

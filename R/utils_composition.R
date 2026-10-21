@@ -31,7 +31,8 @@ build_stream_composition <- function(df,
                                       others_label   = "Others",
                                       title          = NULL,
                                       fill_label     = NULL,
-                                      stream_type    = "proportional") {
+                                      stream_type    = "proportional",
+                                      categories     = NULL) {
   for (pkg in c("ggplot2", "dplyr")) {
     if (!requireNamespace(pkg, quietly = TRUE)) {
       stop("build_stream_composition: required package '", pkg, "' not available")
@@ -67,8 +68,15 @@ build_stream_composition <- function(df,
     dplyr::summarise(mean_pct = mean(.data$.pct, na.rm = TRUE),
                      .groups = "drop") |>
     dplyr::arrange(dplyr::desc(.data$mean_pct))
-  top_cats <- utils::head(as.character(global_means[[category_col]]),
-                          max(1L, as.integer(top_n)))
+  # `categories` lets the caller pin the displayed set (e.g. R/05 passes its
+  # shared top-N so the stream and the stacked bars show the same taxa);
+  # anything not listed is collapsed into Others. Otherwise rank by mean %.
+  top_cats <- if (!is.null(categories)) {
+    as.character(categories)
+  } else {
+    utils::head(as.character(global_means[[category_col]]),
+                max(1L, as.integer(top_n)))
+  }
   df_pct[[category_col]] <- ifelse(
     as.character(df_pct[[category_col]]) %in% top_cats,
     as.character(df_pct[[category_col]]), others_label

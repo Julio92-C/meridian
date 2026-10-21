@@ -94,6 +94,24 @@ run_beta_diversity <- function(cleaned, cfg) {
   mat <- as.matrix(wide[, -1])
   rownames(mat) <- wide$sample
   mat <- mat[rowSums(mat) > 0, , drop = FALSE]
+
+  # Metadata is read up front so samples with an NA group value (blank cell,
+  # or a sample absent from the metadata) can be dropped BEFORE the distance
+  # step: adonis2() uses na.fail and would abort the stage on them.
+  meta <- readr::read_csv(
+    file.path(cfg$project_root, cfg$metadata$file), show_col_types = FALSE
+  )
+  meta[[sid]] <- as.character(meta[[sid]])
+  if (group %in% colnames(meta)) {
+    grp_chk <- meta[[group]][match(rownames(mat), meta[[sid]])]
+    ok_grp  <- !is.na(grp_chk)
+    if (!all(ok_grp)) {
+      pipeline_log(cfg, sprintf(
+        "Beta diversity: dropping %d sample(s) with NA %s", sum(!ok_grp), group
+      ))
+      mat <- mat[ok_grp, , drop = FALSE]
+    }
+  }
   if (nrow(mat) < 3) {
     pipeline_log(cfg, sprintf(
       "Beta diversity: only %d samples after filtering — need >= 3 for PCoA", nrow(mat)
@@ -117,6 +135,13 @@ run_beta_diversity <- function(cleaned, cfg) {
 
   # ---- 5. PCoA (cmdscale matches GT) ------------------------------------
   pcoa <- stats::cmdscale(d, eig = TRUE, k = 2)
+  if (ncol(pcoa$points) < 2) {
+    pipeline_log(cfg, sprintf(
+      "Beta diversity: %s distances give < 2 PCoA axes (degenerate/identical profiles) — skipping beta diversity",
+      distance
+    ))
+    return(invisible(NULL))
+  }
   var_explained <- pcoa$eig / sum(pcoa$eig[pcoa$eig > 0]) * 100
   scores <- data.frame(
     sample = rownames(mat_t),
@@ -125,10 +150,6 @@ run_beta_diversity <- function(cleaned, cfg) {
   )
 
   # ---- 6. Join metadata --------------------------------------------------
-  meta <- readr::read_csv(
-    file.path(cfg$project_root, cfg$metadata$file), show_col_types = FALSE
-  )
-  meta[[sid]]   <- as.character(meta[[sid]])
   scores$sample <- as.character(scores$sample)
   scores <- dplyr::inner_join(scores, meta, by = c("sample" = sid))
   if (!group %in% colnames(scores)) {
@@ -193,6 +214,12 @@ run_beta_diversity <- function(cleaned, cfg) {
     mat_pa  <- vegan::decostand(mat, method = "pa")
     d_jac   <- vegan::vegdist(mat_pa, method = "jaccard", binary = TRUE)
     pcoa_j  <- stats::cmdscale(d_jac, eig = TRUE, k = 2)
+    if (ncol(pcoa_j$points) < 2) {
+      pipeline_log(cfg, "Beta diversity: Jaccard distances give < 2 PCoA axes (identical presence/absence profiles) — skipping Jaccard PCoA")
+      has_jac <- FALSE
+    }
+  }
+  if (has_jac) {
     var_j   <- pcoa_j$eig / sum(pcoa_j$eig[pcoa_j$eig > 0]) * 100
     scores_j <- data.frame(
       sample = rownames(mat_pa),
@@ -301,12 +328,10 @@ run_beta_diversity <- function(cleaned, cfg) {
   if (requireNamespace("plotly", quietly = TRUE) &&
       requireNamespace("htmlwidgets", quietly = TRUE)) {
     # See note in R/05 — suppress benign re-run dir.create() warnings.
-    suppressWarnings(
-      htmlwidgets::saveWidget(
-        plotly::ggplotly(p),
-        file = file.path(fig_dir, "pcoa.html"),
-        selfcontained = TRUE
-      )
+    save_widget_safe(
+      plotly::ggplotly(p),
+      file = file.path(fig_dir, "pcoa.html"),
+      selfcontained = TRUE, cfg = cfg
     )
   }
 

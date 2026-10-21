@@ -50,6 +50,17 @@ run_panels <- function(cfg) {
   }
   stages_index  <- build_stages_index(cfg)
   manifest_like <- list(stages = stages_index)
+  # Stages that failed in this run may still have older PNG/CSV files on disk
+  # from a previous run. Drop their entries so slots/tables treat them as
+  # missing instead of assembling stale artifacts (files are left untouched).
+  failed_stages <- read_stage_errors(cfg)$stage
+  if (length(failed_stages) > 0) {
+    pipeline_log(cfg, sprintf(
+      "Panels: ignoring outputs of failed stage(s): %s",
+      paste(failed_stages, collapse = ", ")))
+    manifest_like$stages <- manifest_like$stages[
+      !(names(manifest_like$stages) %in% failed_stages)]
+  }
   figures_index <- .panels_index_figures(manifest_like)
   tables_index  <- .panels_index_tables(manifest_like)
 
@@ -431,14 +442,14 @@ run_panels <- function(cfg) {
   if (emit_png) {
     ggplot2::ggsave(out_path, composed_final,
                      width = width, height = height,
-                     dpi = dpi, bg = "white")
+                     dpi = dpi, bg = "white", limitsize = FALSE)
   }
 
   if (emit_tiff) {
     tiff_path <- sub("\\.png$", ".tiff", out_path)
     ggplot2::ggsave(tiff_path, composed_final,
                      width = width, height = height,
-                     dpi = dpi, bg = "white",
+                     dpi = dpi, bg = "white", limitsize = FALSE,
                      device = grDevices::tiff,
                      compression = "lzw")
   }
@@ -446,7 +457,7 @@ run_panels <- function(cfg) {
   if (emit_pdf) {
     pdf_path <- sub("\\.png$", ".pdf", out_path)
     ggplot2::ggsave(pdf_path, composed_final,
-                     width = width, height = height,
+                     width = width, height = height, limitsize = FALSE,
                      device = grDevices::cairo_pdf)
   }
 
@@ -585,9 +596,42 @@ run_panels <- function(cfg) {
 # Slot panel spec → manifest entry
 # ---------------------------------------------------------------------------
 
+# Resolve the `composition_main` kind: the R/05 figure named by
+# relative_abundance.main_panel (default "group" -> relative_abundance_group,
+# "stream" -> relative_abundance_stream, "sample" -> relative_abundance). When
+# that figure is not in the manifest or not on disk (e.g. the per-sample
+# figure was skipped), fall back to the next available one in the order
+# group -> stream -> sample and log it. The chosen PNG's sibling .rds is then
+# picked up by the usual native-ggplot path in .panels_build_section_grid().
+.panels_composition_main <- function(figures_index, cfg) {
+  hits <- list()
+  for (entry in figures_index) {
+    if (!identical(entry$stage, "relative_abundance")) next
+    stem <- tools::file_path_sans_ext(basename(entry$path %||% ""))
+    k <- names(RA_MAIN_PANEL_FILES)[match(stem, RA_MAIN_PANEL_FILES)]
+    if (is.na(k) || !is.null(hits[[k]])) next
+    if (file.exists(.panels_resolve_path(cfg, entry$path))) hits[[k]] <- entry
+  }
+  wanted <- ra_main_panel_wanted(cfg)
+  pick   <- ra_main_panel_source(cfg, names(hits))
+  if (is.null(pick)) return(NULL)
+  if (!identical(pick, wanted)) {
+    pipeline_log(cfg, sprintf(
+      "Panels: relative_abundance.main_panel '%s' not available — using '%s' for the relative-abundance panel",
+      wanted, pick))
+  }
+  hits[[pick]]
+}
+
 # Filter the figures index by every field present on the panel spec (kind,
 # domain, metric, pair, organism, rank). First match wins.
 .panels_find_match <- function(panel_spec, figures_index, cfg) {
+  # `composition_main`: the fig05 relative-abundance slot. The figure is chosen
+  # by relative_abundance.main_panel (group | stream | sample), not by a fixed
+  # manifest kind, so it can follow the project config.
+  if (identical(panel_spec$kind, "composition_main")) {
+    return(.panels_composition_main(figures_index, cfg))
+  }
   filters <- panel_spec[setdiff(names(panel_spec),
                                  c("tag", "required", "composite"))]
   if (is.null(filters$kind)) return(NULL)
