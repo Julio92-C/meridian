@@ -59,3 +59,36 @@ test_that("Others is always #BDBDBD and taxa never use it", {
   pal2 <- ra_taxa_palette(c("a", "b", "Rest"), "Rest", cfg)
   expect_equal(unname(pal2["Rest"]), "#BDBDBD")
 })
+
+# ---- species-rank filter: unknown ranks must never make taxa vanish --------
+if (!exists("pipeline_log", envir = globalenv()))
+  assign("pipeline_log", function(cfg, msg) invisible(NULL), envir = globalenv())
+
+test_that("all-NA tax_rank (blank lvl_type) keeps every row", {
+  d <- data.frame(name = c("a", "b", "c"), count = 1:3, tax_rank = NA_character_)
+  expect_equal(nrow(ra_filter_species_rank(d, list())), 3)
+  d$tax_rank <- ""
+  expect_equal(nrow(ra_filter_species_rank(d, list())), 3)
+})
+
+test_that("mixed S / S1 / NA keeps S and NA, drops S1", {
+  d <- data.frame(name = c("sp", "strain", "unk", "genus"), count = 1:4,
+                  tax_rank = c("S", "S1", NA, "G"))
+  out <- ra_filter_species_rank(d, list())
+  expect_equal(out$name, c("sp", "unk"))
+})
+
+test_that("a taxid missing from kraken2 (NA rank) is kept after the R/02 join", {
+  # mimic R/02: left join of rcf rows onto a kraken2 rank lookup
+  rcf <- data.frame(taxid = c(1, 2, 3), name = c("a", "b", "c"), count = 1:3)
+  k2  <- data.frame(taxid = c(1, 2), tax_rank = c("S", "S1"))
+  d <- dplyr::left_join(rcf, k2, by = "taxid")
+  expect_true(is.na(d$tax_rank[d$taxid == 3]))
+  out <- ra_filter_species_rank(d, list())
+  expect_equal(out$name, c("a", "c"))
+})
+
+test_that("missing tax_rank column leaves the table untouched", {
+  d <- data.frame(name = "a", count = 1)
+  expect_equal(ra_filter_species_rank(d, list()), d)
+})

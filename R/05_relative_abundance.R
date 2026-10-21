@@ -175,6 +175,33 @@ ra_render_stacked_bar <- function(df_in, facet_by, ra_cfg, cfg,
   invisible(df_pct)
 }
 
+# Species-rank filter. Drops rows whose kraken2 rank is KNOWN and not "S"
+# (S1/S2/... strains, genus/higher ranks) so strains don't double-count their
+# species. Rows with an unknown (NA/blank) rank are KEPT: a blank lvl_type
+# (e.g. a synthetic kraken2 lookup) or a taxid absent from kraken2 must not
+# make taxa vanish. If no row has a known rank, the filter is skipped entirely.
+ra_filter_species_rank <- function(raw_nc, cfg) {
+  if (!("tax_rank" %in% colnames(raw_nc))) {
+    pipeline_log(cfg,
+      "Relative abundance: no tax_rank column — strain rows not filtered")
+    return(raw_nc)
+  }
+  rk <- trimws(as.character(raw_nc$tax_rank))
+  unknown <- is.na(rk) | !nzchar(rk)
+  if (all(unknown)) {
+    pipeline_log(cfg,
+      "Relative abundance: tax_rank unknown for all rows — species-rank filter skipped")
+    return(raw_nc)
+  }
+  n_rows <- nrow(raw_nc)
+  out <- raw_nc[unknown | rk %in% "S", , drop = FALSE]
+  pipeline_log(cfg, sprintf(
+    "Relative abundance: %d/%d rows kept (kraken2 rank S; %d rows of unknown rank kept)",
+    nrow(out), n_rows, sum(unknown)
+  ))
+  out
+}
+
 run_relative_abundance <- function(cleaned, cfg) {
   pipeline_log(cfg, "Relative abundance")
   fig_dir <- file.path(cfg$project_root, cfg$outputs$figures_dir, "relative_abundance")
@@ -185,18 +212,7 @@ run_relative_abundance <- function(cleaned, cfg) {
   # ---- 1. Species rank only, then clean taxa names -----------------------
   # R/02 carries each row's kraken2 rank code in `tax_rank`. Keep "S" only so
   # strain / subspecies rows (S1, S2, ...) don't double-count their species.
-  raw_nc <- cleaned$noncontaminants
-  if ("tax_rank" %in% colnames(raw_nc)) {
-    n_rows <- nrow(raw_nc)
-    raw_nc <- dplyr::filter(raw_nc, .data$tax_rank %in% "S")
-    pipeline_log(cfg, sprintf(
-      "Relative abundance: %d/%d rows at species rank (kraken2 rank S)",
-      nrow(raw_nc), n_rows
-    ))
-  } else {
-    pipeline_log(cfg,
-      "Relative abundance: no tax_rank column — strain rows not filtered")
-  }
+  raw_nc <- ra_filter_species_rank(cleaned$noncontaminants, cfg)
   df <- clean_taxa_names(raw_nc, cfg)
   if (nrow(df) == 0) {
     pipeline_log(cfg, "Relative abundance: no rows after clean_taxa_names — skipping")
