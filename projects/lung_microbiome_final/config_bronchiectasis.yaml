@@ -123,7 +123,7 @@ beta_diversity:
   min_sample_reads: 100
 
 outputs:
-  datasets_dir: "results_bronchiectasis/Datasets"
-  figures_dir:  "results_bronchiectasis/Figures"
-  report_html:  "results_bronchiectasis/Reports/pipeline_report.html"
-  log_file:     "results_bronchiectasis/Reports/pipeline.log"
+  datasets_dir: "results/ch6_clinical/bronchiectasis/Datasets"
+  figures_dir:  "results/ch6_clinical/bronchiectasis/Figures"
+  report_html:  "results/ch6_clinical/bronchiectasis/Reports/pipeline_report.html"
+  log_file:     "results/ch6_clinical/bronchiectasis/Reports/pipeline.log"

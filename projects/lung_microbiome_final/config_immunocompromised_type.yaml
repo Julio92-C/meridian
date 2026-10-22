@@ -121,7 +121,7 @@ beta_diversity:
   min_sample_reads: 100
 
 outputs:
-  datasets_dir: "results_immunocompromised_type/Datasets"
-  figures_dir:  "results_immunocompromised_type/Figures"
-  report_html:  "results_immunocompromised_type/Reports/pipeline_report.html"
-  log_file:     "results_immunocompromised_type/Reports/pipeline.log"
+  datasets_dir: "results/ch6_clinical/immunocompromised_type/Datasets"
+  figures_dir:  "results/ch6_clinical/immunocompromised_type/Figures"
+  report_html:  "results/ch6_clinical/immunocompromised_type/Reports/pipeline_report.html"
+  log_file:     "results/ch6_clinical/immunocompromised_type/Reports/pipeline.log"

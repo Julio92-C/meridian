@@ -116,7 +116,7 @@ beta_diversity:
   min_sample_reads: 100
 
 outputs:
-  datasets_dir: "results_sens_b2/Datasets"
-  figures_dir:  "results_sens_b2/Figures"
-  report_html:  "results_sens_b2/Reports/pipeline_report.html"
-  log_file:     "results_sens_b2/Reports/pipeline.log"
+  datasets_dir: "results/ch5_breath_sputum/sens_b2/Datasets"
+  figures_dir:  "results/ch5_breath_sputum/sens_b2/Figures"
+  report_html:  "results/ch5_breath_sputum/sens_b2/Reports/pipeline_report.html"
+  log_file:     "results/ch5_breath_sputum/sens_b2/Reports/pipeline.log"

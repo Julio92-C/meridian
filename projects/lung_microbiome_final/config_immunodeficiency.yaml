@@ -122,7 +122,7 @@ beta_diversity:
   min_sample_reads: 100
 
 outputs:
-  datasets_dir: "results_immunodeficiency/Datasets"
-  figures_dir:  "results_immunodeficiency/Figures"
-  report_html:  "results_immunodeficiency/Reports/pipeline_report.html"
-  log_file:     "results_immunodeficiency/Reports/pipeline.log"
+  datasets_dir: "results/ch6_clinical/immunodeficiency/Datasets"
+  figures_dir:  "results/ch6_clinical/immunodeficiency/Figures"
+  report_html:  "results/ch6_clinical/immunodeficiency/Reports/pipeline_report.html"
+  log_file:     "results/ch6_clinical/immunodeficiency/Reports/pipeline.log"

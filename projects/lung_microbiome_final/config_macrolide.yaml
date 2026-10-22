@@ -122,7 +122,7 @@ beta_diversity:
   min_sample_reads: 100
 
 outputs:
-  datasets_dir: "results_macrolide/Datasets"
-  figures_dir:  "results_macrolide/Figures"
-  report_html:  "results_macrolide/Reports/pipeline_report.html"
-  log_file:     "results_macrolide/Reports/pipeline.log"
+  datasets_dir: "results/ch6_clinical/macrolide/Datasets"
+  figures_dir:  "results/ch6_clinical/macrolide/Figures"
+  report_html:  "results/ch6_clinical/macrolide/Reports/pipeline_report.html"
+  log_file:     "results/ch6_clinical/macrolide/Reports/pipeline.log"

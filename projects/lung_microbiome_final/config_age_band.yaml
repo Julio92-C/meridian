@@ -121,7 +121,7 @@ beta_diversity:
   min_sample_reads: 100
 
 outputs:
-  datasets_dir: "results_age_band/Datasets"
-  figures_dir:  "results_age_band/Figures"
-  report_html:  "results_age_band/Reports/pipeline_report.html"
-  log_file:     "results_age_band/Reports/pipeline.log"
+  datasets_dir: "results/ch6_clinical/age_band/Datasets"
+  figures_dir:  "results/ch6_clinical/age_band/Figures"
+  report_html:  "results/ch6_clinical/age_band/Reports/pipeline_report.html"
+  log_file:     "results/ch6_clinical/age_band/Reports/pipeline.log"

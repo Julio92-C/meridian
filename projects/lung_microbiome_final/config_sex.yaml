@@ -119,7 +119,7 @@ beta_diversity:
   min_sample_reads: 100
 
 outputs:
-  datasets_dir: "results_sex/Datasets"
-  figures_dir:  "results_sex/Figures"
-  report_html:  "results_sex/Reports/pipeline_report.html"
-  log_file:     "results_sex/Reports/pipeline.log"
+  datasets_dir: "results/ch6_clinical/sex/Datasets"
+  figures_dir:  "results/ch6_clinical/sex/Figures"
+  report_html:  "results/ch6_clinical/sex/Reports/pipeline_report.html"
+  log_file:     "results/ch6_clinical/sex/Reports/pipeline.log"
