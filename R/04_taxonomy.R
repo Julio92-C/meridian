@@ -227,14 +227,23 @@ run_taxonomy <- function(cleaned, cfg) {
   # Size the canvas to the matrix so labels stay readable as top_n / sample
   # count change. Inches; pheatmap renders at 72 dpi by default so these
   # produce roughly 900x900 to 1200x1200 PNGs at typical settings.
-  hm_width  <- max(10, 0.45 * ncol(heat_mat) + 4)
-  hm_height <- max(8,  0.22 * nrow(heat_mat) + 2)
+  # Size through utils_figsize.R so the canvas cannot outgrow the page: sizing from the data alone
+  # gave 0.45 * 137 + 4 = 66 inches for the lung cohort, which a document scales to about 10%, making
+  # the labels unreadable. fig_heatmap_size() caps the canvas and shrinks the font with the cells.
+  hm <- fig_heatmap_size(nrow(heat_mat), ncol(heat_mat), cfg,
+                         per_cell_w = 0.45, per_cell_h = 0.22,
+                         pad_w = 4, pad_h = 2, min_w = 10, min_h = 8)
+  if (!hm$fits) {
+    pipeline_log(cfg, sprintf(
+      "Taxonomy: taxa_heatmap has %d taxa x %d samples; canvas capped at %.1f x %.1f in (font %.1f pt).",
+      nrow(heat_mat), ncol(heat_mat), hm$width, hm$height, hm$fontsize))
+  }
 
   pheatmap::pheatmap(
     heat_mat,
     filename = file.path(fig_dir, "taxa_heatmap.png"),
-    width  = hm_width,
-    height = hm_height,
+    width  = hm$width,
+    height = hm$height,
     cluster_rows = FALSE,
     cluster_cols = FALSE,
     show_rownames = TRUE,
@@ -244,11 +253,13 @@ run_taxonomy <- function(cleaned, cfg) {
     gaps_col = gaps_col,
     color = grDevices::colorRampPalette(c("#15b379", "yellow", "#f2615a"))(100),
     border_color = NA,
-    fontsize_row = tx_cfg$heatmap_fontsize_row  %||% 8,
-    fontsize_col = tx_cfg$heatmap_fontsize_col  %||% 8,
-    # Legend + annotation_legend font; bumped to 10 so the gradient's top
-    # tick doesn't sit flush against the "Treatment_Bird" annotation header.
-    fontsize     = tx_cfg$heatmap_fontsize_base %||% 10
+    # A project may still pin these; otherwise they follow the cell size, so text stays legible
+    # whatever the cohort's dimensions.
+    fontsize_row = tx_cfg$heatmap_fontsize_row  %||% hm$fontsize,
+    fontsize_col = tx_cfg$heatmap_fontsize_col  %||% hm$fontsize,
+    # Legend + annotation_legend font; kept a little larger so the gradient's top
+    # tick doesn't sit flush against the annotation header.
+    fontsize     = tx_cfg$heatmap_fontsize_base %||% max(hm$fontsize, 10)
   )
 
   invisible(NULL)
