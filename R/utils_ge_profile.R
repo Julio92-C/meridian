@@ -580,9 +580,15 @@ ge_plot_category_upset <- function(df, category_col, group, file,
       sets_bar_color <- aligned
     }
   }
+  # UpSetR text.scale: c(intersection-size title, intersection-size ticks,
+  # set-size title, set-size ticks, set names, numbers above bars).
+  # Override per project via cfg$panels$upset_text_scale — this PNG is pasted
+  # into the composites as a raster, so cfg$panels$composite_* can't reach it.
+  text_scale <- unlist(cfg$panels$upset_text_scale) %||%
+                c(1.4, 1.2, 1.2, 1.2, 1.3, 1.1)
   grDevices::png(file, width = 2200, height = 1500, res = 300, bg = "white")
   on.exit(grDevices::dev.off(), add = TRUE)
-  print(UpSetR::upset(
+  u <- UpSetR::upset(
     df_upset,
     sets             = set_names_ord,
     keep.order       = TRUE,
@@ -590,8 +596,26 @@ ge_plot_category_upset <- function(df, category_col, group, file,
     nintersects      = if (is.na(nintersects)) NA else as.integer(nintersects),
     sets.bar.color   = sets_bar_color,
     mainbar.y.label  = value_label,
-    text.scale       = c(1.4, 1.2, 1.2, 1.2, 1.3, 1.1)
-  ))
+    text.scale       = text_scale
+  )
+  # UpSetR draws the intersection-size bars with a NEGATIVE bottom margin
+  # (-0.65 lines) so they butt against the dot matrix; with larger
+  # text.scale the "0" tick label then disappears under the matrix.
+  # cfg$panels$upset_mainbar_bottom_margin (lines) replaces that margin on
+  # the already-built gtable. NULL (default) keeps UpSetR's behaviour.
+  mb_pad <- cfg$panels$upset_mainbar_bottom_margin
+  if (!is.null(mb_pad)) {
+    u$Main_bar <- tryCatch({
+      g <- u$Main_bar
+      g$heights[length(g$heights)] <- grid::unit(mb_pad, "lines")
+      g
+    }, error = function(e) {
+      pipeline_log(cfg, sprintf("%s: upset bottom-margin override failed: %s",
+                                log_label, conditionMessage(e)))
+      u$Main_bar
+    })
+  }
+  print(u)
   invisible(NULL)
 }
 

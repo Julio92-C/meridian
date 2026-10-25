@@ -471,6 +471,21 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
         level, cn, paste(sprintf("%s=%d", pr, pair_sizes), collapse = ", "),
         exact_lo, min_wi, alpha
       ))
+    } else if (all(c("wi.ep", "wi.eBH") %in% colnames(res)) &&
+               any(res$wi.ep < exact_lo, na.rm = TRUE)) {
+      # Kept, but no Wilcoxon p may be smaller than an exact test allows:
+      # floor wi.ep at the exact minimum and re-apply BH (taking the larger
+      # of ALDEx2's eBH and the re-adjusted floored p, so it never gets
+      # less conservative). Matters at moderate n (e.g. 10 vs 3, min p =
+      # 0.007), where ALDEx2 still returns p = 0 for many features.
+      n_floor    <- sum(res$wi.ep < exact_lo, na.rm = TRUE)
+      res$wi.ep  <- pmax(res$wi.ep, exact_lo)
+      res$wi.eBH <- pmax(res$wi.eBH, stats::p.adjust(res$wi.ep, method = "BH"))
+      pipeline_log(cfg, sprintf(
+        "DA[%s] %s: %d Wilcoxon p-value(s) below the exact minimum %.3g (group sizes %s) — floored and BH re-applied",
+        level, cn, n_floor, exact_lo,
+        paste(sprintf("%s=%d", pr, pair_sizes), collapse = ", ")
+      ))
     }
     raw_results[[cn]] <- res
     df_pr <- tibble::rownames_to_column(as.data.frame(res), feature_col)

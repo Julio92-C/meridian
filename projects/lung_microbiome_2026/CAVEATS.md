@@ -69,7 +69,9 @@ carrying ARGs. Probably not a usable figure for this cohort.
 Fix (R/08): per pair, ALDEx2's `wi.*` columns are dropped when a group has
 < 3 units (`differential_abundance.min_wilcox_group`) or the exact minimum
 two-sided p, 2 / C(n1+n2, n1), cannot reach alpha; that pair falls back to
-Welch. A dot plot left by an earlier run is now deleted when the plot is
+Welch. Extended 2026-10-08: in the pairs that keep Wilcoxon, p-values are
+floored at that exact minimum before BH (the combined cohort's SID vs XLA,
+10 vs 3, otherwise produced 10 spurious hits). A dot plot left by an earlier run is now deleted when the plot is
 skipped, so the manifest can't list it. Re-run: no taxa/genes significant in
 any immunodeficiency pair; other projects unaffected (smallest pairs 6 vs 6).
 

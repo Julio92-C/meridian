@@ -112,8 +112,38 @@ network:
 # R/13_panels.R::.panels_composite_theme.
 panels:
   composite_unified:    true
-  composite_base_size:  5
-  composite_legend_size: 6
+  composite_base_size:  12    # 8->12: canvas is 16.5in wide, Word shrinks it to ~40%
+  composite_legend_size: 11   # 8->11 to match
+  group_label:          "Group"  # relabel raw `type` axis/legend titles
+  # UpSet (raster) text: ytitle, yticks, set-size title, set-size ticks, set names, bar numbers.
+  # Re-draw with scripts/upset_only.R after changing.
+  upset_text_scale:     [2.0, 2.0, 1.8, 1.8, 2.3, 2.0]
+  upset_mainbar_bottom_margin: 0.6   # lines; UpSetR default -0.65 hides the "0" tick
+  # ggrepel point labels (panel E prevalence plots) at composite scale.
+  repel_label_size:       10     # pt (stage default ~8)
+  repel_box_padding:      0.4    # lines
+  repel_point_padding:    0.3    # lines
+  repel_avoid_all_points: true   # keep labels off unlabelled points too
+  repel_force:            3      # stage default 1.5
+  repel_y_headroom:       0.25   # free space above the top points for labels
+  # Legend padding (all ggplot legends in the composites).
+  legend_box_margin_pt:   [0, 10, 0, 0]   # t, r, b, l — keep legends off the canvas edge
+  legend_box_spacing_pt:  4               # plot <-> legend gap (ggplot default ~11)
+  legend_key_height_cm:   0.55            # uniform row height (fits superscripts)
+  legend_key_spacing_y_pt: 2              # fixed gap between legend rows
+  # Display-only label shortening (legends + panel E point labels). Data,
+  # stats, heatmaps and tables keep the full names; each shortened label
+  # gets a superscript letter, keyed per figure in
+  # <figures_dir>/panels/label_keys/<slug>.csv for the caption.
+  label_footnotes:        true
+  label_renames:
+    "Disinfecting Agents And Antiseptics": "Biocides"
+    "Nutritional/Metabolic factor":        "Nutrition/Metabolism"
+    "Effector delivery system":            "Effector delivery"
+  label_shorten_regex:
+    # PlasmidFinder rep-type replicons: rep10_6_rep(SAP093B) -> rep10_6
+    - pattern:     "^(rep[0-9A-Za-z]+_[0-9A-Za-z]+)_.+$"
+      replacement: "\\1"
   composite_margin_pt:  6
   strip_plot_title:     true
   show_title:           false
