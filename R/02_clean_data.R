@@ -33,7 +33,10 @@ clean_data <- function(inputs, cfg) {
     dplyr::distinct()
 
   # --- Kraken2 taxid → name lookup ----------------------------------------
-  taxid_name <- dplyr::select(inputs$kraken2, taxid, name)
+  # A lookup concatenated from several reports (e.g. hospital Air + Surface)
+  # can list a taxid more than once; keep one row so the joins below stay 1:1.
+  taxid_name <- dplyr::select(inputs$kraken2, taxid, name) |>
+    dplyr::distinct(taxid, .keep_all = TRUE)
 
   # --- Kraken2 taxid → ancestry lookup (phylum + genus) -------------------
   # Standard kraken2 combined-report rows are in DFS pre-order, with
@@ -48,7 +51,10 @@ clean_data <- function(inputs, cfg) {
   # orders / families into "genus" plots. Rows above each rank
   # (Domain / Root / Unclassified for phylum; everything above G for
   # genus) map to NA on that column.
-  taxid_ancestry <- build_taxid_ancestry(inputs$kraken2)
+  # Walk the full ordered table first (duplicates included, so each report's
+  # tree context is intact), then de-duplicate.
+  taxid_ancestry <- build_taxid_ancestry(inputs$kraken2) |>
+    dplyr::distinct(taxid, .keep_all = TRUE)
 
   # --- Re-centrifuge contaminant counts -----------------------------------
   # NOTE: the by-3 column slicing below is the original cleanData.R logic
@@ -122,7 +128,7 @@ clean_data <- function(inputs, cfg) {
   sample_cols <- setdiff(colnames(rcf_named),
                          c("taxid", "name",
                            "phylum", "class", "order", "family", "genus",
-                           "tax_rank", "Classifier", controls))
+                           "tax_rank", "lineage_class", "Classifier", controls))
 
   pivoted <- rcf_named |>
     tidyr::pivot_longer(cols = dplyr::all_of(sample_cols),
@@ -148,6 +154,31 @@ clean_data <- function(inputs, cfg) {
       "root|Homo sapiens|cellular organisms|unclassified|Bacteria|environmental samples",
       name
     ))
+
+  # --- Optional: microbial taxa only ---------------------------------------
+  # filters.microbial_only drops plant (Embryophyta), animal (Metazoa, incl.
+  # human) and unplaced taxa by Kraken2 lineage, before anything downstream
+  # (taxonomy, diversity, DA, gene linkage, network) sees them. Off by default.
+  excluded_non_microbial <- NULL
+  if (isTRUE(cfg$filters$microbial_only)) {
+    microbial <- c("prokaryote", "virus", "microbial_eukaryote")
+    cls <- noncontaminants$lineage_class
+    cls[is.na(cls)] <- "unmatched"
+    bad <- !(cls %in% microbial)
+    excluded_non_microbial <- noncontaminants[bad, ] |>
+      dplyr::mutate(lineage_class = cls[bad]) |>
+      dplyr::filter(.data$count > 0) |>
+      dplyr::group_by(.data$taxid, .data$name, .data$lineage_class) |>
+      dplyr::summarise(total_count = sum(.data$count), n_samples = dplyr::n(),
+                       .groups = "drop") |>
+      dplyr::arrange(dplyr::desc(.data$total_count))
+    pipeline_log(cfg, sprintf(
+      "Microbial-only filter: dropped %d non-microbial taxa (%s reads)",
+      nrow(excluded_non_microbial),
+      format(sum(excluded_non_microbial$total_count), big.mark = ",")
+    ))
+    noncontaminants <- noncontaminants[!bad, ]
+  }
 
   # --- Link Abricate → taxa (LR-GEs contigs) -------------------------------
   abri_kraken2 <- dplyr::inner_join(summary_df, noncontaminants,
@@ -224,6 +255,10 @@ clean_data <- function(inputs, cfg) {
   if (!is.null(merged)) {
     readr::write_csv(merged, file.path(out_dir, "abri_kraken2Bracken_merged.csv"))
   }
+  if (!is.null(excluded_non_microbial)) {
+    readr::write_csv(excluded_non_microbial,
+                     file.path(out_dir, "excluded_non_microbial_taxa.csv"))
+  }
 
   list(noncontaminants = noncontaminants,
        abri_kraken2    = abri_kraken2,
@@ -277,8 +312,38 @@ build_taxid_ancestry <- function(kraken2) {
   cur <- setNames(rep(NA_character_, length(rank_resets)),
                   names(rank_resets))
 
+  # Lineage class (microbial vs not). Kraken2 rank codes nest strictly along a
+  # path (D < D1 < K < P < P2 < ...), so a stack popped back to the row's rank
+  # depth holds that row's full lineage. Same classes as the hospital polish
+  # figures: Bacteria/Archaea -> prokaryote; Viruses -> virus; Embryophyta ->
+  # plant; Metazoa -> animal; other Eukaryota -> microbial_eukaryote (fungi,
+  # protists, microalgae); anything else (root, unclassified) -> other.
+  rank_letters <- c("U", "R", "D", "K", "P", "C", "O", "F", "G", "S")
+  rank_key <- function(code) {
+    if (is.na(code) || !nzchar(code)) return(NA_real_)
+    pos <- match(substr(code, 1L, 1L), rank_letters)
+    sub <- suppressWarnings(as.numeric(substring(code, 2L)))
+    if (is.na(pos)) NA_real_ else pos * 100 + ifelse(is.na(sub), 0, sub)
+  }
+  lin_class <- rep(NA_character_, length(rk))
+  stack_key <- numeric(0)
+  stack_nm  <- character(0)
+
   for (i in seq_along(rk)) {
     r <- rk[[i]]
+    k <- rank_key(r)
+    if (!is.na(k)) {
+      keep      <- stack_key < k
+      stack_key <- c(stack_key[keep], k)
+      stack_nm  <- c(stack_nm[keep], nm[[i]])
+      lin_class[[i]] <-
+        if (any(stack_nm %in% c("Bacteria", "Archaea"))) "prokaryote"
+        else if ("Viruses" %in% stack_nm) "virus"
+        else if ("Embryophyta" %in% stack_nm) "plant"
+        else if ("Metazoa" %in% stack_nm) "animal"
+        else if ("Eukaryota" %in% stack_nm) "microbial_eukaryote"
+        else "other"
+    }
     first <- if (is.na(r)) NA_character_ else substr(r, 1L, 1L)
     for (rk_name in names(rank_resets)) {
       if (!is.na(first) && first %in% rank_resets[[rk_name]]) {
@@ -295,6 +360,7 @@ build_taxid_ancestry <- function(kraken2) {
   # double-count their parent species.
   data.frame(taxid  = td,
              tax_rank = rk,
+             lineage_class = lin_class,
              phylum = cols$phylum,
              class  = cols$class,
              order  = cols$order,
