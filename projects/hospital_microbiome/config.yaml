@@ -86,6 +86,18 @@ alpha_diversity:
   species_rank_only:      true
   min_count_per_sample:   10
 
+# Community taxa stages (R/04-R/08 + polish_relative_abundance.R): species rank
+# only via the real Kraken2 rank code (no strain double counting, no two-word
+# higher ranks), and drop samples with < 100 species-level reads above the
+# floor (A25, A31, S8 at the time of writing). Gene stages keep all samples.
+taxa_filter:
+  rank:                   ["S"]
+  min_sample_reads:       100
+
+# Taxonomy stage (Venn / heatmap) uses >=, so 11 == "> 10", matching the floor.
+taxonomy:
+  min_count_per_sample:   11
+
 stages:
   clean_data:             true
   normalisation:          true

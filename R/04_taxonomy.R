@@ -56,7 +56,7 @@ run_taxonomy <- function(cleaned, cfg) {
   # original 8 / 8 / 10 sizing chicken_batch1 was tuned for.
   tx_cfg <- cfg$taxonomy %||% list()
 
-  df <- clean_taxa_names(cleaned$noncontaminants, cfg)
+  df <- clean_taxa_names(community_filter(cleaned$noncontaminants, cfg, "Taxonomy"), cfg)
   if (nrow(df) == 0) {
     pipeline_log(cfg, "Taxonomy: no rows left after clean_taxa_names — skipping")
     return(invisible(NULL))

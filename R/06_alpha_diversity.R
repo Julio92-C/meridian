@@ -165,6 +165,7 @@ run_alpha_diversity <- function(cleaned, cfg) {
     if (!is.null(ad_min)) {
       counts_df <- dplyr::filter(counts_df, .data$count > ad_min)
     }
+    counts_df <- community_filter(counts_df, cfg, "Alpha diversity")
     if (isTRUE(ad_cfg$species_rank_only) || !is.null(ad_min)) {
       pipeline_log(cfg, sprintf(
         "Alpha diversity: species rank only = %s, count > %s (%d rows)",

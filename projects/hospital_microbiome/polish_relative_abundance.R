@@ -182,6 +182,24 @@ gn <- raw[!is.na(raw$tax_rank) & raw$tax_rank == "G", ]
 gn$genus <- gn$name
 gn <- prep(gn, "genus")
 
+# Shallow samples: same rule as the pipeline's taxa stages
+# (taxa_filter.min_sample_reads, R/utils_taxa.R::community_filter) - summed
+# species-rank reads over taxa above the count floor. Applied to both figures
+# so genus and species panels show the same samples.
+min_sample_reads <- cfg$taxa_filter$min_sample_reads %||% 0
+if (min_sample_reads > 0) {
+  depth   <- tapply(sp$count, sp$sample, sum)
+  shallow <- names(depth)[depth < min_sample_reads]
+  shallow <- union(shallow, setdiff(unique(gn$sample), names(depth)))
+  if (length(shallow)) {
+    cat(sprintf("[samples] dropped %d with < %d species reads: %s\n",
+                length(shallow), min_sample_reads,
+                paste(sort(shallow), collapse = ", ")))
+  }
+  sp <- sp[!sp$sample %in% shallow, ]
+  gn <- gn[!gn$sample %in% shallow, ]
+}
+
 # ---- Aggregate + top-N -----------------------------------------------------------
 # Relative abundance as a proportion of each sample's total at that level.
 # Ranking uses the mean relative abundance across samples — per group when
