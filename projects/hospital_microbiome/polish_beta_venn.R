@@ -112,9 +112,9 @@ ordinate <- function(mat, groups, method, binary, title, type = c("pcoa", "nmds"
   set.seed(12345)
   pd <- permutest(betadisper(d, groups), permutations = nperm)$tab$`Pr(>F)`[1]
   df <- data.frame(X = pts[, 1], Y = pts[, 2], type = groups)
-  lab <- sprintf("PERMANOVA R² = %.3f, p = %s\nPERMDISP p = %s%s",
-                 pm$R2[1], fp(pm$`Pr(>F)`[1]),
-                 fp(pd), note)
+  fp  <- function(x) if (x < 0.001) "p < 0.001" else sprintf("p = %.3f", x)
+  lab <- sprintf("PERMANOVA R² = %.3f, %s\nPERMDISP %s%s",
+                 pm$R2[1], fp(pm$`Pr(>F)`[1]), fp(pd), note)
   # Normal-theory 95% ellipses (stat_ellipse's default multivariate-t hugs
   # the points more tightly); stats inset top-left.
   p <- ggplot(df, aes(X, Y, colour = type, fill = type)) +
