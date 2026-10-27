@@ -66,7 +66,7 @@ The author guidelines spell out:
 - Web services must require no mandatory user registration.
 - Implementation details must be clearly documented.
 
-Our note already meets this: MIT licence, GitHub URL with
+Our note already meets this: GPL-3.0 licence, GitHub URL with
 `Rscript run_pipeline.R config.yaml` invocation line, dependency
 pinning via `renv`.
 
