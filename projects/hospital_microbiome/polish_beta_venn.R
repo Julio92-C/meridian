@@ -46,6 +46,7 @@ cols   <- unlist(cfg$colors$type)          # Air grey, Surface pink
 floor_n   <- cfg$filters$min_count_per_sample %||% 0
 min_reads <- cfg$taxa_filter$min_sample_reads %||% 0
 nperm     <- cfg$stats$permanova_permutations %||% 9999
+group_lab <- cfg$panels$group_label %||% "Group"
 
 meta <- read_csv(file.path(root, cfg$metadata$file), show_col_types = FALSE) |>
   filter(type %in% c("Air", "Surface")) |>
@@ -86,8 +87,8 @@ venn_panel <- function(sets, title) {
   # Category labels drawn here: the rotation leaves VennDiagram's own labels
   # stacked at the top centre. Air is always the left circle.
   labs <- grid::gList(
-    grid::textGrob("Air", x = 0.34, y = 0.97, gp = grid::gpar(fontsize = 17)),
-    grid::textGrob("Surface", x = 0.66, y = 0.97, gp = grid::gpar(fontsize = 17)))
+    grid::textGrob("Air", x = 0.34, y = 0.90, gp = grid::gpar(fontsize = 17)),
+    grid::textGrob("Surface", x = 0.66, y = 0.90, gp = grid::gpar(fontsize = 17)))
   wrap_elements(full = grid::gTree(children = grid::gList(g, labs))) + ggtitle(title)
 }
 
@@ -123,12 +124,15 @@ ordinate <- function(mat, groups, method, binary, title, type = c("pcoa", "nmds"
     geom_point(size = 2.6, alpha = 0.9) +
     annotate("text", x = -Inf, y = Inf, label = lab, hjust = -0.04, vjust = 1.15,
              size = 3.8, lineheight = 1.05) +
-    scale_colour_manual(values = cols, name = NULL) +
-    scale_fill_manual(values = cols, name = NULL) +
+    scale_colour_manual(values = cols, name = group_lab) +
+    scale_fill_manual(values = cols, name = group_lab) +
     scale_y_continuous(expand = expansion(mult = c(0.05, 0.3))) +
     labs(x = axl[1], y = axl[2], title = title) +
     theme_bw(base_size = 12) +
-    theme(legend.position = "top", panel.grid.minor = element_blank())
+    theme(legend.position = "top", panel.grid.minor = element_blank(),
+          legend.title = element_text(size = 15, face = "bold"),
+          legend.text = element_text(size = 15)) +
+    guides(colour = guide_legend(override.aes = list(size = 4)))
   list(plot = p,
        stats = data.frame(r2 = pm$R2[1], p = pm$`Pr(>F)`[1], permdisp_p = pd,
                           stress = if (type == "nmds") nm$stress else NA_real_,
