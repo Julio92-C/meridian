@@ -77,6 +77,8 @@ load_config <- function(path) {
     !is.null(cfg$metadata$file),
     !is.null(cfg$metadata$sample_id_col)
   )
+  # Which figures this run writes (figures.set: core | full; R/utils_figures.R).
+  if (exists("set_figure_set", mode = "function")) set_figure_set(cfg)
   cfg
 }
 

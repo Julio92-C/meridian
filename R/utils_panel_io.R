@@ -11,6 +11,10 @@
 save_panel_ggplot <- function(filename, plot, width, height,
                               dpi = 300, bg = "white", ...,
                               emit_rds = TRUE) {
+  # figures.set (utils_figures.R): a figure outside the run's set is not written.
+  if (exists("figure_wanted", mode = "function") && !figure_wanted(filename)) {
+    return(invisible(NULL))
+  }
   ggplot2::ggsave(filename, plot,
                    width = width, height = height,
                    dpi = dpi, bg = bg, limitsize = FALSE, ...)

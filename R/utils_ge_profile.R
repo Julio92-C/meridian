@@ -625,6 +625,7 @@ ge_plot_category_upset <- function(df, category_col, group, file,
 ge_plot_category_venn <- function(df, category_col, group, pal_group,
                                    file, main_title, log_label, cfg,
                                    value_col = "TPM") {
+  if (!figure_wanted(file)) return(invisible(NULL))   # figures.set: core keeps the UpSet twin
   if (!requireNamespace("VennDiagram", quietly = TRUE)) {
     pipeline_log(cfg, sprintf("%s: VennDiagram not available — Venn skipped",
                               log_label))

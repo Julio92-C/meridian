@@ -85,6 +85,14 @@ rt <- function(df, ...) {
 # _files/ assets; very tall heatmaps that get squished in a dashboard card).
 # Both fall back to an empty card when the file is missing so optional
 # outputs don't blank-screen the dashboard.
+# First path that exists (else the first one, so img_card shows its "Missing" card). Lets the report
+# follow the figure set: `figures: core` writes one of each duplicate pair (stream not stacked bar,
+# UpSet not Venn, count + prevalence not total count, violin not bar).
+pick_existing <- function(...) {
+  for (p in c(...)) if (file.exists(p)) return(p)
+  c(...)[[1]]
+}
+
 img_card <- function(path, alt = "") {
   if (length(path) != 1 || is.na(path) || !file.exists(path)) {
     return(empty_card(sprintf("Missing: %s", basename(path %||% ""))))
@@ -232,7 +240,8 @@ fig <- list(
       relabu_group_png   = file.path(fig_root, "relative_abundance", "relative_abundance_group.png"),
       relabu_png         = pick_first(
         file.path(fig_root, "relative_abundance", "relative_abundance.png"),
-        file.path(fig_root, "relative_abundance", "stacked_bar.png")
+        file.path(fig_root, "relative_abundance", "stacked_bar.png"),
+        file.path(fig_root, "relative_abundance", "relative_abundance_stream.png")
       ),
       species_prevalence = file.path(fig_root, "relative_abundance", "species_count_prevalence.png")
     )
@@ -278,7 +287,8 @@ ge <- list(
     venn         = file.path(ge_dir("resistome"), "venn_drug_classes.png"),
     pheatmap_genes    = file.path(ge_dir("resistome"), "pheatmap_genes.png"),
     pheatmap_category = file.path(ge_dir("resistome"), "pheatmap_drug_classes.png"),
-    rel_abundance     = file.path(ge_dir("resistome"), "drug_relative_abundance.png"),
+    rel_abundance     = pick_existing(file.path(ge_dir("resistome"), "drug_relative_abundance.png"),
+                                    file.path(ge_dir("resistome"), "drug_stream_abundance.png")),
     total_count       = file.path(ge_dir("resistome"), "drug_total_count.png"),
     cat_prevalence    = file.path(ge_dir("resistome"), "drug_count_prevalence.png"),
     gene_prevalence   = file.path(ge_dir("resistome"), "gene_count_prevalence.png"),
@@ -299,7 +309,8 @@ ge <- list(
     venn         = file.path(ge_dir("virulome"), "venn_vf_functions.png"),
     pheatmap_genes    = file.path(ge_dir("virulome"), "pheatmap_genes.png"),
     pheatmap_category = file.path(ge_dir("virulome"), "pheatmap_functions.png"),
-    rel_abundance     = file.path(ge_dir("virulome"), "vf_relative_abundance.png"),
+    rel_abundance     = pick_existing(file.path(ge_dir("virulome"), "vf_relative_abundance.png"),
+                                    file.path(ge_dir("virulome"), "vf_stream_abundance.png")),
     total_count       = file.path(ge_dir("virulome"), "vf_total_count.png"),
     cat_prevalence    = file.path(ge_dir("virulome"), "vf_count_prevalence.png"),
     gene_prevalence   = file.path(ge_dir("virulome"), "gene_count_prevalence.png"),
@@ -317,17 +328,20 @@ ge <- list(
     alpha_violin = list.files(ge_dir("mobilome"), pattern = "^alpha_.*_violin\\.png$", full.names = TRUE),
     alpha_bar    = list.files(ge_dir("mobilome"), pattern = "^alpha_.*_bar\\.png$",    full.names = TRUE),
     abundance    = file.path(ge_dir("mobilome"), "mge_abundance_violin.png"),
-    venn         = file.path(ge_dir("mobilome"), "venn_replicons.png"),
+    venn         = pick_existing(file.path(ge_dir("mobilome"), "venn_replicons.png"),
+                               file.path(ge_dir("mobilome"), "mge_upset_treatments.png")),
     pheatmap_genes    = file.path(ge_dir("mobilome"), "pheatmap_genes.png"),
     pheatmap_category = file.path(ge_dir("mobilome"), "pheatmap_replicon_families.png"),
-    rel_abundance     = file.path(ge_dir("mobilome"), "mge_relative_abundance.png"),
+    rel_abundance     = pick_existing(file.path(ge_dir("mobilome"), "mge_relative_abundance.png"),
+                                    file.path(ge_dir("mobilome"), "mge_stream_abundance.png")),
     total_count       = file.path(ge_dir("mobilome"), "mge_total_count.png"),
     cat_prevalence    = file.path(ge_dir("mobilome"), "mge_count_prevalence.png"),
     # Mobilome's "category" (GENE) and "gene" axes collapse to the same
     # plasmid replicon — R/11 only writes mge_count_prevalence.png. Leaving
     # gene_prevalence NULL skips the redundant "Gene prevalence" tab.
     gene_prevalence   = NULL,
-    family_rel        = file.path(ge_dir("mobilome"), "mge_family_abundance.png"),
+    family_rel        = pick_existing(file.path(ge_dir("mobilome"), "mge_family_abundance.png"),
+                                    file.path(ge_dir("mobilome"), "mge_family_stream_abundance.png")),
     family_total      = file.path(ge_dir("mobilome"), "mge_family_total_count.png"),
     family_prevalence = file.path(ge_dir("mobilome"), "mge_family_count_prevalence.png"),
     pcoa              = file.path(ge_dir("mobilome"), "pcoa.png"),
@@ -608,11 +622,11 @@ if (!length(alpha_metrics)) {
       file.path(alpha_fig_dir, paste0(m, "_violin.png")),
       alt = pretty
     )))
-    cat("\n\n#### Per-sample bar\n\n")
-    print(htmltools::tagList(img_card(
-      file.path(alpha_fig_dir, paste0(m, "_bar.png")),
-      alt = pretty
-    )))
+    bar_png <- file.path(alpha_fig_dir, paste0(m, "_bar.png"))
+    if (file.exists(bar_png)) {          # only with `figures: full`
+      cat("\n\n#### Per-sample bar\n\n")
+      print(htmltools::tagList(img_card(bar_png, alt = pretty)))
+    }
     cat("\n\n:::\n\n")
   }
   cat("\n\n### Table\n\n")
@@ -783,13 +797,15 @@ render_ge_domain <- function(g) {
   cat("\n\n#### Composition\n\n")
   cat("::: {.panel-tabset}\n\n")
   cat("\n##### Relative abundance\n\n")
-  print(htmltools::tagList(img_card(g$rel_abundance)))
-  cat("\n\n##### Total count\n\n")
-  print(htmltools::tagList(
-    img_card(g$total_count),
-    csv_download_link(g$totals_csv,
-                      sprintf("Download %s totals CSV", g$category_label))
-  ))
+  totals_link <- csv_download_link(g$totals_csv,
+                                   sprintf("Download %s totals CSV", g$category_label))
+  if (file.exists(g$total_count)) {    # only with `figures: full`
+    print(htmltools::tagList(img_card(g$rel_abundance)))
+    cat("\n\n##### Total count\n\n")
+    print(htmltools::tagList(img_card(g$total_count), totals_link))
+  } else {
+    print(htmltools::tagList(img_card(g$rel_abundance), totals_link))
+  }
   cat(sprintf("\n\n##### %s prevalence\n\n", g$category_label))
   print(htmltools::tagList(img_card(g$cat_prevalence)))
   # Skip the "Gene prevalence" tab when a domain doesn't have a separate
@@ -822,13 +838,15 @@ render_ge_domain <- function(g) {
     cat("\n\n#### Replicon families\n\n")
     cat("::: {.panel-tabset}\n\n")
     cat("\n##### Relative abundance\n\n")
-    print(htmltools::tagList(img_card(g$family_rel)))
-    cat("\n\n##### Total count\n\n")
-    print(htmltools::tagList(
-      img_card(g$family_total),
-      csv_download_link(g$family_totals_csv,
-                        "Download replicon-family totals CSV")
-    ))
+    family_link <- csv_download_link(g$family_totals_csv,
+                                     "Download replicon-family totals CSV")
+    if (file.exists(g$family_total)) {   # only with `figures: full`
+      print(htmltools::tagList(img_card(g$family_rel)))
+      cat("\n\n##### Total count\n\n")
+      print(htmltools::tagList(img_card(g$family_total), family_link))
+    } else {
+      print(htmltools::tagList(img_card(g$family_rel), family_link))
+    }
     cat("\n\n##### Prevalence\n\n")
     print(htmltools::tagList(img_card(g$family_prevalence)))
     cat("\n\n:::\n\n")

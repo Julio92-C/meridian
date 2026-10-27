@@ -113,7 +113,7 @@ stats:
 # are the defaults. Override per project in projects/<slug>/config.yaml.       #
 # --------------------------------------------------------------------------- #
 # relative_abundance:
-#   top_n: 15                # taxa shown (by mean per-sample %); rest -> "Others"
+#   top_n: 10                # taxa shown (by mean per-sample %); rest -> "Others"
 #   main_panel: group        # group | stream | sample - figure used by the fig05 panel
 #                            #   (falls back group -> stream -> sample if it was not made)
 #   group_order: null        # e.g. [Control, Low, High]; x order of the group bars
@@ -170,6 +170,17 @@ panels:
   png:                   true
   tiff:                  false      # LZW-compressed 300-dpi TIFF for journal submission
   pdf:                   false      # cairo_pdf vector sibling
+
+# --------------------------------------------------------------------------- #
+# Figure set (R/utils_figures.R). `core` writes one figure of each duplicate  #
+# pair: violins (not per-sample bars), count + prevalence (not total-count    #
+# bars), stream plots (not stacked composition bars, taxa or genes), UpSet  #
+# (not the Venn of the same gene sets). `full` writes them all.              #
+# --------------------------------------------------------------------------- #
+figures:
+  set: core                         # core | full
+  include: []                       # file stems to write anyway, e.g. [venn_args]
+  exclude: []                       # file stems to skip, e.g. [jaccard_pcoa]
 
 # --------------------------------------------------------------------------- #
 # Output paths (relative to project_root). When evaluating a new dataset for  #

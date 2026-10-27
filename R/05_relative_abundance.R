@@ -68,7 +68,7 @@ ra_taxa_palette <- function(taxa_levels, others_label, cfg) {
 #               the deepest samples)
 #   taxa_levels legend / stack order (largest total % first, Others last)
 ra_prepare_composition <- function(df_in, facet_by, ra_cfg) {
-  top_n        <- ra_cfg$top_n        %||% 15
+  top_n        <- ra_cfg$top_n        %||% 10
   others_label <- ra_cfg$others_label %||% "Others"
 
   df_pct <- df_in |>
