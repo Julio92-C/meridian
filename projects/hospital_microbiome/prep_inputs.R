@@ -124,30 +124,35 @@ cat(sprintf("[k2] %d taxa x %d samples (combined Air+Surface, reconciled)\n",
 # abri_kraken2_cleanData.R did not use it either). NX_AH4_contam.csv holds
 # Recentrifuge clade counts for the 44 taxa found in NX, for NX and for those
 # 11 samples - the same count scale, which differs from the Kraken2 reports.
-# The keep/remove decision is therefore made inside the contam file:
-#   a taxon is removed from a batch sample when its count <= NX count
-#   (the signal is not above the negative control), kept otherwise.
-# NOTE: the original abri_kraken2_cleanData.R put `NX - count <= 0` rows in
-# its anti-join list, i.e. removed taxa that EXCEEDED NX. That inverted the
-# rule; correction agreed 2026-10-26. Removed pairs are zeroed in the Kraken2
-# counts (taxonomy) here and their Abricate hits dropped (genes) in section 6.
+# NX is subtracted inside the contam file, where sample and control share a
+# count scale: for each control taxon in a batch sample the fraction of reads
+# above the control, retained = max(count - NX, 0) / count, is kept and that
+# fraction is applied to the Kraken2 count. A taxon at or below NX (retained
+# = 0) is removed and its Abricate hits dropped (section 6); a taxon above NX
+# keeps its gene hits (reads cannot be partly removed) with its taxonomic
+# count reduced by the control's share. Agreed with Julio 2026-10-27
+# ("remove what is present in the negative control").
+# NOTE: the original abri_kraken2_cleanData.R anti-joined `NX - count <= 0`
+# pairs, i.e. removed taxa entirely where they EXCEEDED NX.
 contam <- read_csv(file.path(DAT, "NX_AH4_contam.csv"),
                    show_col_types = FALSE, progress = FALSE) |>
   mutate(taxid = as.character(taxid))
 nx_batch <- setdiff(colnames(contam), c("taxid", CONTROLS))
 nx_pairs <- contam |>
   pivot_longer(all_of(nx_batch), names_to = "sample", values_to = "count") |>
-  mutate(removed = count <= NX)
+  mutate(retained = ifelse(count > 0, pmax(count - NX, 0) / count, 0),
+         removed  = retained == 0)
+write_csv(select(nx_pairs, taxid, sample, count, NX, retained),
+          file.path(REP, "nx_subtraction.csv"))
 nx_excluded <- filter(nx_pairs, removed) |> select(taxid, sample, count, NX)
 write_csv(nx_excluded, file.path(REP, "nx_excluded_pairs.csv"))
 cat(sprintf("[nx] batch = %s\n", paste(nx_batch, collapse = ", ")))
-cat(sprintf("[nx] %d of %d taxon x sample pairs at or below NX -> removed\n",
-            nrow(nx_excluded), nrow(nx_pairs)))
+cat(sprintf("[nx] %d of %d taxon x sample pairs at or below NX -> removed; %d reduced by subtraction\n",
+            nrow(nx_excluded), nrow(nx_pairs), sum(!nx_pairs$removed & nx_pairs$retained < 1)))
 k2_long <- k2_long |>
-  left_join(mutate(select(nx_excluded, taxid, sample), drop_nx = TRUE),
-            by = c("taxid", "sample")) |>
-  mutate(count = ifelse(is.na(drop_nx), count, 0)) |>
-  select(-drop_nx)
+  left_join(select(nx_pairs, taxid, sample, retained), by = c("taxid", "sample")) |>
+  mutate(count = ifelse(is.na(retained), count, round(count * retained))) |>
+  select(-retained)
 
 # Wide table once — reused for both bracken and rcf synthesis
 k2_wide <- pivot_wider(k2_long, names_from = sample,
