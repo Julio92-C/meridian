@@ -151,6 +151,28 @@ run_alpha_diversity <- function(cleaned, cfg) {
   sid    <- cfg$metadata$sample_id_col
   group  <- cfg$metadata$group_cols[[1]]
 
+  # ---- Count table for the vegan path, Chao1 and rarefaction --------------
+  # Optional (off by default): alpha_diversity.species_rank_only keeps Kraken2
+  # rank "S" rows only, so a read is not counted again at its genus / family /
+  # order clade rows; alpha_diversity.min_count_per_sample drops taxa with
+  # <= N reads in a sample (single-read Kraken2 calls inflate richness).
+  counts_df <- cleaned$noncontaminants
+  if (!is.null(counts_df)) {
+    if (isTRUE(ad_cfg$species_rank_only) && "tax_rank" %in% colnames(counts_df)) {
+      counts_df <- dplyr::filter(counts_df, .data$tax_rank == "S")
+    }
+    ad_min <- ad_cfg$min_count_per_sample
+    if (!is.null(ad_min)) {
+      counts_df <- dplyr::filter(counts_df, .data$count > ad_min)
+    }
+    if (isTRUE(ad_cfg$species_rank_only) || !is.null(ad_min)) {
+      pipeline_log(cfg, sprintf(
+        "Alpha diversity: species rank only = %s, count > %s (%d rows)",
+        isTRUE(ad_cfg$species_rank_only), ad_min %||% "none", nrow(counts_df)
+      ))
+    }
+  }
+
   # ---- Pick the data source ----------------------------------------------
   div_wide <- NULL
   if (source %in% c("auto", "precomputed")) {
@@ -167,7 +189,7 @@ run_alpha_diversity <- function(cleaned, cfg) {
   }
   if (is.null(div_wide)) {
     pipeline_log(cfg, "Alpha diversity: computing richness/shannon/simpson via vegan")
-    div_wide <- compute_diversity_from_counts(cleaned$noncontaminants)
+    div_wide <- compute_diversity_from_counts(counts_df)
   }
 
   # ---- Augment with Chao1 (PIPELINE_V2_GAPS C2) --------------------------
@@ -175,8 +197,8 @@ run_alpha_diversity <- function(cleaned, cfg) {
   # cleaned counts and merge in so the v1.2 fig2_alpha_diversity slot gets
   # the metric regardless of which source supplied the others.
   chao_existing <- intersect(c("chao1", "Chao1", "chao_1"), colnames(div_wide))
-  if (length(chao_existing) == 0 && !is.null(cleaned$noncontaminants)) {
-    chao <- compute_chao1_from_counts(cleaned$noncontaminants)
+  if (length(chao_existing) == 0 && !is.null(counts_df)) {
+    chao <- compute_chao1_from_counts(counts_df)
     if (!is.null(chao)) {
       div_wide <- dplyr::left_join(div_wide, chao, by = "sample")
       pipeline_log(cfg, sprintf(
@@ -381,8 +403,8 @@ run_alpha_diversity <- function(cleaned, cfg) {
   # marked so the real per-sample depth is visible.
   if (!isFALSE(ad_cfg$rarefaction %||% TRUE) &&
       requireNamespace("vegan", quietly = TRUE) &&
-      !is.null(cleaned$noncontaminants)) {
-    mat_rc <- counts_to_matrix(cleaned$noncontaminants)
+      !is.null(counts_df)) {
+    mat_rc <- counts_to_matrix(counts_df)
     mat_rc <- mat_rc[intersect(rownames(mat_rc), as.character(div$sample)), ,
                       drop = FALSE]
     if (nrow(mat_rc) >= 2) {

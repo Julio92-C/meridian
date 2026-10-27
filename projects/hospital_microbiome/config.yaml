@@ -70,12 +70,21 @@ colors:
     Surface: "#ed8cb6"   # pink
 
 filters:
-  min_count_per_sample:   17
+  # Read floor: a taxon counts in a sample only with > 10 reads. Same rule as
+  # the network stage (network.min_sample_count default 10). Was 17.
+  min_count_per_sample:   10
   min_count_for_species:  500
   min_prevalence_aldex:   2
   # Drop plant (e.g. Cryptomeria pollen), animal (incl. human) and unplaced
   # taxa by Kraken2 lineage in R/02, so every stage sees microbes only.
   microbial_only:         true
+
+# Alpha diversity on species-rank rows only (no double counting at genus /
+# family clade rows) with the same > 10-read floor. Not rarefied: richness is
+# reported alongside rarefaction curves.
+alpha_diversity:
+  species_rank_only:      true
+  min_count_per_sample:   10
 
 stages:
   clean_data:             true
