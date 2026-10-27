@@ -173,13 +173,14 @@ main:
     rows: 1
     cols: 1
     labels: false
-    # Keep the 50-species legend at top but shrink hard: 5pt text + 0.2cm
-    # key swatch, 15 rows so it wraps to ~4 narrow columns and fits the
+    # Legend on top in 2 rows (top 10 taxa + Others = 6 columns), no title,
+    # 6 pt text so the longest names fit the
     # 5.5" composite cell width without clipping names.
     composite:
       legend_position: top
-      legend_nrow: 15
-      legend_text_size: 5
+      legend_nrow: 2
+      legend_title: false
+      legend_text_size: 6
       legend_key_size_cm: 0.2
     panels:
       # composition_main = the R/05 figure chosen by
