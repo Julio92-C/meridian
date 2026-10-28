@@ -128,10 +128,11 @@ report:
 
 # Per-VFDB sankey filter (R/12). Cap genes shown so the diagram stays legible.
 network:
-  # Network = every gene-carrying read linked to the taxon on the same read;
-  # no read-count floor (the community analyses' > 10-read floor does not
-  # apply here). Decided with Julio 2026-10-27.
-  min_sample_count: 0
+  # Network = read-level taxon-element links; sample-taxon edges need > 10
+  # reads (matches the legacy Figure 4 metrics). Per-taxon sample lists in the
+  # text are reported from all gene-carrying reads. Decided with Julio 2026-10-27
+  # (floor 0 tried and reverted: 1017 nodes, max k 201).
+  min_sample_count: 10
   sankey:
     top_genes:   30
     rank_by:     prevalence_x_abundance
