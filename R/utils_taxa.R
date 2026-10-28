@@ -73,7 +73,14 @@ clean_taxa_names <- function(df, cfg = NULL) {
   out$name <- gsub("\\[|\\]", "", out$name)
 
   if (isTRUE(abbreviate_genus)) {
-    out$name <- sub("^(\\w)\\w+\\s+(\\w+)", "\\1. \\2", out$name)
+    full <- out$name
+    abbr <- sub("^(\\w)\\w+\\s+(\\w+)", "\\1. \\2", full)
+    # Different taxa that share an abbreviation (Acinetobacter soli and
+    # Agromyces soli -> "A. soli") would be merged downstream; keep their full
+    # genus so every stage still counts them as separate taxa.
+    n_full <- vapply(split(full, abbr), function(x) length(unique(x)), integer(1))
+    clash <- names(n_full)[n_full > 1]
+    out$name <- ifelse(abbr %in% clash, full, abbr)
     substr(out$name, 1, 1) <- toupper(substr(out$name, 1, 1))
   }
 
