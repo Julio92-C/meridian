@@ -319,8 +319,8 @@ run_alpha_diversity <- function(cleaned, cfg) {
       ggplot2::annotate("text", x = Inf, y = Inf, label = label_kw,
                         hjust = 1.05, vjust = 1.4,
                         size = 4.2, colour = "black") +
-      ggplot2::labs(x = pretty_var(group), y = pretty_var(label_disp),
-                    title = paste(label_disp, "by", tolower(pretty_var(group)))) +
+      ggplot2::labs(x = pretty_var(group), y = pretty_var(label_disp), fill = pretty_var(group),
+                    title = paste(pretty_var(label_disp), "by", tolower(pretty_var(group)))) +
       ggplot2::theme_classic() +
       ggplot2::theme(legend.position = "top",
                      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),

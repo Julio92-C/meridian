@@ -127,7 +127,7 @@ run_mobilome <- function(cleaned, cfg) {
   ge_plot_abundance_violin(
     pfdb, group, pal_group,
     file = file.path(fig_dir, "mge_abundance_violin.png"),
-    title = "MGE abundance per Treatment group",
+    title = sprintf("MGE abundance by %s", tolower(pretty_var(group))),
     log_label = label, cfg = cfg
   )
 
@@ -211,7 +211,7 @@ run_mobilome <- function(cleaned, cfg) {
     value_col    = "TPM",
     palette      = pal_gene,
     fill_label   = "Plasmid replicon",
-    title        = "MGE plasmid replicon (gene) composition by treatment"
+    title        = sprintf("MGE plasmid replicon (gene) composition by %s", tolower(pretty_var(group)))
   )
   save_stream_composition(
     pfdb_fam,
@@ -221,7 +221,7 @@ run_mobilome <- function(cleaned, cfg) {
     value_col    = "TPM",
     palette      = pal_family,
     fill_label   = "Replicon family",
-    title        = "MGE replicon family composition by treatment"
+    title        = sprintf("MGE replicon family composition by %s", tolower(pretty_var(group)))
   )
   ge_plot_total_bar(
     gene_totals, category_col = "GENE", value_col = "Total_TPM",

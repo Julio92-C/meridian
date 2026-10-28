@@ -994,7 +994,7 @@ da_feature_panel <- function(feat, mat, meta_use, sid, group, feature_col,
     ggplot2::geom_boxplot(width = 0.12, outlier.shape = NA,
                           position = ggplot2::position_dodge(0.9)) +
     ggplot2::scale_fill_manual(values = pal) +
-    ggplot2::labs(x = group, y = "log10(count + 1)", title = viol_title) +
+    ggplot2::labs(x = pretty_var(group), y = "log10(count + 1)", title = viol_title) +
     ggplot2::theme_classic() +
     ggplot2::theme(legend.position = "none",
                    plot.title = ggplot2::element_text(hjust = 0.5))

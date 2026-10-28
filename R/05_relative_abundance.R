@@ -687,7 +687,7 @@ run_relative_abundance <- function(cleaned, cfg) {
       top_n        = top_n,
       others_label = others_label,
       fill_label   = "Species",
-      title        = paste("Species composition by", facet_by)
+      title        = paste("Species composition by", tolower(pretty_var(facet_by)))
     )
   }
 
@@ -747,7 +747,7 @@ run_relative_abundance <- function(cleaned, cfg) {
         # Capitalised display label for fig01 F (taxa class stream).
         fill_label   = paste0(toupper(substr(rank_col, 1, 1)),
                                 substr(rank_col, 2, nchar(rank_col))),
-        title        = sprintf("Composition by %s (%s level)", facet_by, rank_col)
+        title        = sprintf("Composition by %s (%s level)", tolower(pretty_var(facet_by)), rank_col)
       )
     }
   }

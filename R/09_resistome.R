@@ -135,7 +135,7 @@ run_resistome <- function(cleaned, cfg) {
   ge_plot_abundance_violin(
     card, group, pal_group,
     file = file.path(fig_dir, "arg_abundance_violin.png"),
-    title = "ARG abundance per Treatment group",
+    title = sprintf("ARG abundance by %s", tolower(pretty_var(group))),
     log_label = label, cfg = cfg
   )
 
@@ -235,7 +235,7 @@ run_resistome <- function(cleaned, cfg) {
       value_col    = "TPM",
       palette      = pal_drug,
       fill_label   = "Drug class",
-      title        = "Drug class composition by treatment"
+      title        = sprintf("Drug class composition by %s", tolower(pretty_var(group)))
     )
     ge_plot_total_bar(
       drug_totals, category_col = "DRUG", value_col = "Total_TPM",

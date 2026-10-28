@@ -1476,9 +1476,9 @@ run_network <- function(cleaned, cfg) {
     ggplot2::scale_fill_manual(values = c(`Non-mobile` = "#4575b4",
                                            Mobile      = "#d73027")) +
     ggplot2::labs(
-      x = group, y = "% of total ARG TPM",
+      x = pretty_var(group), y = "% of total ARG TPM",
       fill = NULL,
-      title = sprintf("ARG mobile fraction by treatment (%s)", kw_label)
+      title = sprintf("ARG mobile fraction by %s (%s)", tolower(pretty_var(group)), kw_label)
     ) +
     ggplot2::theme_classic() +
     ggplot2::theme(

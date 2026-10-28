@@ -467,6 +467,7 @@ ge_plot_abundance_violin <- function(df, group, pal_group, file,
                      fill = .data[[group]])) +
     ggplot2::geom_boxplot(width = 0.55, outlier.shape = NA, alpha = 0.55) +
     ggplot2::geom_jitter(width = 0.12, size = 0.6, alpha = 0.3) +
+    ggplot2::scale_y_continuous(expand = stats_headroom(if (is.null(kw)) 0 else 1)) +
     ggplot2::scale_fill_manual(values = pal_group) +
     ggplot2::labs(x = pretty_var(group), y = y_label, title = title) +
     ggplot2::theme_classic() +

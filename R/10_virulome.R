@@ -124,7 +124,7 @@ run_virulome <- function(cleaned, cfg) {
   ge_plot_abundance_violin(
     vfdb, group, pal_group,
     file = file.path(fig_dir, "vf_abundance_violin.png"),
-    title = "VF abundance per Treatment group",
+    title = sprintf("VF abundance by %s", tolower(pretty_var(group))),
     log_label = label, cfg = cfg
   )
 
@@ -229,7 +229,7 @@ run_virulome <- function(cleaned, cfg) {
       value_col    = "TPM",
       palette      = pal_function,
       fill_label   = "VF function",
-      title        = "VF function composition by treatment"
+      title        = sprintf("VF function composition by %s", tolower(pretty_var(group)))
     )
     ge_plot_total_bar(
       vf_totals, category_col = "Functions", value_col = "Total_TPM",
