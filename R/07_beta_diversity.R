@@ -4,10 +4,13 @@
 # taxaNormProfile_PCoA.R from the reference chicken_batch1 scripts but is
 # parameterised by config — no hardcoded sample IDs, treatments, or palettes.
 #
-# Data source priority (configurable via cfg$beta_diversity$source):
-#   1. "bracken"        — cleaned$merged (Bracken table with metadata)
-#   2. "noncontaminants" — cleaned$noncontaminants (Re-centrifuge counts)
-#   "auto" picks bracken when available, otherwise noncontaminants.
+# Data source (cfg$beta_diversity$source):
+#   "noncontaminants" (default) — cleaned$noncontaminants, the community taxa
+#                                 table (every taxon, every sample).
+#   "bracken" / "merged"        — cleaned$merged: Bracken sampleCount for taxa
+#                                 that carry an ARG/VF/plasmid hit only, one row
+#                                 per gene hit. A resistome-linked view, opt-in.
+#   "auto" is kept for old configs and means "bracken" when available.
 
 `%||%` <- function(a, b) if (is.null(a)) b else a
 
@@ -41,11 +44,16 @@ beta_palette <- function(levels, cfg) {
   pal
 }
 
-# Pick the long-form (sample, name, count) table the user wants to ordinate.
-# Bracken's per-sample read counts live under `sampleCount` in cleaned$merged.
+# Pick the long-form (sample, name, count) table to ordinate. Beta diversity of
+# taxa is a COMMUNITY-level question, so the default is the community taxa table
+# (as for taxa DAA in R/08). cleaned$merged is an inner join of the gene-hit
+# table with Bracken: it keeps only gene-carrying taxa and repeats each taxon's
+# count once per gene hit, which distorts the ordination (on the lung cohort it
+# used 172 of 2,881 taxa and hid a batch difference). Opt in with
+# `beta_diversity.source: bracken` (or `merged`).
 beta_source_table <- function(cleaned, cfg) {
-  src <- cfg$beta_diversity$source %||% "auto"
-  if (src %in% c("auto", "bracken") && !is.null(cleaned$merged)) {
+  src <- cfg$beta_diversity$source %||% "noncontaminants"
+  if (src %in% c("auto", "bracken", "merged") && !is.null(cleaned$merged)) {
     df <- cleaned$merged
     if (!"sampleCount" %in% colnames(df)) {
       stop("Beta diversity: cleaned$merged has no `sampleCount` column")
@@ -69,6 +77,9 @@ run_beta_diversity <- function(cleaned, cfg) {
 
   # ---- 1. Pick source + clean taxa names ---------------------------------
   picked <- beta_source_table(cleaned, cfg)
+  if (picked$source == "noncontaminants") {
+    picked$df <- community_filter(picked$df, cfg, "Beta diversity")
+  }
   df <- clean_taxa_names(picked$df, cfg)
   pipeline_log(cfg, sprintf("Beta diversity: source=%s, %d rows after clean_taxa_names",
                             picked$source, nrow(df)))
@@ -93,24 +104,41 @@ run_beta_diversity <- function(cleaned, cfg) {
     tidyr::pivot_wider(names_from = name, values_from = count, values_fill = 0)
   mat <- as.matrix(wide[, -1])
   rownames(mat) <- wide$sample
-  mat <- mat[rowSums(mat) > 0, , drop = FALSE]
 
-  # Metadata is read up front so samples with an NA group value (blank cell,
-  # or a sample absent from the metadata) can be dropped BEFORE the distance
-  # step: adonis2() uses na.fail and would abort the stage on them.
+  # Ordinate only metadata samples with a group value. The community table can
+  # carry columns that are not samples (e.g. Re-centrifuge EXCLUSIVE/CTRL/SHARED
+  # summary columns on chicken_batch2) or samples absent from the metadata;
+  # adonis2 fails on their NA group.
   meta <- readr::read_csv(
     file.path(cfg$project_root, cfg$metadata$file), show_col_types = FALSE
   )
   meta[[sid]] <- as.character(meta[[sid]])
-  if (group %in% colnames(meta)) {
-    grp_chk <- meta[[group]][match(rownames(mat), meta[[sid]])]
-    ok_grp  <- !is.na(grp_chk)
-    if (!all(ok_grp)) {
+  if (!group %in% colnames(meta)) {
+    stop(sprintf("Beta diversity: group column '%s' not in metadata", group))
+  }
+  keep_ids <- meta[[sid]][!is.na(meta[[group]])]
+  dropped  <- setdiff(rownames(mat), keep_ids)
+  if (length(dropped) > 0) {
+    pipeline_log(cfg, sprintf(
+      "Beta diversity: dropping %d sample(s) with NA %s (table column not in metadata or blank group value)",
+      length(dropped), group))
+  }
+  mat <- mat[rownames(mat) %in% keep_ids, , drop = FALSE]
+  mat <- mat[rowSums(mat) > 0, , drop = FALSE]
+
+  # Optional minimum depth per sample (reads summed over the taxa left after the
+  # count floor). Off by default. Very shallow samples give sparse, extreme
+  # profiles that can drive a PERMANOVA on their own (lung: <100-read sputum
+  # samples, mostly from young patients, produced an age-band effect).
+  min_reads <- bd_cfg$min_sample_reads %||% 0
+  if (min_reads > 0) {
+    shallow <- rownames(mat)[rowSums(mat) < min_reads]
+    if (length(shallow) > 0) {
       pipeline_log(cfg, sprintf(
-        "Beta diversity: dropping %d sample(s) with NA %s", sum(!ok_grp), group
-      ))
-      mat <- mat[ok_grp, , drop = FALSE]
+        "Beta diversity: dropped %d sample(s) with < %s reads (min_sample_reads): %s",
+        length(shallow), format(min_reads), paste(shallow, collapse = ", ")))
     }
+    mat <- mat[rowSums(mat) >= min_reads, , drop = FALSE]
   }
   if (nrow(mat) < 3) {
     pipeline_log(cfg, sprintf(
@@ -160,37 +188,68 @@ run_beta_diversity <- function(cleaned, cfg) {
   readr::write_csv(scores, file.path(out_dir, "beta_diversity_pcoa.csv"))
 
   # ---- 7. PERMANOVA ------------------------------------------------------
+  # Group-contrast stats (PERMANOVA / PERMDISP, and the Jaccard pair below)
+  # need >= 2 populated group levels among the ordinated samples. Some
+  # cohorts collapse to a single level here even when the full metadata has
+  # two — e.g. a resistome-linked source table where one group carries ~no
+  # ARG hits (hospital_wastewater_eg: tap water). Degrade gracefully like
+  # taxonomy/relative_abundance instead of letting adonis2 -> model.matrix
+  # throw "contrasts can be applied only to factors with 2 or more levels";
+  # the PCoA ordination + CSV are still emitted below.
   meta_aligned <- meta[match(rownames(mat_t), meta[[sid]]), , drop = FALSE]
-  n_groups <- dplyr::n_distinct(meta_aligned[[group]], na.rm = TRUE)
-  if (n_groups < 2) {
-    pipeline_log(cfg, sprintf(
-      "Beta diversity: samples span %d %s group(s) — need >= 2 for PERMANOVA, skipping",
-      n_groups, group
-    ))
-    return(invisible(NULL))
-  }
-  permanova <- vegan::adonis2(
-    stats::reformulate(group, "d"),
-    data         = meta_aligned,
-    permutations = cfg$stats$permanova_permutations %||% 9999
-  )
-  utils::capture.output(permanova,
-                        file = file.path(fig_dir, "permanova.txt"))
-  r2_val <- permanova$R2[1]
-  p_val  <- permanova$`Pr(>F)`[1]
-  pipeline_log(cfg, sprintf("PERMANOVA %s: R2 = %.3f, p_raw = %.4g",
-                            group, r2_val, p_val))
+  n_grp <- length(unique(stats::na.omit(meta_aligned[[group]])))
+  can_contrast <- n_grp >= 2
+  r2_val <- NA_real_; p_val <- NA_real_; permdisp_p <- NA_real_
+  permanova <- NULL; betadisp_test <- NULL   # stay defined for the return list
+  # Patient-aware mode: same pseudo-F / R2 / dispersion F, p from a
+  # cluster-respecting permutation null (R/utils_cluster_perm.R).
+  use_cl   <- cluster_tests_enabled(cfg)
+  clusters <- if (use_cl) cluster_vector(cfg, rownames(mat_t)) else NULL
+  if (can_contrast && use_cl) {
+    permanova <- cluster_permanova(d, meta_aligned[[group]], clusters,
+                                   nperm = cluster_nperm(cfg), seed = cluster_seed(cfg))
+    cluster_write_beta_txt(permanova, file.path(fig_dir, "permanova.txt"),
+                           group, cfg$metadata$random_effect, "PERMANOVA (Bray-Curtis)")
+    r2_val <- permanova$R2
+    p_val  <- permanova$p.value
+    pipeline_log(cfg, sprintf("PERMANOVA %s: R2 = %.3f, p_raw = %.4g (%s)",
+                              group, r2_val, p_val, cluster_tag(permanova)))
 
-  # ---- 8. PERMDISP (homogeneity of dispersion) --------------------------
-  betadisp <- vegan::betadisper(d, factor(meta_aligned[[group]]))
-  betadisp_test <- vegan::permutest(
-    betadisp,
-    permutations = cfg$stats$permanova_permutations %||% 9999
-  )
-  utils::capture.output(betadisp_test,
-                        file = file.path(fig_dir, "permdisp.txt"))
-  permdisp_p <- betadisp_test$tab$`Pr(>F)`[1]
-  pipeline_log(cfg, sprintf("PERMDISP %s: p_raw = %.4g", group, permdisp_p))
+    betadisp_test <- cluster_permdisp(d, meta_aligned[[group]], clusters,
+                                      nperm = cluster_nperm(cfg), seed = cluster_seed(cfg))
+    cluster_write_beta_txt(betadisp_test, file.path(fig_dir, "permdisp.txt"),
+                           group, cfg$metadata$random_effect, "PERMDISP (Bray-Curtis)")
+    permdisp_p <- betadisp_test$p.value
+    pipeline_log(cfg, sprintf("PERMDISP %s: p_raw = %.4g (%s)",
+                              group, permdisp_p, cluster_tag(betadisp_test)))
+  } else if (can_contrast) {
+    permanova <- vegan::adonis2(
+      stats::reformulate(group, "d"),
+      data         = meta_aligned,
+      permutations = cfg$stats$permanova_permutations %||% 9999
+    )
+    utils::capture.output(permanova,
+                          file = file.path(fig_dir, "permanova.txt"))
+    r2_val <- permanova$R2[1]
+    p_val  <- permanova$`Pr(>F)`[1]
+    pipeline_log(cfg, sprintf("PERMANOVA %s: R2 = %.3f, p_raw = %.4g",
+                              group, r2_val, p_val))
+
+    # ---- 8. PERMDISP (homogeneity of dispersion) ------------------------
+    betadisp <- vegan::betadisper(d, factor(meta_aligned[[group]]))
+    betadisp_test <- vegan::permutest(
+      betadisp,
+      permutations = cfg$stats$permanova_permutations %||% 9999
+    )
+    utils::capture.output(betadisp_test,
+                          file = file.path(fig_dir, "permdisp.txt"))
+    permdisp_p <- betadisp_test$tab$`Pr(>F)`[1]
+    pipeline_log(cfg, sprintf("PERMDISP %s: p_raw = %.4g", group, permdisp_p))
+  } else {
+    pipeline_log(cfg, sprintf(
+      "Beta diversity: only %d level of '%s' among the %d ordinated samples — PERMANOVA/PERMDISP skipped (PCoA still written)",
+      n_grp, group, nrow(mat_t)))
+  }
 
   # ---- 9. PCoA scatter + ellipses --------------------------------------
   # Bray rendering is deferred until after the Jaccard branch runs so we
@@ -212,6 +271,8 @@ run_beta_diversity <- function(cleaned, cfg) {
   p_j <- NA_real_; r2_j <- NA_real_; permdisp_j_p <- NA_real_
   if (has_jac) {
     mat_pa  <- vegan::decostand(mat, method = "pa")
+    # (Jaccard adonis2/betadisper are gated on can_contrast below — a
+    # single-level group would otherwise throw the same contrasts error.)
     d_jac   <- vegan::vegdist(mat_pa, method = "jaccard", binary = TRUE)
     pcoa_j  <- stats::cmdscale(d_jac, eig = TRUE, k = 2)
     if (ncol(pcoa_j$points) < 2) {
@@ -232,27 +293,46 @@ run_beta_diversity <- function(cleaned, cfg) {
     readr::write_csv(scores_j,
                      file.path(out_dir, "beta_diversity_jaccard_pcoa.csv"))
 
-    perm_j <- vegan::adonis2(
-      stats::reformulate(group, "d_jac"),
-      data         = meta_aligned,
-      permutations = cfg$stats$permanova_permutations %||% 9999
-    )
-    utils::capture.output(perm_j,
-                          file = file.path(fig_dir, "jaccard_permanova.txt"))
-    r2_j <- perm_j$R2[1]
-    p_j  <- perm_j$`Pr(>F)`[1]
-    pipeline_log(cfg, sprintf("PERMANOVA Jaccard %s: R2 = %.3f, p_raw = %.4g",
-                              group, r2_j, p_j))
+    if (can_contrast && use_cl) {
+      perm_j <- cluster_permanova(d_jac, meta_aligned[[group]], clusters,
+                                  nperm = cluster_nperm(cfg), seed = cluster_seed(cfg))
+      cluster_write_beta_txt(perm_j, file.path(fig_dir, "jaccard_permanova.txt"),
+                             group, cfg$metadata$random_effect, "PERMANOVA (Jaccard)")
+      r2_j <- perm_j$R2
+      p_j  <- perm_j$p.value
+      pipeline_log(cfg, sprintf("PERMANOVA Jaccard %s: R2 = %.3f, p_raw = %.4g (%s)",
+                                group, r2_j, p_j, cluster_tag(perm_j)))
 
-    bd_j      <- vegan::betadisper(d_jac, factor(meta_aligned[[group]]))
-    bd_j_test <- vegan::permutest(
-      bd_j, permutations = cfg$stats$permanova_permutations %||% 9999
-    )
-    utils::capture.output(bd_j_test,
-                          file = file.path(fig_dir, "jaccard_permdisp.txt"))
-    permdisp_j_p <- bd_j_test$tab$`Pr(>F)`[1]
-    pipeline_log(cfg, sprintf("PERMDISP Jaccard %s: p_raw = %.4g",
-                              group, permdisp_j_p))
+      bd_j_test <- cluster_permdisp(d_jac, meta_aligned[[group]], clusters,
+                                    nperm = cluster_nperm(cfg), seed = cluster_seed(cfg))
+      cluster_write_beta_txt(bd_j_test, file.path(fig_dir, "jaccard_permdisp.txt"),
+                             group, cfg$metadata$random_effect, "PERMDISP (Jaccard)")
+      permdisp_j_p <- bd_j_test$p.value
+      pipeline_log(cfg, sprintf("PERMDISP Jaccard %s: p_raw = %.4g (%s)",
+                                group, permdisp_j_p, cluster_tag(bd_j_test)))
+    } else if (can_contrast) {
+      perm_j <- vegan::adonis2(
+        stats::reformulate(group, "d_jac"),
+        data         = meta_aligned,
+        permutations = cfg$stats$permanova_permutations %||% 9999
+      )
+      utils::capture.output(perm_j,
+                            file = file.path(fig_dir, "jaccard_permanova.txt"))
+      r2_j <- perm_j$R2[1]
+      p_j  <- perm_j$`Pr(>F)`[1]
+      pipeline_log(cfg, sprintf("PERMANOVA Jaccard %s: R2 = %.3f, p_raw = %.4g",
+                                group, r2_j, p_j))
+
+      bd_j      <- vegan::betadisper(d_jac, factor(meta_aligned[[group]]))
+      bd_j_test <- vegan::permutest(
+        bd_j, permutations = cfg$stats$permanova_permutations %||% 9999
+      )
+      utils::capture.output(bd_j_test,
+                            file = file.path(fig_dir, "jaccard_permdisp.txt"))
+      permdisp_j_p <- bd_j_test$tab$`Pr(>F)`[1]
+      pipeline_log(cfg, sprintf("PERMDISP Jaccard %s: p_raw = %.4g",
+                                group, permdisp_j_p))
+    }
   }
 
   # ---- 9.6. Family-adjust PERMANOVA + PERMDISP pairs ---------------------
@@ -292,10 +372,17 @@ run_beta_diversity <- function(cleaned, cfg) {
   readr::write_csv(beta_padj_summary,
                     file.path(out_dir, "beta_diversity_padj_summary.csv"))
 
-  annot_label <- sprintf(
-    "PERMANOVA R² = %.3f, p_adj (%s) = %.4g\nPERMDISP p_adj = %.4g",
-    r2_val, pad_method, p_val_adj, permdisp_p_adj
-  )
+  annot_label <- if (can_contrast) {
+    sprintf(
+      "PERMANOVA R² = %.3f, p_adj (%s) = %.4g\nPERMDISP p_adj = %.4g",
+      r2_val, pad_method, p_val_adj, permdisp_p_adj
+    )
+  } else {
+    sprintf("Single '%s' level — PERMANOVA/PERMDISP not applicable", group)
+  }
+  cl_note <- if (use_cl && can_contrast)
+    sprintf("\n(p: %s-aware permutation)", cfg$metadata$random_effect) else ""
+  annot_label <- paste0(annot_label, cl_note)
 
   # ---- 9. Bray-Curtis PCoA scatter + ellipses --------------------------
   p <- ggplot2::ggplot(scores,
@@ -340,10 +427,15 @@ run_beta_diversity <- function(cleaned, cfg) {
   # above. Presence/absence distance captures rare-biosphere structure that
   # Bray-Curtis can miss when a handful of abundant taxa dominate.
   if (has_jac) {
-    annot_j <- sprintf(
-      "PERMANOVA R² = %.3f, p_adj (%s) = %.4g\nPERMDISP p_adj = %.4g",
-      r2_j, pad_method, p_j_adj, permdisp_j_p_adj
-    )
+    annot_j <- if (can_contrast) {
+      sprintf(
+        "PERMANOVA R² = %.3f, p_adj (%s) = %.4g\nPERMDISP p_adj = %.4g",
+        r2_j, pad_method, p_j_adj, permdisp_j_p_adj
+      )
+    } else {
+      sprintf("Single '%s' level — PERMANOVA/PERMDISP not applicable", group)
+    }
+    annot_j <- paste0(annot_j, cl_note)
     p_jac <- ggplot2::ggplot(scores_j,
               ggplot2::aes(x = PC1, y = PC2, colour = .data[[group]])) +
       ggplot2::geom_point(size = 3) +

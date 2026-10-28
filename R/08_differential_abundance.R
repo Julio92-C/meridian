@@ -59,19 +59,54 @@ da_palette <- function(levels, cfg) {
   pal
 }
 
-# Taxa counts matrix: prefer Bracken sampleCount via cleaned$merged, fall back
-# to Re-centrifuge cleaned$noncontaminants. Returns features x samples matrix.
+# Taxa counts matrix. Differential abundance of taxa is a COMMUNITY-level
+# question, so this ALWAYS references the community taxa table (Re-centrifuge
+# cleaned$noncontaminants: every taxon, every sample) by default. The
+# alternative — cleaned$merged (Bracken sampleCount restricted to taxa that
+# carry an ARG/VF/plasmid hit) — is a narrower, resistome-linked view that
+# collapses to a single group whenever a cohort group carries ~no genetic
+# elements (e.g. hospital_wastewater_eg tap water), yielding no DAA output.
+# Callers who specifically want the GE-linked view opt in with
+# `differential_abundance.source: bracken` (or `merged`).
+# Optional taxa pre-filters (both off by default), applied on full names before
+# clean_taxa_names() abbreviates them:
+#   differential_abundance.min_count_per_sample  drop a taxon in a sample
+#       unless it has > N reads, so DA tests the same taxa as the community
+#       analyses (filters.min_count_per_sample) rather than 1-N read noise.
+#   differential_abundance.exclude_genera  drop taxa whose genus (first word)
+#       is listed, e.g. likely false-positive assignments such as Plasmodium.
+da_taxa_prefilter <- function(df, cfg) {
+  dcfg <- cfg$differential_abundance %||% list()
+  floor_n <- dcfg$min_count_per_sample %||% 0
+  if (floor_n > 0) {
+    n0 <- nrow(df)
+    df <- dplyr::filter(df, .data$count > floor_n)
+    pipeline_log(cfg, sprintf("DA[taxa]: read floor (> %s) kept %d/%d rows",
+                              floor_n, nrow(df), n0))
+  }
+  ex <- dcfg$exclude_genera
+  if (length(ex) > 0) {
+    genus <- sub("^\\s*(\\S+).*$", "\\1", as.character(df$name))
+    hit <- genus %in% ex
+    pipeline_log(cfg, sprintf("DA[taxa]: excluded %d taxa from genera %s",
+                              length(unique(df$name[hit])), paste(ex, collapse = ", ")))
+    df <- df[!hit, , drop = FALSE]
+  }
+  df
+}
+
 da_taxa_matrix <- function(cleaned, cfg) {
-  src <- cfg$differential_abundance$source %||% "auto"
-  if (src %in% c("auto", "bracken") && !is.null(cleaned$merged) &&
+  src <- cfg$differential_abundance$source %||% "noncontaminants"
+  if (src %in% c("bracken", "merged") && !is.null(cleaned$merged) &&
       "sampleCount" %in% colnames(cleaned$merged)) {
     df <- cleaned$merged
     df <- dplyr::transmute(df, sample, name, count = as.numeric(sampleCount))
     src_used <- "bracken"
   } else {
-    df <- cleaned$noncontaminants
+    df <- community_filter(cleaned$noncontaminants, cfg, "DA[taxa]")
     src_used <- "noncontaminants"
   }
+  df <- da_taxa_prefilter(df, cfg)
   df <- clean_taxa_names(df, cfg)
   list(df = df, source = src_used)
 }
@@ -337,6 +372,35 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
     ))
     return(invisible(NULL))
   }
+
+  # ---- Patient-aware mode: pool replicates before ALDEx2 -----------------
+  # ALDEx2 has no random-effect term, so repeated samples from one patient
+  # would count as independent replicates. Sum counts per patient (group
+  # constant within patient) or per patient x group (group varies within
+  # patient) so each pooled unit is one replicate. Downstream tables, plots
+  # and the heatmap then refer to pooled units (e.g. "ID-1005|Exhale").
+  if (cluster_tests_enabled(cfg)) {
+    re   <- cfg$metadata$random_effect
+    pool <- cluster_pool_counts(mat, meta_use, sid, group, re)
+    df$sample <- unname(pool$unit_of[as.character(df$sample)])
+    df   <- df[!is.na(df$sample), , drop = FALSE]
+    mat  <- pool$mat
+    mat  <- mat[rowSums(mat > 0) >= min(min_prev, ncol(mat)), , drop = FALSE]
+    meta_use <- pool$meta
+    samples  <- colnames(mat)
+    conds    <- as.character(meta_use[[group]])
+    pipeline_log(cfg, sprintf(
+      "DA[%s]: pooled %d samples -> %d %s units by '%s' (%s design) for ALDEx2",
+      level, length(pool$unit_of), ncol(mat),
+      if (pool$design == "within") "patient x group" else "patient",
+      re, pool$design
+    ))
+    if (ncol(mat) < 4 || nrow(mat) < 2) {
+      pipeline_log(cfg, sprintf(
+        "DA[%s]: only %d pooled units / %d features — skipping", level, ncol(mat), nrow(mat)))
+      return(invisible(NULL))
+    }
+  }
   group_levels <- sort(unique(conds))
   group_sizes  <- table(conds)
   pipeline_log(cfg, sprintf(
@@ -420,6 +484,37 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
                                                       level, cn, conditionMessage(e))); NULL }
     )
     if (is.null(res)) next
+    # ALDEx2's Wilcoxon uses a fast rank approximation that returns p ~ 0 at
+    # tiny n, although an exact two-sided rank-sum test cannot go below
+    # 2 / choose(n1 + n2, n1) (0.33 for 2 vs 2, 0.056 for 2 vs 7). When a
+    # group is smaller than `min_wilcox_group` or the exact minimum p cannot
+    # reach alpha, drop the wi.* columns so candidates, the dot plot and the
+    # TSVs fall back to Welch (we.*) for this pair.
+    min_wi   <- da_cfg$min_wilcox_group %||% 3
+    exact_lo <- 2 / choose(sum(pair_sizes), min(pair_sizes))
+    if (min(pair_sizes) < min_wi || exact_lo >= alpha) {
+      res <- res[, setdiff(colnames(res), c("wi.ep", "wi.eBH")), drop = FALSE]
+      pipeline_log(cfg, sprintf(
+        "DA[%s] %s: group sizes %s — Wilcoxon dropped (exact min p = %.3g; need group >= %d and min p < %.2g); Welch only",
+        level, cn, paste(sprintf("%s=%d", pr, pair_sizes), collapse = ", "),
+        exact_lo, min_wi, alpha
+      ))
+    } else if (all(c("wi.ep", "wi.eBH") %in% colnames(res)) &&
+               any(res$wi.ep < exact_lo, na.rm = TRUE)) {
+      # Kept, but no Wilcoxon p may be smaller than an exact test allows:
+      # floor wi.ep at the exact minimum and re-apply BH (taking the larger
+      # of ALDEx2's eBH and the re-adjusted floored p, so it never gets
+      # less conservative). Matters at moderate n (e.g. 10 vs 3, min p =
+      # 0.007), where ALDEx2 still returns p = 0 for many features.
+      n_floor    <- sum(res$wi.ep < exact_lo, na.rm = TRUE)
+      res$wi.ep  <- pmax(res$wi.ep, exact_lo)
+      res$wi.eBH <- pmax(res$wi.eBH, stats::p.adjust(res$wi.ep, method = "BH"))
+      pipeline_log(cfg, sprintf(
+        "DA[%s] %s: %d Wilcoxon p-value(s) below the exact minimum %.3g (group sizes %s) — floored and BH re-applied",
+        level, cn, n_floor, exact_lo,
+        paste(sprintf("%s=%d", pr, pair_sizes), collapse = ", ")
+      ))
+    }
     raw_results[[cn]] <- res
     df_pr <- tibble::rownames_to_column(as.data.frame(res), feature_col)
     readr::write_tsv(df_pr, file.path(ds_dir, paste0(cn, ".tsv")))
@@ -629,7 +724,8 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
       panel <- da_feature_panel(ft, mat, meta_use, sid, group,
                                 feature_col, restrict_groups = NULL,
                                 pal = pal,
-                                title_suffix = "across all groups")
+                                title_suffix = "across all groups",
+                                cfg = cfg)
       if (!is.null(panel)) { print(panel$bar); print(panel$viol) }
     }
     grDevices::dev.off(); pdf_open <- FALSE
@@ -809,9 +905,15 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
           level, nf, length(effect_cols)
         ))
       } else {
+        # Remove a dot plot left by an earlier run so the manifest (which
+        # lists it whenever the PNG exists) can't advertise stale results.
+        stale <- file.path(fig_dir, c("aldex2_dotplot_summary.png",
+                                      "aldex2_dotplot_summary.rds"))
+        removed <- any(file.exists(stale))
+        unlink(stale)
         pipeline_log(cfg, sprintf(
-          "DA[%s] aldex2_dotplot: no features significant in >=1 pair — skipping",
-          level
+          "DA[%s] aldex2_dotplot: no features significant in >=1 pair — skipping%s",
+          level, if (removed) " (stale plot from a previous run removed)" else ""
         ))
       }
     }
@@ -825,11 +927,16 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
 # `mat` already filtered to aligned samples.
 da_feature_panel <- function(feat, mat, meta_use, sid, group, feature_col,
                              restrict_groups = NULL, pal,
-                             title_suffix = NULL) {
+                             title_suffix = NULL, cfg = NULL) {
   if (!feat %in% rownames(mat)) return(NULL)
 
-  meta_df <- as.data.frame(meta_use[, c(sid, group), drop = FALSE])
-  names(meta_df) <- c("sample", ".group")
+  # Patient-aware mode: `mat` columns are pooled units (see da_run_level);
+  # their cluster column drives the KW / pairwise permutation tests.
+  use_cl <- !is.null(cfg) && cluster_tests_enabled(cfg) &&
+            cfg$metadata$random_effect %in% colnames(meta_use)
+  meta_cols <- c(sid, group, if (use_cl) cfg$metadata$random_effect)
+  meta_df <- as.data.frame(meta_use[, meta_cols, drop = FALSE])
+  names(meta_df) <- c("sample", ".group", if (use_cl) ".cluster")
   meta_df$sample <- as.character(meta_df$sample)
 
   use_samples <- meta_df$sample
@@ -846,11 +953,18 @@ da_feature_panel <- function(feat, mat, meta_use, sid, group, feature_col,
   cls <- merge(cls, meta_df, by = "sample", all.x = TRUE)
   cls$log_count <- log10(cls$count + 1)
 
-  kw_p <- tryCatch(
-    kruskal.test(count ~ .group, data = cls)$p.value,
-    error = function(e) NA_real_
+  kw_res <- tryCatch(
+    if (use_cl) {
+      cluster_kw(cls$count, cls$.group, cls$.cluster,
+                 nperm = cluster_nperm(cfg), seed = cluster_seed(cfg))
+    } else {
+      kruskal.test(count ~ .group, data = cls)
+    },
+    error = function(e) NULL
   )
-  kw_lab <- sprintf("Kruskal-Wallis p = %s",
+  kw_p <- if (is.null(kw_res)) NA_real_ else kw_res$p.value
+  kw_lab <- sprintf("%s = %s",
+                    if (use_cl) "Kruskal-Wallis p (patient perm)" else "Kruskal-Wallis p",
                     if (is.na(kw_p)) "NA" else format(kw_p, digits = 3))
 
   sample_stats <- cls |>
@@ -913,9 +1027,25 @@ da_feature_panel <- function(feat, mat, meta_use, sid, group, feature_col,
     ggplot2::theme(legend.position = "none",
                    plot.title = ggplot2::element_text(hjust = 0.5))
   if (length(pair_combos) > 0 && requireNamespace("ggpubr", quietly = TRUE)) {
-    violp <- violp + ggpubr::stat_compare_means(
-      comparisons = pair_combos, method = "wilcox.test", label = "p.signif"
-    )
+    if (use_cl) {
+      # Same all-pairs, unadjusted p.signif brackets as stat_compare_means,
+      # but with cluster-permutation Wilcoxon p-values.
+      cm <- tryCatch(
+        cluster_wilcox_pairs(cls$log_count, cls$.group, cls$.cluster,
+                             nperm = cluster_nperm(cfg), seed = cluster_seed(cfg),
+                             p.adjust.method = "none"),
+        error = function(e) NULL
+      )
+      if (!is.null(cm) && nrow(cm) > 0) {
+        cm$y.position <- max(cls$log_count, na.rm = TRUE) + 0.3 + 0.6 * (seq_len(nrow(cm)) - 1)
+        violp <- violp + ggpubr::stat_pvalue_manual(cm, label = "p.signif",
+                                                    tip.length = 0.01)
+      }
+    } else {
+      violp <- violp + ggpubr::stat_compare_means(
+        comparisons = pair_combos, method = "wilcox.test", label = "p.signif"
+      )
+    }
   }
   violp <- violp + ggplot2::annotate(
     "text",
@@ -959,7 +1089,11 @@ run_aldex <- function(cleaned, cfg) {
   }
   meta[[sid]] <- as.character(meta[[sid]])
 
+  # Reseed per level: ALDEx2's Monte-Carlo draws otherwise depend on how many
+  # random numbers the earlier level consumed, so a change to the taxa input
+  # would shift the gene-level results too.
   if ("taxa" %in% levels) {
+    set.seed(seed)
     picked <- da_taxa_matrix(cleaned, cfg)
     da_run_level("taxa", picked, cleaned, cfg, meta, sid, group,
                  mc, denom, min_prev, effect_thresh, overlap_thresh,
@@ -971,6 +1105,7 @@ run_aldex <- function(cleaned, cfg) {
     if (is.null(picked)) {
       pipeline_log(cfg, "DA[gene]: cleaned$abri_kraken2 unavailable — skipping")
     } else {
+      set.seed(seed)
       da_run_level("gene", picked, cleaned, cfg, meta, sid, group,
                    mc, denom, min_prev, effect_thresh, overlap_thresh,
                    top_n_plots, make_plots, da_cfg,

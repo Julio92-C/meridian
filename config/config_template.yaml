@@ -92,6 +92,15 @@ stats:
   aldex_mc_samples:       128
   alpha: 0.05
   padjust_method: BH                # BH | BY | bonferroni | holm | hochberg | none
+  # Patient/cluster-aware tests (R/utils_cluster_perm.R). When true AND
+  # metadata.random_effect is set, KW / Wilcoxon / PERMANOVA / PERMDISP
+  # p-values come from permutations that respect the clustering column
+  # (labels shuffled within clusters if the group varies within them, whole
+  # clusters shuffled otherwise), and ALDEx2 runs on counts pooled per
+  # cluster (or cluster x group). Off by default so existing results are
+  # unchanged.
+  random_effect_tests: false
+  # cluster_permutations: 9999      # defaults to permanova_permutations
 
 # --------------------------------------------------------------------------- #
 # Relative-abundance figures (R/05). Every key is optional; the values shown   #

@@ -1,0 +1,114 @@
+# --------------------------------------------------------------------------- #
+# Metagenomics pipeline configuration — lung_microbiome_2026, immunodeficiency #
+# Same cohort, inputs and settings as config.yaml (Exhale vs Sputum); only the #
+# grouping variable, metadata file, palette and output directory differ.      #
+# PRE-STEP: Rscript projects/lung_microbiome_2026/prep_inputs.R (shared)      #
+# --------------------------------------------------------------------------- #
+
+study:
+  id: lung_microbiome_2026_immunodeficiency
+  name: "Lung microbiome — EBSP / RFH 2026 (immunodeficiency: CVID vs SID vs XLA vs HG, JC_2026-09)"
+  description: >
+    Same 89 samples / 20 patients as config.yaml, grouped by immunodeficiency
+    diagnosis instead of sample type: CVID (37 samples / 9 patients), SID
+    (32 / 7), XLA (15 / 2) and HG (5 / 2; HG + PHGG merged as
+    hypogammaglobulinaemia). Exhale and Sputum samples are pooled within
+    each group. Outputs land under test_run_immunodeficiency/ so the
+    Exhale-vs-Sputum run in test_run/ is untouched. See CAVEATS.md.
+
+project_root: "C:/Users/julio/Desktop/Lung_microbiome/ONT_Long_read_seq/JC_2026-09_EBSP"
+
+inputs:
+  # Shared with config.yaml — built by prep_inputs.R (see config.yaml for why).
+  abricate_summary: "Reports/pipeline_inputs/summary_reportClean.csv"
+  kraken2_report:   "Reports/pipeline_inputs/kraken2_db1_combined_reports.txt"
+  bracken_report:   "Reports/pipeline_inputs/bracken_arranged.csv"
+  recentrifuge_csv: "Reports/pipeline_inputs/EBSP_samples.rcf.data.csv"
+  diversity_csv:    ~                 # computed from Bracken counts, as in config.yaml
+
+metadata:
+  # Same 89 samples as sample_metadata.csv plus the `immunodeficiency` column
+  # (built by Metadata/build_sample_metadata.py; PHGG -> HG).
+  file: "Metadata/sample_metadata_immunodeficiency.csv"
+  sample_id_col: "sample"
+  group_cols:
+    - immunodeficiency                # CVID | SID | XLA | HG
+  random_effect: "ID"                 # patient ID — used by stats.random_effect_tests
+  fixed_effects:
+    - immunodeficiency
+  # Expected levels (documentation only — not read by the pipeline):
+  #   immunodeficiency: CVID, SID, XLA, HG
+  #   XLA and HG are 2 patients each — between-group tests are patient-limited.
+  controls: []                        # CNN0-0609 is QC-only (see config.yaml)
+
+taxid_fixes_file: ~
+
+filters:
+  min_count_per_sample:   17
+  min_count_for_species:  500
+  min_prevalence_aldex:   2
+
+stages:
+  clean_data:             true
+  normalisation:          true
+  taxonomy:               true
+  relative_abundance:     true
+  alpha_diversity:        true
+  beta_diversity:         true
+  differential_abundance: true
+  resistome:              true
+  virulome:               true
+  mobilome:               true
+  network:                true
+  report:                 true
+  panels:                 true
+
+stats:
+  permanova_permutations: 9999
+  aldex_mc_samples:       128
+  alpha: 0.05
+  padjust_method: BH
+  # Patient-aware tests (R/utils_cluster_perm.R): p-values respect repeated
+  # samples per patient (metadata.random_effect = ID); ALDEx2 runs on
+  # patient-pooled counts. Enabled 2026-10-05 (CAVEATS.md #1).
+  random_effect_tests: true
+
+report:
+  top_n_taxa:              25
+  rank_taxa_by:            prevalence_x_abundance
+  network_top_nodes:       50
+  network_edge_min_weight: 0.3
+  show_per_group_chord:    true
+  show_per_group_sankey:   true
+
+# Okabe–Ito colorblind-safe palette, distinct from the Exhale/Sputum blue/orange
+# so figures from the two analyses can't be confused.
+colors:
+  immunodeficiency:
+    CVID: "#009E73"   # bluish green
+    SID:  "#CC79A7"   # reddish purple
+    XLA:  "#E69F00"   # orange
+    HG:   "#56B4E9"   # sky blue
+
+network:
+  sankey:
+    top_genes:  30
+    rank_by:    prevalence_x_abundance
+
+panels:
+  composite_unified:     true
+  composite_base_size:   8
+  composite_legend_size: 8
+  composite_margin_pt:   6
+  strip_plot_title:      true
+  show_title:            false
+  png:                   true
+  tiff:                  false
+  pdf:                   false
+
+# Separate sandbox from the Exhale-vs-Sputum run (test_run/).
+outputs:
+  datasets_dir: "test_run_immunodeficiency/Datasets"
+  figures_dir:  "test_run_immunodeficiency/Figures"
+  report_html:  "test_run_immunodeficiency/Reports/pipeline_report.html"
+  log_file:     "test_run_immunodeficiency/Reports/pipeline.log"

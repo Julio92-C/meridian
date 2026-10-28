@@ -1435,11 +1435,15 @@ run_network <- function(cleaned, cfg) {
                     file.path(ds_dir, "mobile_arg_fraction_per_sample.csv"))
 
   kw <- tryCatch(
-    kruskal.test(stats::reformulate(group, "mobile_pct"), data = per_sample),
+    if (cluster_tests_enabled(cfg)) {
+      kw_test(per_sample$mobile_pct, per_sample[[group]], per_sample$sample, cfg)
+    } else {
+      kruskal.test(stats::reformulate(group, "mobile_pct"), data = per_sample)
+    },
     error = function(e) NULL
   )
   kw_label <- if (!is.null(kw))
-    sprintf("Kruskal-Wallis p = %.3g", kw$p.value)
+    sprintf("%s = %.3g", kw_name(kw, long = TRUE), kw$p.value)
   else "Kruskal-Wallis p = NA"
 
   per_group <- per_sample |>

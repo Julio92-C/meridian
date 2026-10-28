@@ -9,19 +9,26 @@ Julio C. Ortega Cambara<sup>1</sup>, Piotr Cuber<sup>2</sup>, Pedro Humberto Leb
 
 <sup>*</sup>Correspondence: Hermine Mkrtchyan — Hermine.Mkrtchyan@uwl.ac.uk
 
-{{TODO: ORCIDs for all authors}}
+**ORCIDs**
+
+Julio C. Ortega Cambara — 0009-0008-5244-1373
+Piotr Cuber — 0000-0003-3186-1180
+Pedro Humberto Lebre — 0000-0002-6483-0340
+Hermine V Mkrtchyan — 0000-0001-7339-7297
 
 ---
 
 ## Abstract
 
-**Background:** Long-read shotgun metagenomics studies are often analysed using project-specific collections of manually edited R scripts, requiring repeated modifications of sample identifiers, taxonomic annotations and analysis parameters, or else rely on resource-heavy pipelines that require access to high-performance computing (HPC) infrastructure. Existing R workflows predominantly focus on short-read amplicon data or isolated analytical tasks, such as resistome profiling, leaving a gap in integrated, reproducible and sustainable solutions for long-read shotgun metagenomics. Consequently, researchers frequently rely on ad hoc scripting approaches that limit scalability, standardisation and reproducibility for efficient cross-study comparison.
+**Background:** Long-read shotgun metagenomics studies are often analysed with project-specific collections of manually edited R scripts, requiring repeated changes to sample identifiers, taxonomic annotations and parameters, or else depend on resource-heavy pipelines needing high-performance computing (HPC) infrastructure. Existing R workflows focus predominantly on short-read amplicon data or isolated tasks such as resistome profiling, leaving a gap in integrated, reproducible solutions for long-read shotgun metagenomics and limiting scalability and cross-study comparison.
 
-**Results:** We present **MERIDIAN** (*Metagenomic Evaluation of Resistance, Identity & Diversity through Integrated Analysis of Nanopore sequencing*), a modular R workflow designed to standardise and automate downstream analysis of long-read metagenomic sequencing datasets. By consolidating outputs from multiple bioinformatics tools, MERIDIAN delivers a comprehensive Quarto HTML dashboard, publication-ready figures and supplementary result tables. The workflow supports end-to-end metagenomic characterisation, encompassing decontamination, TPM normalisation, taxonomic profiling, alpha and beta diversity analysis with PERMANOVA, two-level ALDEx2 differential abundance testing, and functional profiling of antimicrobial resistance (AMR), virulence and mobile genetic element repertoires. In addition, MERIDIAN infers a tripartite sample × taxon × gene network, enabling integrated interrogation of taxonomic composition and functional gene distributions. Workflow execution is controlled through a single YAML configuration file, ensuring reproducible execution without modification of source code. Each analysis automatically generates a `manifest.json` artefact catalogue, thereby supporting reproducibility and downstream computational integration.
+**Results:** We present **MERIDIAN** (*Metagenomic Evaluation of Resistance, Identity & Diversity through Integrated Analysis of Nanopore sequencing*), a modular R workflow that standardises and automates downstream analysis of long-read metagenomic datasets. Consolidating outputs from established tools, it delivers a Quarto HTML dashboard, publication-ready figures and supplementary tables. Supported analyses span decontamination, TPM normalisation, taxonomic profiling, alpha and beta diversity with PERMANOVA, two-level ALDEx2 differential abundance testing, and functional profiling of antimicrobial resistance (AMR), virulence and mobile genetic element repertoires, together with a tripartite sample × taxon × gene network linking taxonomic composition to functional gene distributions. Execution is controlled through a single YAML configuration file without modifying source code, and each run emits a `manifest.json` artefact catalogue supporting reproducibility and downstream integration.
 
-**Availability and Implementation.** MERIDIAN is implemented in R and distributed under the MIT licence. Source code and documentation are available at https://github.com/Julio92-C/Metagenomics_pipeline_automation. This note describes release **v0.1.0** (https://github.com/Julio92-C/Metagenomics_pipeline_automation/releases/tag/v0.1.0). Reproducible execution is supported through the R environment package `renv`; after restoring dependencies with `renv::restore()`, the pipeline is launched with `Rscript run_pipeline.R config.yaml`.
+**Availability and Implementation.** MERIDIAN is implemented in R under the GNU General Public Licence v3.0 (GPL-3.0); source code, documentation and a Docker/Apptainer image are available at https://github.com/Julio92-C/meridian (release **v1.0.0**). Dependencies are pinned with `renv`, and the pipeline is launched with `Rscript run_pipeline.R config.yaml`.
 
 **Corresponding author:** Hermine.Mkrtchyan@uwl.ac.uk
+
+**Keywords:** long-read metagenomics, Oxford Nanopore sequencing, antimicrobial resistance, reproducible workflow, differential abundance analysis, microbial community analysis, One Health, R/Bioconductor
 
 ---
 
@@ -53,13 +60,13 @@ The workflow is implemented as a stand-alone R project, rather than an installab
 
 (5) *Integration, reporting and manifest* (R/12–R/14). The final stage integrates results across all domains and produces the reporting outputs. R/12 reports igraph topology metrics (degree, betweenness, Louvain modularity) alongside its network, chord and Sankey outputs, and exports Gephi-compatible node/edge tables. R/13 assembles main and supplementary composite figures (PNG and TIFF independently toggleable) driven by a slot-YAML layout, plus `supplementary_tables.xlsx`. R/14 writes `manifest.json` (contract v1.2), a kind-tagged catalogue of every figure, table and intermediate artefact the pipeline produced, providing a stable contract for downstream integration.
 
-**Reporting.** Results are rendered through a Quarto template as a multi-page HTML dashboard containing dedicated panels for taxonomy, diversity, differential abundance, resistome, virulome, mobilome and network, plus embedded download links. Dependencies are pinned via `renv`, and the project requires R ≥ 4.5; external command-line tools (Kraken2, Bracken, ABRicate, Re-centrifuge) are assumed to have been run upstream. Because MERIDIAN consumes these pre-computed outputs rather than the raw reads, its own footprint is modest and single-threaded (peaking at ~1.5 GB; Section 3), and is therefore decoupled from the substantial memory required by upstream taxonomic classification (for example, a full Kraken2 database), which can be run separately on high-memory or cloud infrastructure.
+**Reporting.** Results are rendered through a Quarto template as a multi-page HTML dashboard containing dedicated panels for taxonomy, diversity, differential abundance, resistome, virulome, mobilome and network, plus embedded download links. Dependencies are pinned via `renv`, and the project requires R ≥ 4.5; external command-line tools (Kraken2, Bracken, ABRicate, Re-centrifuge) are assumed to have been run upstream. For portable, reproducible deployment the analysis layer is also distributed as a versioned Docker/Apptainer image built on the Bioconductor base, bundling the pinned `renv` environment and Quarto so the workflow runs identically on a laptop or a root-free HPC node. Because MERIDIAN consumes these pre-computed outputs rather than the raw reads, its own footprint is modest and single-threaded (peaking at ~1.5 GB; Section 3), and is therefore decoupled from the substantial memory required by upstream taxonomic classification (for example, a full Kraken2 database), which can be run separately on high-memory or cloud infrastructure.
 
 ## 3 Application and Validation
 
 We validated the pipeline against two long-read chicken caecum metagenomic studies. The primary dataset (`Chicken batch 1`, PC_JC_2024-11-29; 18 samples; 3 dietary groups — Dulse, Reference diet, Soyabean meal) is publicly available under NCBI BioProject PRJNA1406192 and has approximately 46 hand-edited R scripts with corresponding validated figures and tables, so each stage can be compared output-for-output against the corresponding ground-truth artefact. The second dataset (`Chicken batch 2`, JC_FL_2025-05-20; 32 samples), for which public release is pending publication of the associated study, was used for scalability and feature coverage: samples were organised into a 4-level composite `Treatment_Bird` grouping (Control_W4, Control_W5, Dulse_W4, Dulse_W5) with a random effect (`block`, pens 1–8), two declared negative controls (CTRL1, CTRL2), and a larger per-stage feature load. Two purpose-built validation scripts (`scripts/diff_normdata.R` and `scripts/probe_taxid_parse.R`) provide numerical-diff and regression checks on the most error-prone intermediates, and `run_pipeline.R` auto-instruments per-stage wall time and peak R-process memory (via a `gc()`-bracketed wrapper equivalent to the `peakRAM` methodology) and prints a slowest-first breakdown to the run log.
 
-**Table 1.** Per-stage primary output on the two validation cohorts (B1 = Chicken batch 1, n=18; B2 = Chicken batch 2, n=32). Same statistical settings (PERMANOVA 9999 permutations, ALDEx2 `mc.samples` = 128); 2026-06-23 sequential run.
+**Table 1.** Per-stage primary output on the two validation cohorts (B1 = Chicken batch 1, n=18; B2 = Chicken batch 2, n=32). Same statistical settings (PERMANOVA 9999 permutations, ALDEx2 `mc.samples` = 128); 2026-06-23 sequential run. The `beta_diversity` row is from a 2026-10-19 rerun of that stage after R/07 was changed to ordinate the community taxa table instead of the gene-hit subset.
 
 | Stage | B1 primary output | B2 primary output |
 | --- | --- | --- |
@@ -69,7 +76,7 @@ We validated the pipeline against two long-read chicken caecum metagenomic studi
 | taxonomy | 2,971 / 11,196 (taxon, sample) rows kept (count ≥ 5) | 5,570 / 6,549 (taxon, sample) rows kept |
 | relative_abundance | 1,700 / 72,152 rows kept (count > 17); top-50 + Others | 7,557 / 18,073 rows kept; top-50 + Others |
 | alpha_diversity | 9 metrics × 18 samples; KW per metric | 9 metrics × 32 samples; KW per metric |
-| beta_diversity | PERMANOVA R² = 0.145, p = 0.22; PERMDISP p = 0.027 | PERMANOVA R² = 0.121, p = 0.15; PERMDISP p = 0.053 |
+| beta_diversity | PERMANOVA R² = 0.192, p = 0.015; PERMDISP p = 0.095 | PERMANOVA R² = 0.118, p = 0.23; PERMDISP p = 0.86 |
 | differential_abundance | 31 taxa + 157 gene features; 3 pairwise contrasts | 53 taxa + 221 gene features; 6 pairwise contrasts |
 | resistome (CARD) | 348 rows / 85 genes / 18 drug classes | 648 rows / 99 genes / 20 drug classes |
 | virulome (VFDB) | 320 rows / 140 genes / 6 VF functions (17 / 18 samples) | 492 rows / 156 genes / 8 VF functions (26 / 32 samples) |
@@ -98,17 +105,19 @@ To assess portability beyond the development cohorts, we applied MERIDIAN unmodi
 
 ## 4 Conclusion
 
-MERIDIAN integrates community analyses, functional profiling, and an integrated network reconstruction into a single configuration-driven R workflow for long-read shotgun metagenomics. Single-thread end-to-end execution completes in minutes with a low memory footprint, scaling sublinearly with cohort size and grouping complexity. Beyond the development cohorts, it has been applied without modification to two independent public cohorts spanning the One Health continuum (hospital wastewater and wetland surveillance). It is currently under active development, and we are releasing this alpha version (v0.1.0) to solicit feedback from researchers conducting comparable long-read metagenomic studies and to guide future development of the workflow.
+MERIDIAN integrates community analyses, functional profiling, and an integrated network reconstruction into a single configuration-driven R workflow for long-read shotgun metagenomics. Single-thread end-to-end execution completes in minutes with a low memory footprint, scaling sublinearly with cohort size and grouping complexity. Beyond the development cohorts, it has been applied without modification to two independent public cohorts spanning the One Health continuum (hospital wastewater and wetland surveillance). It remains under active development, and we are releasing this first tagged version (v1.0.0) to solicit feedback from researchers conducting comparable long-read metagenomic studies and to guide future development of the workflow.
 
 ---
 
 **Acknowledgements.** The authors thank the **Centre for Innovation in Genomics and Microbiome Sciences (CIGMiS)**, which generated the chicken caecum metagenomics datasets used to develop and validate the pipeline. We are grateful to **colleagues** for feedback on the configuration interface and Quarto report layout, and to the School of Medicine and Bioscience at the University of West London for hosting the project. **[Optional: compute providers — e.g. UWL / UCL HPC, cloud credits.]**
 
+**Ethics Statement.** The metagenomic datasets used to develop and validate MERIDIAN were generated in prior animal studies; MERIDIAN performs only secondary computational analysis of previously generated sequence data and involved no new animal, human or clinical sampling. All animal procedures were conducted in accordance with the UK Animals (Scientific Procedures) Act 1986. The primary validation cohort (`Chicken batch 1`) was approved by the SRUC Ethical Review Committee (Scotland's Rural College, Edinburgh; approval AEX 2024-021POU), and the second cohort (`Chicken batch 2`) under SRUC approval AEX2025-006 POU; birds were humanely euthanised in accordance with UK Home Office Schedule 1 procedures.
+
 **Funding.** This study was funded by a Vice-Chancellor scholarship provided by the University of West London.
 
 **Conflict of Interest.** The authors declare that they have no competing interests.
 
-**Data Availability.** Sequence data for the primary validation cohort (`Chicken batch 1`) are available from NCBI under BioProject PRJNA1406192. Data for the second cohort (`Chicken batch 2`) will be released upon publication of the associated study. The MERIDIAN source code, documentation and configuration examples are available at https://github.com/Julio92-C/Metagenomics_pipeline_automation (release v0.1.0).
+**Data Availability.** Sequence data for the primary validation cohort (`Chicken batch 1`) are available from NCBI under BioProject PRJNA1406192. Data for the second cohort (`Chicken batch 2`) will be released upon publication of the associated study. The MERIDIAN source code, documentation, container image and configuration examples are available at https://github.com/Julio92-C/meridian (release v1.0.0).
 
 ---
 

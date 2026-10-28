@@ -73,7 +73,14 @@ clean_taxa_names <- function(df, cfg = NULL) {
   out$name <- gsub("\\[|\\]", "", out$name)
 
   if (isTRUE(abbreviate_genus)) {
-    out$name <- sub("^(\\w)\\w+\\s+(\\w+)", "\\1. \\2", out$name)
+    full <- out$name
+    abbr <- sub("^(\\w)\\w+\\s+(\\w+)", "\\1. \\2", full)
+    # Different taxa that share an abbreviation (Acinetobacter soli and
+    # Agromyces soli -> "A. soli") would be merged downstream; keep their full
+    # genus so every stage still counts them as separate taxa.
+    n_full <- vapply(split(full, abbr), function(x) length(unique(x)), integer(1))
+    clash <- names(n_full)[n_full > 1]
+    out$name <- ifelse(abbr %in% clash, full, abbr)
     substr(out$name, 1, 1) <- toupper(substr(out$name, 1, 1))
   }
 
@@ -85,4 +92,50 @@ clean_taxa_names <- function(df, cfg = NULL) {
   }
 
   out
+}
+
+# community_filter(df, cfg, stage) — optional community-level filters for the
+# taxa stages (R/04 taxonomy, R/05 relative abundance, R/06 alpha, R/07 beta,
+# R/08 taxa DA). Off unless `cfg$taxa_filter` is set; gene-based stages do
+# not call it. Applied to a long-form (sample, name, count[, tax_rank]) table:
+#   taxa_filter.rank             keep rows whose Kraken2 rank code is in this
+#                                set (e.g. "S"), using the real `tax_rank`
+#                                column from R/02 instead of the binomial
+#                                word-count heuristic, so strain / subspecies
+#                                rows (S1, S2) are not double-counted against
+#                                their species and two-word higher ranks
+#                                ("Candidatus Saccharibacteria") do not leak in.
+#   taxa_filter.min_sample_reads drop samples whose summed reads at that rank,
+#                                over taxa above filters.min_count_per_sample,
+#                                fall below N. Near-empty samples otherwise
+#                                appear as 100%-one-taxon profiles.
+community_filter <- function(df, cfg, stage = "Taxa") {
+  tf <- cfg$taxa_filter
+  if (is.null(tf) || is.null(df) || nrow(df) == 0) return(df)
+
+  if (!is.null(tf$rank) && "tax_rank" %in% colnames(df)) {
+    n0 <- nrow(df)
+    rk <- trimws(as.character(df$tax_rank))
+    df <- df[!is.na(rk) & rk %in% tf$rank, , drop = FALSE]
+    pipeline_log(cfg, sprintf("%s: rank filter (%s) kept %d/%d rows",
+                              stage, paste(tf$rank, collapse = ","), nrow(df), n0))
+  }
+
+  min_reads <- tf$min_sample_reads
+  if (!is.null(min_reads) && min_reads > 0) {
+    floor_n <- cfg$filters$min_count_per_sample %||% 0
+    depth <- df |>
+      dplyr::filter(.data$count > floor_n) |>
+      dplyr::group_by(.data$sample) |>
+      dplyr::summarise(n = sum(.data$count), .groups = "drop")
+    keep <- depth$sample[depth$n >= min_reads]
+    drop <- setdiff(unique(df$sample), keep)
+    if (length(drop) > 0) {
+      pipeline_log(cfg, sprintf(
+        "%s: dropped %d sample(s) with < %s reads (taxa_filter.min_sample_reads): %s",
+        stage, length(drop), min_reads, paste(sort(drop), collapse = ", ")))
+    }
+    df <- df[df$sample %in% keep, , drop = FALSE]
+  }
+  df
 }

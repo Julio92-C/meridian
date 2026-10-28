@@ -1,0 +1,127 @@
+# --------------------------------------------------------------------------- #
+# lung_microbiome_final — immunocompromised_type                            #
+# Two-batch combined lung cohort: RFH_2025 + RFH_2026.                       #
+# PRE-STEP: Rscript projects/lung_microbiome_final/combine_inputs.R           #
+# Sibling configs, one per grouping variable: config.yaml (sample type),    #
+# config_cohort, _immunodeficiency, _immunocompromised_type, _sex,          #
+# _bronchiectasis, _macrolide, _age_band (.yaml)                            #
+# --------------------------------------------------------------------------- #
+
+study:
+  id: lung_microbiome_final_immunocompromised_type
+  name: "Lung microbiome 2025–2026 combined — primary vs secondary immunodeficiency (P vs S)"
+  description: >
+    Exhaled-breath (EB) vs sputum (SP) microbiome of immunocompromised
+    patients at the Royal Free Hospital across two sampling batches:
+    RFH_2025 (44 samples / 20 patients, Oct 2024 - Apr 2025, wf-metagenomics
+    upstream) and RFH_2026 (93 samples / 23 patients, Feb - Jun 2026,
+    nf-core/taxprofiler + standalone Bracken); 137 samples / 32 patients,
+    11 patients in both batches. Processed outputs merged by
+    combine_inputs.R (decision 2026-10-08), so batch effects are confounded
+    with upstream-pipeline differences. Grouped by immunodeficiency type,
+    primary (P, 19 patients) vs secondary (S, 11 patients); the one
+    patient recorded as P/S (ID-1761) is left out. EB and SP pooled within
+    groups. The variable is fixed per patient, so patient-aware tests
+    shuffle whole patients (cluster = ID).
+
+project_root: "C:/Users/julio/Desktop/Lung_microbiome/Final_Analysis"
+
+inputs:
+  # All four built by combine_inputs.R. The Kraken2 file is a merged NCBI
+  # taxonomy (DFS; taxid, lvl_type, name) from both batches' reports — R/02
+  # only uses it for name + ancestry lookups.
+  abricate_summary: "Reports/pipeline_inputs/summary_reportClean.csv"
+  kraken2_report:   "Reports/pipeline_inputs/kraken2_combined_taxonomy.txt"
+  bracken_report:   "Reports/pipeline_inputs/bracken_arranged.csv"
+  recentrifuge_csv: "Reports/pipeline_inputs/EBSP_combined.rcf.data.csv"
+  diversity_csv:    ~                 # computed from Bracken counts (two different upstream diversity sources)
+
+metadata:
+  file: "Metadata/combined_sample_metadata_immunocompromised_type.csv"   # 130 samples / 30 patients; the single P/S patient ID-1761 left out
+  sample_id_col: "sample"
+  group_cols:
+    - Immunocompromised_type
+  # Cluster = patient: the grouping is constant per patient across both years;
+  # clustering on patient x batch would double-count the 11 shared patients.
+  random_effect: "ID"
+  fixed_effects:
+    - Immunocompromised_type
+    - batch
+  # Expected levels (documentation only):
+  #   Immunocompromised_type: P, S
+  #   batch:            B1 (RFH_2025), B2 (RFH_2026); seq_run R1-R7
+  # Negative controls: RFH_2025 per-batch subtraction was applied upstream
+  # (combine_batches.R); RFH_2026 control kept as QC only. No R/02 subtraction.
+  controls: []
+
+taxid_fixes_file: ~
+
+filters:
+  min_count_per_sample:   17
+  min_count_for_species:  500
+  min_prevalence_aldex:   2
+
+stages:
+  clean_data:             true
+  normalisation:          true
+  taxonomy:               true
+  relative_abundance:     true
+  alpha_diversity:        true
+  beta_diversity:         true
+  differential_abundance: true
+  resistome:              true
+  virulome:               true
+  mobilome:               true
+  network:                true
+  report:                 true
+  panels:                 true
+
+stats:
+  permanova_permutations: 9999
+  aldex_mc_samples:       128
+  alpha: 0.05
+  padjust_method: BH
+  random_effect_tests: true           # patient-aware tests (R/utils_cluster_perm.R)
+
+report:
+  top_n_taxa:              25
+  rank_taxa_by:            prevalence_x_abundance
+  network_top_nodes:       50
+  network_edge_min_weight: 0.3
+  show_per_group_chord:    true
+  show_per_group_sankey:   true
+
+colors:
+  Immunocompromised_type:
+    P: "#009E73"
+    S: "#CC79A7"
+
+network:
+  sankey:
+    top_genes:  30
+    rank_by:    prevalence_x_abundance
+
+panels:
+  composite_unified:     true
+  composite_base_size:   8
+  composite_legend_size: 8
+  composite_margin_pt:   6
+  strip_plot_title:      true
+  show_title:            false
+  png:                   true
+  tiff:                  false
+  pdf:                   false
+
+beta_diversity:
+  # Drop samples with < 100 reads in the beta table (taxa above the count floor).
+  # Sputum is mostly human DNA; the shallowest samples (mostly young-patient
+  # sputum) created a spurious age-band effect (p 0.011 -> 0.32 with this cutoff).
+  # Full cohort: removes 13 samples beyond the 7 with no taxa above the floor (117 of 137 kept;
+  # no patient lost). Decided by Julio 2026-10-19.
+  min_sample_reads: 100
+
+outputs:
+  datasets_dir: "results/ch6_clinical/immunocompromised_type/Datasets"
+  figures_dir:  "results/ch6_clinical/immunocompromised_type/Figures"
+  report_html:  "results/ch6_clinical/immunocompromised_type/Reports/pipeline_report.html"
+  log_file:     "results/ch6_clinical/immunocompromised_type/Reports/pipeline.log"
