@@ -4,18 +4,15 @@
 # (resistome / virulome / mobilome composites), built from pipeline outputs:
 #   A  species richness per sample (violin), Kruskal–Wallis + BH
 #   B  species Shannon diversity per sample (violin), Kruskal–Wallis + BH
-#   C  species Bray–Curtis NMDS (relative abundances), PERMANOVA / PERMDISP
-#   D  Venn of species detected in air vs surface samples
-# and Figure 2 (taxa_composition): per-sample genus (A, top 10 per group) over
-# per-sample species (B, top 30) composition, from polish_relative_abundance.R.
+#   C  Venn of species detected in air vs surface samples
+#   D  species Bray–Curtis NMDS (relative abundances), PERMANOVA / PERMDISP
+# Per-sample genus (Figure 2) and species (supplementary) composition stay as
+# separate figures from polish_relative_abundance.R.
 # Community rules as in the text: Kraken2 rank S, > 10 reads
-# per sample, samples with < 100 species-level reads excluded. Figure 2 uses
-# the per-sample figures as drawn (Plasmodium already removed there).
+# per sample, samples with < 100 species-level reads excluded.
 #
-# Inputs : <datasets_dir>/{alpha_diversity.csv, noncontaminants_list.csv},
-#          <figures_dir>/relative_abundance/relative_abundance_{genus_top10,species_top30}.png
-#          (from polish_relative_abundance.R — run it first)
-# Outputs: <figures_dir>/taxa_overview/{taxa_overview,taxa_composition}.{png,tiff}
+# Inputs : <datasets_dir>/{alpha_diversity.csv, noncontaminants_list.csv}
+# Outputs: <figures_dir>/taxa_overview/taxa_overview.{png,tiff}
 #          <datasets_dir>/taxa_overview/taxa_overview_stats.csv
 # Run from the repo root: Rscript projects/hospital_microbiome/polish_taxa_overview.R
 
@@ -94,7 +91,7 @@ violin <- function(v, ylab, title) {
 pA <- violin("richness", "Species richness", "A")
 pB <- violin("shannon", "Shannon index", "B")
 
-# ---- C: species Bray–Curtis NMDS ------------------------------------------------
+# ---- D: species Bray–Curtis NMDS ------------------------------------------------
 w <- sp |> group_by(sample, name) |> summarise(v = sum(count), .groups = "drop") |>
   pivot_wider(names_from = name, values_from = v, values_fill = 0)
 m <- as.matrix(w[, -1]); rownames(m) <- w$sample
@@ -105,20 +102,20 @@ set.seed(12345); nm <- metaMDS(d, k = 2, trymax = 200, autotransform = FALSE, tr
 set.seed(12345); pm <- adonis2(d ~ grp, permutations = nperm)
 set.seed(12345); pd <- permutest(betadisper(d, grp), permutations = nperm)$tab$`Pr(>F)`[1]
 pts <- as.data.frame(scores(nm, display = "sites")); pts$type <- grp
-labC <- sprintf("PERMANOVA R² = %.3f, %s\nPERMDISP %s\nNMDS stress = %.3f",
+labD <- sprintf("PERMANOVA R² = %.3f, %s\nPERMDISP %s\nNMDS stress = %.3f",
                 pm$R2[1], fp(pm$`Pr(>F)`[1]), fp(pd), nm$stress)
-pC <- ggplot(pts, aes(NMDS1, NMDS2, colour = type, fill = type)) +
+pD <- ggplot(pts, aes(NMDS1, NMDS2, colour = type, fill = type)) +
   stat_ellipse(geom = "polygon", type = "norm", level = 0.95, alpha = 0.15, show.legend = FALSE) +
   geom_point(size = 2.2, alpha = 0.9) +
-  annotate("text", x = -Inf, y = Inf, label = labC, hjust = -0.04, vjust = 1.15, size = 3.6,
+  annotate("text", x = -Inf, y = Inf, label = labD, hjust = -0.04, vjust = 1.15, size = 3.6,
            lineheight = 1.05) +
   scale_colour_manual(values = cols, name = group_lab) +
   scale_fill_manual(values = cols, name = group_lab) +
   scale_y_continuous(expand = expansion(mult = c(0.05, 0.35))) +
-  labs(title = "C") +
+  labs(title = "D") +
   theme_panel() + theme(legend.position = "right")
 
-# ---- D: species Venn -------------------------------------------------------------
+# ---- C: species Venn -------------------------------------------------------------
 sets <- split(sp$name, sp$type) |> lapply(unique)
 ord <- names(sort(lengths(sets[c("Air", "Surface")]), decreasing = TRUE))
 g <- draw.pairwise.venn(
@@ -132,23 +129,8 @@ labs_v <- grid::gList(
   grid::textGrob("Air", x = 0.30, y = 0.92, gp = grid::gpar(fontsize = 14)),
   grid::textGrob("Surface", x = 0.70, y = 0.92, gp = grid::gpar(fontsize = 14)))
 sq <- grid::viewport(width = grid::unit(1, "snpc"), height = grid::unit(1, "snpc"))   # keep circles round
-pD <- wrap_elements(full = grid::gTree(children = grid::gList(g, labs_v), vp = sq)) +
-  labs(title = "D") + theme(plot.title = element_text(face = "bold", size = 16))
-
-# ---- Figure 2: per-sample genus (A) over species (B) composition ----------------
-# The current per-sample figures from polish_relative_abundance.R, embedded as
-# drawn (run that script first so both PNGs are up to date).
-ra_dir <- file.path(root, cfg$outputs$figures_dir, "relative_abundance")
-raster_panel <- function(file, title) {
-  img <- png::readPNG(file.path(ra_dir, file))
-  wrap_elements(full = grid::rasterGrob(img, interpolate = TRUE)) +
-    labs(title = title) + theme(plot.title = element_text(face = "bold", size = 16))
-}
-fig2 <- raster_panel("relative_abundance_genus_top10.png", "A") /
-        raster_panel("relative_abundance_species_top30.png", "B")
-ggsave(file.path(fig_dir, "taxa_composition.png"), fig2, width = 16.5, height = 15.5, dpi = 300)
-ggsave(file.path(fig_dir, "taxa_composition.tiff"), fig2, width = 16.5, height = 15.5, dpi = 300,
-       compression = "lzw")
+pC <- wrap_elements(full = grid::gTree(children = grid::gList(g, labs_v), vp = sq)) +
+  labs(title = "C") + theme(plot.title = element_text(face = "bold", size = 16))
 
 # ---- Figure 1: A-D (2 x 2) ------------------------------------------------------
 fig <- wrap_plots(pA, pB, pC, pD, ncol = 2)
