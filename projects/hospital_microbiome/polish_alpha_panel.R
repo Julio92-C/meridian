@@ -63,12 +63,19 @@ sz <- list(
   tag      = 9   * word_scale    # bold A / B
 )
 
-# ---- Family-adjust KW across the two metrics (BH), mirroring the pipeline ----
-raw_p <- vapply(names(metrics), function(m) {
+# ---- Family-adjust KW across the alpha indices (BH), as the pipeline (R/06) --
+# R/06 adjusts over every index it reports (richness, shannon, simpson, chao1),
+# so use the same family to match the text and Figure 1 (Shannon p_adj 0.47).
+fam <- intersect(c("richness", "shannon", "simpson", "chao1"), colnames(div))
+raw_p <- vapply(fam, function(m) {
   sub <- div[!is.na(div[[m]]), , drop = FALSE]
   suppressWarnings(kruskal.test(reformulate(grp, m), data = sub)$p.value)
 }, numeric(1))
 adj_p <- p.adjust(raw_p, method = "BH")
+
+# Natural sample order within each panel (A2 before A10, S2 before S10).
+div$sample <- factor(div$sample, levels = unique(div$sample[order(
+  substr(div$sample, 1, 1), as.numeric(gsub("[^0-9]", "", div$sample)))]))
 
 # ---- One tidied faceted bar panel per metric --------------------------------
 make_panel <- function(m) {
