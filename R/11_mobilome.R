@@ -135,7 +135,7 @@ run_mobilome <- function(cleaned, cfg) {
   ge_plot_category_venn(
     pfdb, category_col = "GENE", group = group, pal_group = pal_group,
     file = file.path(fig_dir, "venn_replicons.png"),
-    main_title = sprintf("Plasmid replicons shared across %s groups", group),
+    main_title = sprintf("Plasmid replicons shared by %s", tolower(pretty_var(group))),
     log_label = label, cfg = cfg
   )
 

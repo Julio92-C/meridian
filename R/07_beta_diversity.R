@@ -390,11 +390,12 @@ run_beta_diversity <- function(cleaned, cfg) {
     ggplot2::scale_color_manual(values = pal) +
     ggplot2::labs(
       title  = sprintf("%s PCoA (%s, %s-transformed) — by %s",
-                       toupper(distance), distance, transform, group),
-      colour = group,
+                       toupper(distance), distance, transform, tolower(pretty_var(group))),
+      colour = pretty_var(group),
       x = sprintf("PC1 (%.1f%%)", var_explained[1]),
       y = sprintf("PC2 (%.1f%%)", var_explained[2])
     ) +
+    ggplot2::scale_y_continuous(expand = stats_headroom(n_text_lines(annot_label))) +
     ggplot2::annotate(
       "text",
       x = Inf, y = Inf,
@@ -440,11 +441,12 @@ run_beta_diversity <- function(cleaned, cfg) {
                             linetype = ellipse_line) +
       ggplot2::scale_color_manual(values = pal) +
       ggplot2::labs(
-        title  = sprintf("Jaccard PCoA (presence/absence) — by %s", group),
-        colour = group,
+        title  = sprintf("Jaccard PCoA (presence/absence) — by %s", tolower(pretty_var(group))),
+        colour = pretty_var(group),
         x = sprintf("PC1 (%.1f%%)", var_j[1]),
         y = sprintf("PC2 (%.1f%%)", var_j[2])
       ) +
+      ggplot2::scale_y_continuous(expand = stats_headroom(n_text_lines(annot_j))) +
       ggplot2::annotate("text", x = Inf, y = Inf, label = annot_j,
                         hjust = 1.05, vjust = 1.5, size = 4, colour = "black") +
       ggplot2::theme_classic() +

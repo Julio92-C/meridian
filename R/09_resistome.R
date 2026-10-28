@@ -143,7 +143,7 @@ run_resistome <- function(cleaned, cfg) {
   ge_plot_category_venn(
     card_drug, category_col = "DRUG", group = group, pal_group = pal_group,
     file = file.path(fig_dir, "venn_drug_classes.png"),
-    main_title = sprintf("Drug classes shared across %s groups", group),
+    main_title = sprintf("Drug classes shared by %s", tolower(pretty_var(group))),
     log_label = label, cfg = cfg
   )
 
@@ -152,7 +152,7 @@ run_resistome <- function(cleaned, cfg) {
   ge_plot_category_venn(
     card, category_col = "GENE", group = group, pal_group = pal_group,
     file = file.path(fig_dir, "venn_args.png"),
-    main_title = sprintf("ARG genes shared across %s groups", group),
+    main_title = sprintf("ARG genes shared by %s", tolower(pretty_var(group))),
     log_label = label, cfg = cfg
   )
 

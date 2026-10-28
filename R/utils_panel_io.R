@@ -8,6 +8,23 @@
 # remains the canonical artefact recorded in the manifest); the .rds is
 # additive and ignored by anything that doesn't know to look for it.
 
+# Axis / legend / title text for a metadata column: "sample_type" -> "Sample type".
+# Display only; the column itself keeps its name.
+pretty_var <- function(x) {
+  s <- gsub("_", " ", x, fixed = TRUE)
+  paste0(toupper(substr(s, 1, 1)), substr(s, 2, nchar(s)))
+}
+
+# y-scale expansion that leaves room above the data for an in-panel stats
+# label drawn at y = Inf with `n_lines` lines of text, so the label never
+# covers points, whiskers or ellipses.
+stats_headroom <- function(n_lines = 1) {
+  ggplot2::expansion(mult = c(0.05, 0.06 + 0.1 * n_lines))
+}
+
+# Number of text lines in a label.
+n_text_lines <- function(label) length(strsplit(label, "\n", fixed = TRUE)[[1]])
+
 save_panel_ggplot <- function(filename, plot, width, height,
                               dpi = 300, bg = "white", ...,
                               emit_rds = TRUE) {

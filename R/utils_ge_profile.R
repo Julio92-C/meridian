@@ -351,7 +351,8 @@ ge_plot_alpha_violin <- function(alpha, group, metric, kw, pal_group, file,
     ggplot2::geom_boxplot(width = 0.55, outlier.shape = NA, alpha = 0.55) +
     ggplot2::geom_jitter(width = 0.12, size = 1.7, alpha = 0.85) +
     ggplot2::scale_fill_manual(values = pal_group) +
-    ggplot2::labs(x = group, y = stringr::str_to_title(metric)) +
+    ggplot2::scale_y_continuous(expand = stats_headroom(if (is.null(kw)) 0 else 1)) +
+    ggplot2::labs(x = pretty_var(group), y = stringr::str_to_title(metric)) +
     ggplot2::theme_classic() +
     ggplot2::theme(legend.position = "none",
                    text = ggplot2::element_text(size = 13))
@@ -467,7 +468,7 @@ ge_plot_abundance_violin <- function(df, group, pal_group, file,
     ggplot2::geom_boxplot(width = 0.55, outlier.shape = NA, alpha = 0.55) +
     ggplot2::geom_jitter(width = 0.12, size = 0.6, alpha = 0.3) +
     ggplot2::scale_fill_manual(values = pal_group) +
-    ggplot2::labs(x = group, y = y_label, title = title) +
+    ggplot2::labs(x = pretty_var(group), y = y_label, title = title) +
     ggplot2::theme_classic() +
     ggplot2::theme(legend.position = "none",
                    plot.title = ggplot2::element_text(hjust = 0.5,
@@ -1161,11 +1162,12 @@ ge_plot_beta <- function(df, group, pal_group, opts, fig_file,
     ggplot2::scale_color_manual(values = pal_group) +
     ggplot2::labs(
       title = sprintf("%s PCoA (%s, %s-transformed) — by %s",
-                      title_prefix, distance, transform, group),
-      colour = group,
+                      title_prefix, distance, transform, tolower(pretty_var(group))),
+      colour = pretty_var(group),
       x = sprintf("PC1 (%.1f%%)", var_expl[1]),
       y = sprintf("PC2 (%.1f%%)", var_expl[2])
     ) +
+    ggplot2::scale_y_continuous(expand = stats_headroom(n_text_lines(annot))) +
     ggplot2::annotate("text", x = Inf, y = Inf, label = annot,
                       hjust = 1.05, vjust = 1.5,
                       size = 4, colour = "black") +

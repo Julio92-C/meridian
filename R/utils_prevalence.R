@@ -9,8 +9,9 @@
 #   colour = category
 #   dashed quadrant lines at configurable thresholds (default 80% prevalence
 #     and TPM = 1, i.e. log10(TPM) = 0)
-#   text labels for the top-N categories by prevalence × Average TPM
-#     (ggrepel if available; falls back to geom_text)
+#   text labels for the top-N categories by prevalence × Average TPM, in dark
+#     grey (pale palette colours were unreadable on white); the segment links
+#     each label to its coloured point (ggrepel if available; else geom_text)
 #
 # API is unchanged: existing callers in R/05 / R/09 / R/10 / R/11 keep
 # working with the same arguments. The `value_label`, `widths`, and
@@ -27,7 +28,7 @@
 #   prev_cutoff_pct vertical dashed line position (% prevalence; default 80)
 #   tpm_cutoff_log  horizontal dashed line position (log10 TPM; default 0)
 #   top_n_labels    number of categories to label by prev × abundance product
-#                   (default 10)
+#                   (default 12; text shrinks when more than 12 points)
 #   ...             extra args swallowed for backward compatibility
 #
 # Returns a single ggplot object — caller ggsaves it.
@@ -42,7 +43,7 @@ build_count_prevalence <- function(df,
                                     category_label  = NULL,
                                     prev_cutoff_pct = 80,
                                     tpm_cutoff_log  = 0,
-                                    top_n_labels    = 8,
+                                    top_n_labels    = 12,
                                     ...) {
   for (pkg in c("ggplot2", "dplyr")) {
     if (!requireNamespace(pkg, quietly = TRUE)) {
@@ -80,6 +81,7 @@ build_count_prevalence <- function(df,
   if (nrow(per_cat) == 0) return(NULL)
 
   to_label <- utils::head(per_cat, max(0L, as.integer(top_n_labels)))
+  label_size <- if (nrow(per_cat) > 12) 2.3 else 2.8   # crowded panels: smaller text
 
   p <- ggplot2::ggplot(
       per_cat,
@@ -126,7 +128,8 @@ build_count_prevalence <- function(df,
       p <- p + ggrepel::geom_text_repel(
         data = to_label,
         ggplot2::aes(label = .data[[category_col]]),
-        size              = 2.8,
+        colour            = "grey15",
+        size              = label_size,
         force             = 1.5,
         force_pull        = 0.2,
         max.overlaps      = 25,
@@ -142,7 +145,7 @@ build_count_prevalence <- function(df,
       p <- p + ggplot2::geom_text(
         data = to_label,
         ggplot2::aes(label = .data[[category_col]]),
-        hjust = -0.12, vjust = -0.5, size = 3.6,
+        colour = "grey15", hjust = -0.12, vjust = -0.5, size = 3.6,
         check_overlap = TRUE, show.legend = FALSE
       )
     }

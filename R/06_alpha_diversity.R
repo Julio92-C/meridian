@@ -315,11 +315,12 @@ run_alpha_diversity <- function(cleaned, cfg) {
       ggplot2::geom_boxplot(width = 0.55, outlier.shape = NA, alpha = 0.55) +
       ggplot2::geom_jitter(width = 0.12, size = 1.7, alpha = 0.85) +
       ggplot2::scale_fill_manual(values = pal) +
+      ggplot2::scale_y_continuous(expand = stats_headroom(1)) +
       ggplot2::annotate("text", x = Inf, y = Inf, label = label_kw,
                         hjust = 1.05, vjust = 1.4,
                         size = 4.2, colour = "black") +
-      ggplot2::labs(x = group, y = label_disp,
-                    title = paste(label_disp, "by", group)) +
+      ggplot2::labs(x = pretty_var(group), y = pretty_var(label_disp),
+                    title = paste(label_disp, "by", tolower(pretty_var(group)))) +
       ggplot2::theme_classic() +
       ggplot2::theme(legend.position = "top",
                      plot.title = ggplot2::element_text(hjust = 0.5, face = "bold"),
@@ -430,7 +431,7 @@ run_alpha_diversity <- function(cleaned, cfg) {
           ggplot2::geom_point(data = endpoints, size = 2) +
           ggplot2::scale_colour_manual(values = pal) +
           ggplot2::labs(x = "Reads subsampled", y = "Observed species",
-                        colour = group) +
+                        colour = pretty_var(group)) +
           ggplot2::theme_classic() +
           ggplot2::theme(legend.position = "top",
                          legend.title    = ggplot2::element_blank(),
