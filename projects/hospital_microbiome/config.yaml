@@ -94,6 +94,12 @@ taxa_filter:
   rank:                   ["S"]
   min_sample_reads:       100
 
+# Taxa ALDEx2: same > 10-read floor as the community analyses, and drop
+# Plasmodium (likely false-positive assignment; also removed from Fig S4).
+differential_abundance:
+  min_count_per_sample:   10
+  exclude_genera:         ["Plasmodium"]
+
 # Taxonomy stage (Venn / heatmap) uses >=, so 11 == "> 10", matching the floor.
 taxonomy:
   min_count_per_sample:   11

@@ -68,6 +68,33 @@ da_palette <- function(levels, cfg) {
 # elements (e.g. hospital_wastewater_eg tap water), yielding no DAA output.
 # Callers who specifically want the GE-linked view opt in with
 # `differential_abundance.source: bracken` (or `merged`).
+# Optional taxa pre-filters (both off by default), applied on full names before
+# clean_taxa_names() abbreviates them:
+#   differential_abundance.min_count_per_sample  drop a taxon in a sample
+#       unless it has > N reads, so DA tests the same taxa as the community
+#       analyses (filters.min_count_per_sample) rather than 1-N read noise.
+#   differential_abundance.exclude_genera  drop taxa whose genus (first word)
+#       is listed, e.g. likely false-positive assignments such as Plasmodium.
+da_taxa_prefilter <- function(df, cfg) {
+  dcfg <- cfg$differential_abundance %||% list()
+  floor_n <- dcfg$min_count_per_sample %||% 0
+  if (floor_n > 0) {
+    n0 <- nrow(df)
+    df <- dplyr::filter(df, .data$count > floor_n)
+    pipeline_log(cfg, sprintf("DA[taxa]: read floor (> %s) kept %d/%d rows",
+                              floor_n, nrow(df), n0))
+  }
+  ex <- dcfg$exclude_genera
+  if (length(ex) > 0) {
+    genus <- sub("^\\s*(\\S+).*$", "\\1", as.character(df$name))
+    hit <- genus %in% ex
+    pipeline_log(cfg, sprintf("DA[taxa]: excluded %d taxa from genera %s",
+                              length(unique(df$name[hit])), paste(ex, collapse = ", ")))
+    df <- df[!hit, , drop = FALSE]
+  }
+  df
+}
+
 da_taxa_matrix <- function(cleaned, cfg) {
   src <- cfg$differential_abundance$source %||% "noncontaminants"
   if (src %in% c("bracken", "merged") && !is.null(cleaned$merged) &&
@@ -79,6 +106,7 @@ da_taxa_matrix <- function(cleaned, cfg) {
     df <- community_filter(cleaned$noncontaminants, cfg, "DA[taxa]")
     src_used <- "noncontaminants"
   }
+  df <- da_taxa_prefilter(df, cfg)
   df <- clean_taxa_names(df, cfg)
   list(df = df, source = src_used)
 }
