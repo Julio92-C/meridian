@@ -1077,6 +1077,7 @@ ge_plot_beta <- function(df, group, pal_group, opts, fig_file,
     pipeline_log(cfg, sprintf("%s PERMANOVA %s: R2 = %.3f, p_raw = %.4g (%s)",
                               log_label, group, r2, pv, cluster_tag(permanova)))
   } else if (can_contrast) {
+    set.seed(cluster_seed(cfg))   # reproducible permutation p-values
     permanova <- vegan::adonis2(
       stats::reformulate(group, "d"),
       data = meta, permutations = perms
@@ -1098,6 +1099,7 @@ ge_plot_beta <- function(df, group, pal_group, opts, fig_file,
     error = function(e) NULL
   ) else if (can_contrast) tryCatch({
     bd <- vegan::betadisper(d, factor(meta[[group]]))
+    set.seed(cluster_seed(cfg))
     vegan::permutest(bd, permutations = perms)
   }, error = function(e) NULL) else NULL
   permdisp_p <- NA_real_

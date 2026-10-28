@@ -123,6 +123,9 @@ stats:
   permanova_permutations: 9999
   aldex_mc_samples:       128
   alpha: 0.05
+  # Composite GE alpha panels show p_adj across resistome/virulome/mobilome
+  # per metric, as in Table 1 (R/13 .panels_ge_alpha_padj).
+  ge_alpha_padj_scope:    cross_domain
 
 report:
   top_n_taxa:              25

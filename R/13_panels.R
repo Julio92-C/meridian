@@ -15,6 +15,35 @@
 # Public entry point
 # ---------------------------------------------------------------------------
 
+# Genetic-element alpha panels (resistome / virulome / mobilome richness and
+# Shannon) are drawn by R/09-R/11 with p_adj adjusted within each module,
+# because the other modules have not run yet. With
+# stats.ge_alpha_padj_scope: cross_domain, the composites instead show p_adj
+# adjusted per metric across the three modules (the ge_alpha_kw accumulator,
+# as reported in summary tables), so figures and tables agree.
+.panels_ge_alpha_padj <- function(plot_obj, abs_path, cfg) {
+  if (!identical(cfg$stats$ge_alpha_padj_scope, "cross_domain")) return(plot_obj)
+  m <- regmatches(abs_path, regexec(
+    "(resistome|virulome|mobilome)[/\\\\]alpha_(richness|shannon)_(violin|bar)\\.png$",
+    abs_path, ignore.case = TRUE))[[1]]
+  if (length(m) == 0) return(plot_obj)
+  summ <- tryCatch(padj_summary_finalise(cfg, "ge_alpha_kw"), error = function(e) NULL)
+  if (is.null(summ)) return(plot_obj)
+  row <- summ[tolower(summ$key) == tolower(m[2]) & summ$family == tolower(m[3]), , drop = FALSE]
+  if (nrow(row) != 1) return(plot_obj)
+  relabel <- function(x) sub("p_adj \\(([^)]+)\\) = [^ )|]+",
+                             sprintf("p_adj (\\1) = %.2g", row$p_adj), x)
+  for (i in seq_along(plot_obj$layers)) {
+    ly <- plot_obj$layers[[i]]
+    if (is.character(ly$aes_params$label)) ly$aes_params$label <- relabel(ly$aes_params$label)
+    if (is.data.frame(ly$data) && is.character(ly$data$label)) ly$data$label <- relabel(ly$data$label)
+  }
+  for (f in c("title", "subtitle")) {
+    if (is.character(plot_obj$labels[[f]])) plot_obj$labels[[f]] <- relabel(plot_obj$labels[[f]])
+  }
+  plot_obj
+}
+
 run_panels <- function(cfg) {
   pipeline_log(cfg, "Publication panels + supplementary tables")
   pcfg <- cfg$panels %||% list()
@@ -827,6 +856,7 @@ run_panels <- function(cfg) {
       plot_obj <- plot_obj + .panels_composite_theme(cfg)
       plot_obj <- .panels_relabel_group(plot_obj, cfg)
       plot_obj <- .panels_tune_repel(plot_obj, cfg)
+      plot_obj <- .panels_ge_alpha_padj(plot_obj, abs_path, cfg)
       # Per-slot or per-panel composite overrides from the slots YAML
       # (e.g. legend_position: right, legend_ncol: 2). Slot-level applies
       # to every panel in the slot; panel-level wins when both are set.
