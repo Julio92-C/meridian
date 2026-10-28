@@ -16,7 +16,7 @@
 # taxa_filter.min_sample_reads excluded. Genetic-element panels (C, D) use
 # every study sample with at least one hit, as in the legacy figure.
 #
-# Outputs: <figures_dir>/beta_diversity/beta_venn_overview.{png,tiff}
+# Outputs: <figures_dir>/beta_diversity/beta_venn_overview.{png,tiff}, beta_venn_ge.{png,tiff}
 #          <datasets_dir>/beta_diversity/beta_venn_overview_stats.csv
 # Run from the repo root:
 #   Rscript projects/hospital_microbiome/polish_beta_venn.R
@@ -171,6 +171,13 @@ oD <- ordinate(m_ge, grp_ge, "jaccard", TRUE, "D", type = "pcoa")
 fig <- (pA | oB$plot) / (pC | oD$plot)
 ggsave(file.path(fig_dir, "beta_venn_overview.png"), fig, width = 13, height = 11, dpi = 300)
 ggsave(file.path(fig_dir, "beta_venn_overview.tiff"), fig, width = 13, height = 11, dpi = 300,
+       compression = "lzw")
+
+# Genetic-element panels alone (hospital Fig S3 once the species panels moved
+# into Figure 1, polish_taxa_overview.R), relabelled A-B.
+fig_ge <- venn_panel(sets_ge, "A") | (oD$plot + labs(title = "B"))
+ggsave(file.path(fig_dir, "beta_venn_ge.png"), fig_ge, width = 13, height = 5.8, dpi = 300)
+ggsave(file.path(fig_dir, "beta_venn_ge.tiff"), fig_ge, width = 13, height = 5.8, dpi = 300,
        compression = "lzw")
 
 venn_counts <- function(s) c(air_only = length(setdiff(s$Air, s$Surface)),
