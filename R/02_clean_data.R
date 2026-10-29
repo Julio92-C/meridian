@@ -3,7 +3,70 @@
 # table used by downstream modules. Mirrors cleanData.R from the reference
 # studies but parameterised by config (no hardcoded sample IDs or paths).
 # Studies without negative controls leave cfg$metadata$controls empty/null
-# and the control-baseline subtraction is skipped.
+# and the control-baseline subtraction is skipped. metadata.control_match_cols
+# limits each sample's baseline to the controls of its own run/batch.
+
+# Which negative controls each sample is compared against. With no match
+# columns every sample gets every control. With match columns (e.g.
+# c("seq_run", "batch")) a sample gets the controls that share its value in
+# the FIRST column where any control does: its own run's controls, else its
+# batch's. A sample with no match in any column gets none (not subtracted).
+control_sets_for_samples <- function(meta, sid_col, samples, controls, match_cols,
+                                     log = function(msg) pipeline_log(NULL, msg)) {
+  if (length(match_cols) == 0) {
+    return(setNames(rep(list(controls), length(samples)), samples))
+  }
+  missing_cols <- setdiff(match_cols, colnames(meta))
+  if (length(missing_cols) > 0) {
+    stop(sprintf("metadata.control_match_cols not in metadata columns: %s",
+                 paste(missing_cols, collapse = ", ")))
+  }
+  ids <- as.character(meta[[sid_col]])
+  missing_ctrls <- setdiff(controls, ids)
+  if (length(missing_ctrls) > 0) {
+    stop(sprintf("Controls need a metadata row for control_match_cols: %s",
+                 paste(missing_ctrls, collapse = ", ")))
+  }
+  value <- function(col, id) {
+    v <- as.character(meta[[col]][match(id, ids)])
+    ifelse(is.na(v) | v == "", NA_character_, v)
+  }
+  # Columns with no metadata row (e.g. Re-centrifuge's derived *_EXCLUSIVE_* /
+  # *_SHARED_* summary columns) keep the all-controls baseline.
+  sets <- lapply(samples, function(s) {
+    if (!s %in% ids) return(controls)
+    for (col in match_cols) {
+      sv <- value(col, s)
+      if (is.na(sv)) next
+      cv  <- value(col, controls)
+      hit <- controls[!is.na(cv) & cv == sv]
+      if (length(hit) > 0) return(hit)
+    }
+    character(0)
+  })
+  names(sets) <- samples
+  none <- samples[lengths(sets) == 0]
+  if (length(none) > 0) {
+    log(sprintf("No negative control shares %s with %d sample(s); not control-subtracted: %s",
+                paste(match_cols, collapse = " or "), length(none),
+                paste(none, collapse = ", ")))
+  }
+  sets
+}
+
+# Per-row control baseline for the long table (one row per taxon x sample,
+# control counts as wide columns): the max over that sample's own controls,
+# -Inf when it has none (so `count > control_max` keeps everything).
+control_max_by_sample <- function(long, sets) {
+  key <- vapply(sets, paste, character(1), collapse = "\r")
+  out <- rep(-Inf, nrow(long))
+  for (k in unique(key[nzchar(key)])) {
+    rows <- long$sample %in% names(key)[key == k]
+    cols <- strsplit(k, "\r", fixed = TRUE)[[1]]
+    out[rows] <- apply(as.matrix(long[rows, cols, drop = FALSE]), 1, max, na.rm = TRUE)
+  }
+  out
+}
 
 clean_data <- function(inputs, cfg) {
   pipeline_log(cfg, "Cleaning + decontaminating")
@@ -16,7 +79,14 @@ clean_data <- function(inputs, cfg) {
   # "_kraken:taxid|<digits>" tail instead.
   summary_df <- as.data.frame(inputs$abricate)
   names(summary_df)[names(summary_df) == "#FILE"] <- "sample"
-  summary_df$sample <- sub("_.*", "", gsub(".fasta", "", summary_df$sample))
+  # Abricate #FILE is "<sample>_kraken2ID_PFP.fasta" across studies. Strip that
+  # tail to recover the sample id. The previous sub("_.*") truncated at the
+  # FIRST underscore, which silently mangled sample ids that themselves contain
+  # underscores (e.g. wetlands_flyway GA1_1 -> GA1, breaking the metadata join).
+  # Stripping the _kraken2ID... suffix is backward-compatible for underscore-free
+  # ids (chicken D19, hospital 1SW) and preserves the rest.
+  summary_df$sample <- sub("_kraken2ID.*$", "", summary_df$sample)
+  summary_df$sample <- sub("\\.fasta$", "", summary_df$sample)
   summary_df <- summary_df |>
     dplyr::mutate(
       sequence = sub("_kraken:taxid\\|\\d+$", "", SEQUENCE),
@@ -127,9 +197,13 @@ clean_data <- function(inputs, cfg) {
       pivoted,
       dplyr::across(dplyr::all_of(controls), as.numeric)
     )
-    pivoted$control_max <- apply(
-      pivoted[, controls, drop = FALSE], 1, max, na.rm = TRUE
-    )
+    # metadata.control_match_cols (optional) pairs each sample with the
+    # controls that share its run/batch; unset = every control for every sample.
+    sets <- control_sets_for_samples(inputs$metadata, cfg$metadata$sample_id_col,
+                                     unique(pivoted$sample), controls,
+                                     unlist(cfg$metadata$control_match_cols),
+                                     log = function(msg) pipeline_log(cfg, msg))
+    pivoted$control_max <- control_max_by_sample(pivoted, sets)
   } else {
     # No controls → no baseline to subtract; count > -Inf is always TRUE.
     pivoted$control_max <- -Inf

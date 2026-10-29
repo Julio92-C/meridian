@@ -50,6 +50,12 @@ metadata:
   controls: []
   #   - CTRL1
   #   - CTRL2
+  # Optional: compare each sample only with the controls that share its value
+  # in these metadata columns, tried in order (controls need metadata rows).
+  # E.g. [seq_run, batch]: a sample's own run's controls, else its batch's;
+  # a sample with no matching control is not subtracted (listed in the log).
+  # Unset = every control is the baseline for every sample.
+  # control_match_cols: [seq_run, batch]
 
 # --------------------------------------------------------------------------- #
 # Manual taxid / name fixes. Optional CSV with columns: taxid,name             #
@@ -92,13 +98,22 @@ stats:
   aldex_mc_samples:       128
   alpha: 0.05
   padjust_method: BH                # BH | BY | bonferroni | holm | hochberg | none
+  # Patient/cluster-aware tests (R/utils_cluster_perm.R). When true AND
+  # metadata.random_effect is set, KW / Wilcoxon / PERMANOVA / PERMDISP
+  # p-values come from permutations that respect the clustering column
+  # (labels shuffled within clusters if the group varies within them, whole
+  # clusters shuffled otherwise), and ALDEx2 runs on counts pooled per
+  # cluster (or cluster x group). Off by default so existing results are
+  # unchanged.
+  random_effect_tests: false
+  # cluster_permutations: 9999      # defaults to permanova_permutations
 
 # --------------------------------------------------------------------------- #
 # Relative-abundance figures (R/05). Every key is optional; the values shown   #
 # are the defaults. Override per project in projects/<slug>/config.yaml.       #
 # --------------------------------------------------------------------------- #
 # relative_abundance:
-#   top_n: 15                # taxa shown (by mean per-sample %); rest -> "Others"
+#   top_n: 10                # taxa shown (by mean per-sample %); rest -> "Others"
 #   main_panel: group        # group | stream | sample - figure used by the fig05 panel
 #                            #   (falls back group -> stream -> sample if it was not made)
 #   group_order: null        # e.g. [Control, Low, High]; x order of the group bars
@@ -155,6 +170,17 @@ panels:
   png:                   true
   tiff:                  false      # LZW-compressed 300-dpi TIFF for journal submission
   pdf:                   false      # cairo_pdf vector sibling
+
+# --------------------------------------------------------------------------- #
+# Figure set (R/utils_figures.R). `core` writes one figure of each duplicate  #
+# pair: violins (not per-sample bars), count + prevalence (not total-count    #
+# bars), stream plots (not stacked composition bars, taxa or genes), UpSet  #
+# (not the Venn of the same gene sets). `full` writes them all.              #
+# --------------------------------------------------------------------------- #
+figures:
+  set: core                         # core | full
+  include: []                       # file stems to write anyway, e.g. [venn_args]
+  exclude: []                       # file stems to skip, e.g. [jaccard_pcoa]
 
 # --------------------------------------------------------------------------- #
 # Output paths (relative to project_root). When evaluating a new dataset for  #

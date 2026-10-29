@@ -10,6 +10,7 @@ source(file.path(R_DIR, "utils_palette.R"))
 source(file.path(R_DIR, "utils_panel_io.R"))
 source(file.path(R_DIR, "utils_taxa.R"))
 source(file.path(R_DIR, "utils_ge_profile.R"))
+source(file.path(R_DIR, "utils_cluster_perm.R"))   # cluster_tests_enabled() etc.
 source(file.path(R_DIR, "04_taxonomy.R"))
 source(file.path(R_DIR, "07_beta_diversity.R"))
 source(file.path(R_DIR, "08_differential_abundance.R"))
@@ -137,16 +138,18 @@ test_that("save_widget_safe logs and returns FALSE when both attempts fail", {
 })
 
 # ---- R/07 beta diversity -----------------------------------------------------
-beta_merged <- function(samples, taxa, counts) {
+# R/07 ordinates the community taxa table (cleaned$noncontaminants) by
+# default since 12b191c, so the fixtures feed that table (sample, name, count).
+beta_community <- function(samples, taxa, counts) {
   expand.grid(sample = samples, name = taxa, stringsAsFactors = FALSE) |>
-    dplyr::mutate(sampleCount = counts)
+    dplyr::mutate(count = counts)
 }
 
 test_that("run_beta_diversity skips when Bray PCoA has < 2 axes", {
   reset_log()
   s <- paste0("s", 1:4)
   cfg <- make_proj(data.frame(sample = s, grp = c("A", "A", "B", "B")))
-  cleaned <- list(merged = beta_merged(s, "Escherichia coli", rep(100, 4)))
+  cleaned <- list(noncontaminants = beta_community(s, "Escherichia coli", rep(100, 4)))
   r <- NULL
   expect_no_error(r <- run_beta_diversity(cleaned, cfg))
   expect_null(r)
@@ -163,7 +166,7 @@ test_that("run_beta_diversity drops NA-group samples and skips only Jaccard when
   cnt <- c(90, 80, 10, 20, 50, 40,   5, 10, 90, 70, 40, 30,   8, 12, 20, 60, 30, 70)
   cfg <- make_proj(data.frame(sample = s,
                               grp = c("A", "A", "A", "B", "B", NA)))
-  cleaned <- list(merged = beta_merged(s, taxa, cnt))
+  cleaned <- list(noncontaminants = beta_community(s, taxa, cnt))
   r <- NULL
   expect_no_error(r <- run_beta_diversity(cleaned, cfg))
   expect_true(any(grepl("dropping 1 sample.*NA grp", logged)))

@@ -68,7 +68,7 @@ ra_taxa_palette <- function(taxa_levels, others_label, cfg) {
 #               the deepest samples)
 #   taxa_levels legend / stack order (largest total % first, Others last)
 ra_prepare_composition <- function(df_in, facet_by, ra_cfg) {
-  top_n        <- ra_cfg$top_n        %||% 15
+  top_n        <- ra_cfg$top_n        %||% 10
   others_label <- ra_cfg$others_label %||% "Others"
 
   df_pct <- df_in |>
@@ -687,7 +687,7 @@ run_relative_abundance <- function(cleaned, cfg) {
       top_n        = top_n,
       others_label = others_label,
       fill_label   = "Species",
-      title        = paste("Species composition by", facet_by)
+      title        = paste("Species composition by", tolower(pretty_var(facet_by)))
     )
   }
 
@@ -747,7 +747,7 @@ run_relative_abundance <- function(cleaned, cfg) {
         # Capitalised display label for fig01 F (taxa class stream).
         fill_label   = paste0(toupper(substr(rank_col, 1, 1)),
                                 substr(rank_col, 2, nchar(rank_col))),
-        title        = sprintf("Composition by %s (%s level)", facet_by, rank_col)
+        title        = sprintf("Composition by %s (%s level)", tolower(pretty_var(facet_by)), rank_col)
       )
     }
   }
@@ -949,7 +949,7 @@ run_relative_abundance <- function(cleaned, cfg) {
         pipeline_log(cfg,
           "Relative abundance: genus heatmap matrix is constant — heatmap skipped")
       } else {
-        pheatmap::pheatmap(
+        if (!figure_skip(file.path(fig_dir, "genus_heatmap_top30.png"))) pheatmap::pheatmap(
           z,
           clustering_distance_rows = d_rows,
           clustering_distance_cols = d_cols,

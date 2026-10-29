@@ -124,7 +124,7 @@ run_virulome <- function(cleaned, cfg) {
   ge_plot_abundance_violin(
     vfdb, group, pal_group,
     file = file.path(fig_dir, "vf_abundance_violin.png"),
-    title = "VF abundance per Treatment group",
+    title = sprintf("VF abundance by %s", tolower(pretty_var(group))),
     log_label = label, cfg = cfg
   )
 
@@ -132,7 +132,7 @@ run_virulome <- function(cleaned, cfg) {
   ge_plot_category_venn(
     vfdb_fun, category_col = "Functions", group = group, pal_group = pal_group,
     file = file.path(fig_dir, "venn_vf_functions.png"),
-    main_title = sprintf("VF functions shared across %s groups", group),
+    main_title = sprintf("VF functions shared by %s", tolower(pretty_var(group))),
     log_label = label, cfg = cfg
   )
   # Gene-level VF Venn — added 2026-06-12 for the diet-effects
@@ -142,7 +142,7 @@ run_virulome <- function(cleaned, cfg) {
   ge_plot_category_venn(
     vfdb, category_col = "GENE", group = group, pal_group = pal_group,
     file = file.path(fig_dir, "venn_vfs.png"),
-    main_title = sprintf("VF genes shared across %s groups", group),
+    main_title = sprintf("VF genes shared by %s", tolower(pretty_var(group))),
     log_label = label, cfg = cfg
   )
 
@@ -229,7 +229,7 @@ run_virulome <- function(cleaned, cfg) {
       value_col    = "TPM",
       palette      = pal_function,
       fill_label   = "VF function",
-      title        = "VF function composition by treatment"
+      title        = sprintf("VF function composition by %s", tolower(pretty_var(group)))
     )
     ge_plot_total_bar(
       vf_totals, category_col = "Functions", value_col = "Total_TPM",

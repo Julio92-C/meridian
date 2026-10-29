@@ -55,3 +55,9 @@ Rplots.pdf
 
 # Keep committed test-fixture Re-centrifuge inputs (overrides *.rcf.data.csv above).
 !/tests/fixtures/**/*.rcf.data.csv
+
+# working artefacts from panel/figure iteration
+scripts/_*.log
+scripts/_diag_*
+projects/*/_*.log
+~$*

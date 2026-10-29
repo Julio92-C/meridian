@@ -172,6 +172,29 @@ run_panels <- function(cfg) {
     legend.box.margin = ggplot2::margin(0, 0, 0, 0),
     plot.margin    = ggplot2::margin(marg, marg, marg, marg, "pt")
   )
+  # Optional legend padding: cfg$panels$legend_box_margin_pt = [t, r, b, l]
+  # (space around the whole legend block) and cfg$panels$legend_box_spacing_pt
+  # (gap between plot area and legend; ggplot default ~11pt).
+  lbm <- unlist(cfg$panels$legend_box_margin_pt)
+  if (length(lbm) == 4) {
+    th <- th + ggplot2::theme(legend.box.margin =
+      ggplot2::margin(lbm[1], lbm[2], lbm[3], lbm[4], "pt"))
+  }
+  # Uniform legend rows: a key height >= the tallest label (superscript
+  # footnote letters make some labels taller than the 0.4 cm key, which
+  # spreads those rows apart) plus a fixed gap between rows.
+  if (!is.null(cfg$panels$legend_key_height_cm)) {
+    th <- th + ggplot2::theme(legend.key.height =
+      grid::unit(cfg$panels$legend_key_height_cm, "cm"))
+  }
+  if (!is.null(cfg$panels$legend_key_spacing_y_pt)) {
+    th <- th + ggplot2::theme(legend.key.spacing.y =
+      grid::unit(cfg$panels$legend_key_spacing_y_pt, "pt"))
+  }
+  if (!is.null(cfg$panels$legend_box_spacing_pt)) {
+    th <- th + ggplot2::theme(legend.box.spacing =
+      grid::unit(cfg$panels$legend_box_spacing_pt, "pt"))
+  }
   if (strip_title) {
     th <- th + ggplot2::theme(
       plot.title    = ggplot2::element_blank(),
@@ -179,6 +202,249 @@ run_panels <- function(cfg) {
     )
   }
   th
+}
+
+# Resize / re-space ggrepel text labels (e.g. the prevalence-vs-TPM
+# panels) at composite scale. Their size is a layer parameter, so the
+# composite theme can't reach it.
+#
+# Knobs (all optional; nothing changes when none is set):
+#   cfg$panels$repel_label_size      pt size of repel labels
+#   cfg$panels$repel_box_padding     lines of padding around each label
+#   cfg$panels$repel_point_padding   lines kept clear around each point
+#   cfg$panels$repel_force           ggrepel repulsion strength
+#   cfg$panels$repel_y_headroom      extra top expansion (fraction of range)
+#       so labels on the highest points have free space to move into
+#   cfg$panels$repel_avoid_all_points  TRUE -> labels also steer clear of
+#       UNLABELLED points (ggrepel only avoids points present in the label
+#       layer's own data, so the top-N subset otherwise gets drawn over by
+#       its unlabelled neighbours). Implemented with the documented ggrepel
+#       trick: feed every point, blank label "" for the unlabelled ones.
+.panels_tune_repel <- function(plot_obj, cfg) {
+  pc <- cfg$panels
+  if (is.null(pc$repel_label_size) && is.null(pc$repel_box_padding) &&
+      is.null(pc$repel_point_padding) && is.null(pc$repel_force) &&
+      is.null(pc$repel_y_headroom) && !isTRUE(pc$repel_avoid_all_points)) {
+    return(plot_obj)
+  }
+  for (i in seq_along(plot_obj$layers)) {
+    ly <- plot_obj$layers[[i]]
+    if (!inherits(ly$geom, c("GeomTextRepel", "GeomLabelRepel"))) next
+    new_ly <- tryCatch({
+      # Mutates the layer in place: plot_obj is a fresh readRDS() copy, so
+      # nothing on disk changes. (Don't ggproto(NULL, ly)-copy here: ggproto
+      # re-evaluates the parent symbol lazily and would self-reference.)
+      if (!is.null(pc$repel_label_size)) {
+        ly$aes_params$size <- pc$repel_label_size / ggplot2::.pt
+      }
+      if (!is.null(pc$repel_box_padding)) {
+        ly$geom_params$box.padding <- grid::unit(pc$repel_box_padding, "lines")
+      }
+      if (!is.null(pc$repel_point_padding)) {
+        ly$geom_params$point.padding <- grid::unit(pc$repel_point_padding,
+                                                   "lines")
+      }
+      if (!is.null(pc$repel_force)) ly$geom_params$force <- pc$repel_force
+      if (isTRUE(pc$repel_avoid_all_points) && is.data.frame(ly$data) &&
+          is.data.frame(plot_obj$data) && !is.null(ly$mapping$label)) {
+        full     <- plot_obj$data
+        lab_top  <- rlang::eval_tidy(ly$mapping$label, data = ly$data)
+        lab_full <- rlang::eval_tidy(ly$mapping$label, data = full)
+        full$.repel_lab <- ifelse(lab_full %in% lab_top,
+                                  as.character(lab_full), "")
+        ly$data <- full
+        ly$mapping[["label"]] <- rlang::quo(.data[[".repel_lab"]])
+      }
+      ly
+    }, error = function(e) {
+      pipeline_log(cfg, sprintf("Panels: repel tuning skipped (%s)",
+                                conditionMessage(e)))
+      NULL
+    })
+    if (!is.null(new_ly)) plot_obj$layers[[i]] <- new_ly
+  }
+  has_repel <- any(vapply(plot_obj$layers, function(l)
+    inherits(l$geom, c("GeomTextRepel", "GeomLabelRepel")), logical(1)))
+  if (has_repel && !is.null(pc$repel_y_headroom)) {
+    plot_obj <- suppressMessages(plot_obj + ggplot2::scale_y_continuous(
+      expand = ggplot2::expansion(mult = c(0.05, pc$repel_y_headroom))))
+  }
+  plot_obj
+}
+
+# ---------------------------------------------------------------------------
+# Display-only label shortening with footnote letters
+# ---------------------------------------------------------------------------
+# Shortens long category names in legends and ggrepel point labels ONLY at
+# composite render time — plot data, stats and every dataset on disk keep
+# the full names. Each shortened label gets a superscript letter (a, b, c,
+# ...) assigned per figure in legend order, and the letter -> short -> full
+# key is written to <figures_dir>/panels/label_keys/<slug>.csv so captions
+# can point readers to the full names used in heatmaps / tables.
+#
+# Knobs:
+#   cfg$panels$label_renames        named map  full name -> short name
+#   cfg$panels$label_shorten_regex  list of {pattern, replacement} (perl);
+#                                   applied to names not in label_renames,
+#                                   first matching rule wins
+#   cfg$panels$label_footnotes      TRUE (default) -> add superscript letters
+.panels_label_map <- function(values, cfg) {
+  rn <- unlist(cfg$panels$label_renames)
+  rx <- cfg$panels$label_shorten_regex
+  v  <- unique(as.character(values))
+  v  <- v[!is.na(v) & nzchar(v)]
+  if (length(v) == 0 || (length(rn) == 0 && length(rx) == 0)) {
+    return(character())
+  }
+  out <- v
+  hit <- v %in% names(rn)
+  out[hit] <- rn[v[hit]]
+  for (r in rx) {
+    todo <- out == v
+    out[todo] <- sub(r$pattern, r$replacement, v[todo], perl = TRUE)
+  }
+  dup <- out %in% out[duplicated(out)]      # never merge two categories
+  out[dup] <- v[dup]
+  ch <- out != v
+  stats::setNames(out[ch], v[ch])
+}
+
+# Legend breaks of the discrete fill/colour guides of a ggplot, in legend
+# order. Empty when the plot has no such legend.
+.panels_legend_values <- function(p) {
+  out <- character()
+  # Hidden legends (legend.position = "none", e.g. the prevalence panels)
+  # still report guide data — skip them so only visible keys get letters.
+  lp <- tryCatch(p$theme$legend.position, error = function(e) NULL)
+  if (identical(lp, "none")) return(out)
+  for (aes_nm in c("fill", "colour")) {
+    gd <- tryCatch(ggplot2::get_guide_data(p, aes_nm), error = function(e) NULL)
+    if (is.data.frame(gd) && ".label" %in% names(gd)) {
+      out <- c(out, as.character(gd$.label))
+    }
+  }
+  out
+}
+
+.panels_repel_values <- function(p) {
+  out <- character()
+  for (ly in p$layers) {
+    if (!inherits(ly$geom, c("GeomTextRepel", "GeomLabelRepel"))) next
+    if (is.data.frame(ly$data) && ".repel_lab" %in% names(ly$data)) {
+      out <- c(out, ly$data$.repel_lab)
+    } else if (!is.null(ly$mapping$label)) {
+      d <- if (is.data.frame(ly$data)) ly$data else p$data
+      out <- c(out, as.character(tryCatch(
+        rlang::eval_tidy(ly$mapping$label, data = d),
+        error = function(e) character())))
+    }
+  }
+  out
+}
+
+# plotmath-safe string: "text" or "text"^"a"
+.panels_pm <- function(txt, letter = NA_character_) {
+  q <- paste0('"', gsub('(["\\\\])', '\\\\\\1', txt), '"')
+  letter <- rep_len(letter, length(q))
+  ifelse(is.na(letter), q, paste0(q, '^"', letter, '"'))
+}
+
+.panels_apply_label_key <- function(p, key) {
+  # key: data.frame(full, short, letter)
+  fmt <- function(x) {
+    x <- as.character(x)
+    i <- match(x, key$full)
+    shown <- ifelse(is.na(i), x, key$short[i])
+    .panels_pm(shown, if (all(is.na(key$letter))) NA_character_
+                      else key$letter[i])
+  }
+  # Legends: relabel existing discrete fill/colour scales (keeps palettes)
+  for (sc in p$scales$scales) {
+    if (length(intersect(sc$aesthetics, c("fill", "colour"))) == 0) next
+    if (!inherits(sc, "ScaleDiscrete")) next
+    sc$labels <- function(breaks) parse(text = fmt(breaks))
+  }
+  # ggrepel point labels
+  for (ly in p$layers) {
+    if (!inherits(ly$geom, c("GeomTextRepel", "GeomLabelRepel"))) next
+    d <- if (is.data.frame(ly$data)) ly$data else p$data
+    labs <- if (".repel_lab" %in% names(d)) d$.repel_lab else
+      as.character(rlang::eval_tidy(ly$mapping$label, data = d))
+    blank <- is.na(labs) | labs == ""
+    d$.repel_lab <- ifelse(blank, "", fmt(labs))
+    # With parse = TRUE ggrepel no longer recognises "" as "no label" and
+    # draws a leader line for every unlabelled point; hide those per row
+    # via the segment.alpha aesthetic (points are still repelled from).
+    d$.repel_seg_a <- ifelse(blank, 0, 1)
+    ly$data <- d
+    ly$mapping[["label"]] <- rlang::quo(.data[[".repel_lab"]])
+    ly$mapping[["segment.alpha"]] <- rlang::quo(.data[[".repel_seg_a"]])
+    ly$geom_params$parse <- TRUE
+  }
+  p
+}
+
+# Slot-level driver: one lettering per figure, legend order first, then any
+# names that only appear as point labels.
+.panels_shorten_labels <- function(plots, native, slug, cfg) {
+  if (is.null(cfg$panels$label_renames) &&
+      is.null(cfg$panels$label_shorten_regex)) return(plots)
+  res <- tryCatch({
+    idx  <- which(native)
+    vals <- unlist(lapply(plots[idx], .panels_legend_values))
+    vals <- c(vals, unlist(lapply(plots[idx], .panels_repel_values)))
+    vals <- unique(vals[!is.na(vals) & nzchar(vals)])
+    m <- .panels_label_map(vals, cfg)
+    if (length(m) == 0) return(plots)
+    full <- vals[vals %in% names(m)]
+    use_fn <- isTRUE(cfg$panels$label_footnotes %||% TRUE)
+    key <- data.frame(
+      letter = if (use_fn) letters[seq_along(full)] else NA_character_,
+      short  = unname(m[full]),
+      full   = full,
+      stringsAsFactors = FALSE
+    )
+    for (i in idx) plots[[i]] <- .panels_apply_label_key(plots[[i]], key)
+    key_dir <- file.path(cfg$project_root, cfg$outputs$figures_dir,
+                         "panels", "label_keys")
+    dir.create(key_dir, recursive = TRUE, showWarnings = FALSE)
+    utils::write.csv(key, file.path(key_dir, paste0(slug, ".csv")),
+                     row.names = FALSE)
+    pipeline_log(cfg, sprintf("Panels[%s]: %d label(s) shortened -> %s",
+                              slug, nrow(key), paste0("label_keys/", slug,
+                                                      ".csv")))
+    plots
+  }, error = function(e) {
+    pipeline_log(cfg, sprintf("Panels[%s]: label shortening skipped (%s)",
+                              slug, conditionMessage(e)))
+    NULL
+  })
+  res %||% plots
+}
+
+# Rename the raw grouping-column label (e.g. "type") wherever it shows up as
+# an axis or legend title, to a publication-friendly name.
+#
+# Knob: cfg$panels$group_label (default NULL = leave labels untouched).
+# Matches only titles that are exactly cfg$metadata$group_cols[[1]], so
+# custom titles set at the stage level ("Drug class", "Plasmid replicon")
+# are never clobbered. ggplot2::get_labs() resolves the mapping-derived
+# defaults (x = type, fill = type, colour = type) that ggplot2 >= 3.5.2 no
+# longer stores in plot$labels.
+.panels_relabel_group <- function(plot_obj, cfg) {
+  new_lab <- cfg$panels$group_label
+  grp     <- cfg$metadata$group_cols[[1]]
+  if (is.null(new_lab) || !nzchar(new_lab) || is.null(grp)) return(plot_obj)
+  cur <- tryCatch(ggplot2::get_labs(plot_obj), error = function(e) NULL)
+  if (is.null(cur)) return(plot_obj)
+  hits <- names(cur)[vapply(cur, function(v) {
+    is.character(v) && length(v) == 1L && identical(v, grp)
+  }, logical(1))]
+  hits <- hits[nzchar(hits)]
+  if (length(hits) == 0) return(plot_obj)
+  plot_obj + do.call(ggplot2::labs,
+                     stats::setNames(as.list(rep(new_lab, length(hits))),
+                                     hits))
 }
 
 # ---------------------------------------------------------------------------
@@ -191,6 +457,7 @@ run_panels <- function(cfg) {
 #   legend_position : "right" | "left" | "top" | "bottom" | "none"
 #   legend_ncol     : integer  (forces guide_legend ncol)
 #   legend_nrow     : integer  (forces guide_legend nrow)
+#   legend_title    : false    (drops the legend title, e.g. a wide top legend)
 #   axis_text_size  : numeric  pt size override for axis.text
 #   strip_axis_text : "x" | "y" | "both" | "none"   (drop labels entirely)
 #
@@ -217,6 +484,9 @@ run_panels <- function(cfg) {
     th$legend.title <- ggplot2::element_text(
       size = as.numeric(overrides$legend_text_size) + 1
     )
+  }
+  if (isFALSE(overrides$legend_title)) {
+    th$legend.title <- ggplot2::element_blank()
   }
   if (!is.null(overrides$legend_key_size_cm)) {
     th$legend.key.size <- grid::unit(
@@ -517,6 +787,7 @@ run_panels <- function(cfg) {
 
   plots <- list()
   tags  <- character()
+  native <- logical()
   n_native <- 0L
   n_raster <- 0L
   for (item in resolved) {
@@ -541,6 +812,7 @@ run_panels <- function(cfg) {
         plot_obj <- NULL  # fall through to raster
       }
     }
+    n_raster_before <- n_raster
     if (is.null(plot_obj)) {
       img <- tryCatch(magick::image_read(abs_path), error = function(e) NULL)
       if (is.null(img)) {
@@ -557,6 +829,8 @@ run_panels <- function(cfg) {
       # standalone viewing (12pt text, big legend) shrink to fit cleanly
       # at composite scale.
       plot_obj <- plot_obj + .panels_composite_theme(cfg)
+      plot_obj <- .panels_relabel_group(plot_obj, cfg)
+      plot_obj <- .panels_tune_repel(plot_obj, cfg)
       # Per-slot or per-panel composite overrides from the slots YAML
       # (e.g. legend_position: right, legend_ncol: 2). Slot-level applies
       # to every panel in the slot; panel-level wins when both are set.
@@ -566,8 +840,10 @@ run_panels <- function(cfg) {
       n_native <- n_native + 1L
     }
     plots[[length(plots) + 1]] <- plot_obj
+    native <- c(native, identical(n_raster_before, n_raster))
     tags <- c(tags, item$panel$tag %||% LETTERS[length(plots)])
   }
+  plots <- .panels_shorten_labels(plots, native, slug, cfg)
   if (n_native + n_raster > 0) {
     pipeline_log(cfg, sprintf(
       "Panels[%s/%s]: %d native (.rds) + %d raster (.png)",

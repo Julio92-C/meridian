@@ -1,0 +1,128 @@
+# --------------------------------------------------------------------------- #
+# Metagenomics pipeline configuration — lung_microbiome_2026                  #
+# Built from config/config_template.yaml; deviations are commented inline.    #
+# PRE-STEP: Rscript projects/lung_microbiome_2026/prep_inputs.R               #
+# --------------------------------------------------------------------------- #
+
+study:
+  id: lung_microbiome_2026
+  name: "Lung microbiome — EBSP / RFH 2026 (Exhale vs Sputum, JC_2026-09)"
+  description: >
+    Exhaled-breath (EB) vs sputum (SP) microbiome of immunocompromised
+    patients at the Royal Free Hospital, Feb–Jun 2026: 89 samples from 20
+    patients (65 EB / 24 SP) across 4 ONT runs (EBSP0203/0304/0405R/0506R),
+    up to 6 visits per patient. Upstream is nf-core/taxprofiler 2.0.1 plus
+    standalone Bracken, Abricate and Re-centrifuge; prep_inputs.R reshapes
+    these into pipeline-ready files under Reports/pipeline_inputs/, applies
+    Metadata/excluded_samples.csv (dropped patients, out-of-cohort SPN0-2025,
+    QC-only control CNN0-0609) and sums re-extraction EBR0-2466 into
+    EBF0-2466. Patient ID is the random effect. Outputs land under test_run/.
+
+project_root: "C:/Users/julio/Desktop/Lung_microbiome/ONT_Long_read_seq/JC_2026-09_EBSP"
+
+inputs:
+  # All four come from prep_inputs.R (Reports/pipeline_inputs/), not the raw
+  # upstream reports: taxprofiler/combine_kreports/rcf -c 1 layouts differ
+  # from the template's wf-metagenomics layout, and Windows' case-insensitive
+  # paths mean Reports/Kraken2/ would overwrite the raw Reports/kraken2/.
+  abricate_summary: "Reports/pipeline_inputs/summary_reportClean.csv"
+  kraken2_report:   "Reports/pipeline_inputs/kraken2_db1_combined_reports.txt"
+  bracken_report:   "Reports/pipeline_inputs/bracken_arranged.csv"
+  recentrifuge_csv: "Reports/pipeline_inputs/EBSP_samples.rcf.data.csv"
+  # Precomputed wf-metagenomics diversity left null (as in lung_microbiome
+  # 2025): it comes from a different classifier run than the Bracken counts,
+  # and metric-level values can't be summed for the EBR0-2466 merge. R/06
+  # computes alpha diversity uniformly from the Bracken counts instead.
+  # Raw file: Reports/wf-metagenomics/wf-metagenomics-diversity.csv
+  diversity_csv:    ~
+
+metadata:
+  file: "Metadata/sample_metadata.csv"   # built by Metadata/build_sample_metadata.py
+  sample_id_col: "sample"
+  group_cols:
+    - sample_type                     # Exhale | Sputum. Named sample_type (not type) to avoid the
+                                      # R/12_network.R nodes$type collision found in lung_microbiome.
+  random_effect: "ID"                 # patient ID — patients contribute 1–8 samples each
+  fixed_effects:
+    - sample_type
+  # Expected levels (documentation only — not read by the pipeline):
+  #   sample_type: Exhale, Sputum
+  #   visit:       0–5 (0-based per-patient visit index)
+  #   seq_run:     EBSP0203, EBSP0304, EBSP0405R, EBSP0506R (candidate batch term)
+  # The only negative control (CNN0-0609, CTRL1 in Re-centrifuge) was
+  # sequenced in the last run only and is kept as a QC record
+  # (excluded_samples.csv, action: qc); prep_inputs.R removes it, so there
+  # is no baseline subtraction.
+  controls: []
+
+# No manual taxid/name fixes for this study.
+taxid_fixes_file: ~
+
+filters:
+  min_count_per_sample:   17
+  min_count_for_species:  500
+  min_prevalence_aldex:   2
+
+stages:
+  clean_data:             true
+  normalisation:          true
+  taxonomy:               true
+  relative_abundance:     true
+  alpha_diversity:        true
+  beta_diversity:         true
+  differential_abundance: true
+  resistome:              true
+  virulome:               true
+  mobilome:               true
+  network:                true
+  report:                 true
+  panels:                 true
+
+stats:
+  permanova_permutations: 9999
+  aldex_mc_samples:       128
+  alpha: 0.05
+  padjust_method: BH
+  # Patient-aware tests (R/utils_cluster_perm.R): p-values respect repeated
+  # samples per patient (metadata.random_effect = ID); ALDEx2 runs on
+  # patient-pooled counts. Enabled 2026-10-05 (CAVEATS.md #1).
+  random_effect_tests: true
+
+report:
+  top_n_taxa:              25
+  rank_taxa_by:            prevalence_x_abundance
+  network_top_nodes:       50
+  network_edge_min_weight: 0.3
+  show_per_group_chord:    true
+  show_per_group_sankey:   true
+
+# Same Exhale/Sputum palette as lung_microbiome (2025) so figures from the two
+# cohorts are directly comparable.
+colors:
+  sample_type:
+    Exhale: "#1F77B4"   # colorblind-safe blue
+    Sputum: "#FF7F0E"   # colorblind-safe orange
+
+network:
+  sankey:
+    top_genes:  30
+    rank_by:    prevalence_x_abundance
+
+panels:
+  composite_unified:     true
+  composite_base_size:   8
+  composite_legend_size: 8
+  composite_margin_pt:   6
+  strip_plot_title:      true
+  show_title:            false
+  png:                   true
+  tiff:                  false
+  pdf:                   false
+
+# First run against this dataset: sandboxed under test_run/ so the
+# upstream Reports/ tree is never overwritten.
+outputs:
+  datasets_dir: "test_run/Datasets"
+  figures_dir:  "test_run/Figures"
+  report_html:  "test_run/Reports/pipeline_report.html"
+  log_file:     "test_run/Reports/pipeline.log"
