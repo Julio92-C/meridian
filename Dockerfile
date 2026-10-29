@@ -6,9 +6,9 @@
 # the pipeline consumes their pre-computed CSV/text outputs. See README
 # "Running in a container".
 #
-# Build:  docker build -t meridian:v1.1.0 .
+# Build:  docker build -t meridian:v1.2.0 .
 # Run:    docker run --rm -e MERIDIAN_PROJECT_ROOT=/data \
-#           -v /host/study_dir:/data meridian:v1.1.0 projects/chicken_batch1/config.yaml
+#           -v /host/study_dir:/data meridian:v1.2.0 projects/chicken_batch1/config.yaml
 
 FROM bioconductor/bioconductor_docker:RELEASE_3_22
 

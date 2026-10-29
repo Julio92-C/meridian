@@ -1,3 +1,27 @@
+# MERIDIAN 1.2.0
+
+- Patient-aware statistics for repeated samples (`metadata.random_effect` +
+  `random_effect_tests`): Kruskal-Wallis, pairwise Wilcoxon, PERMANOVA and
+  PERMDISP use cluster-respecting permutations. Pairwise tests use the
+  two-group KW H, so with two groups they agree with the overall KW.
+- Negative controls matched per sample (`metadata.control_match_cols`, e.g.
+  `[seq_run, batch]`): each sample is compared with its own run's controls,
+  else its batch's. Without the key every control is used, as before.
+- Beta diversity ordinates the community taxa table (not the gene-hit
+  subset) and accepts `beta_diversity.min_sample_reads`.
+- Figure set (`figures.set: core | full`, plus `include` / `exclude`): `core`
+  (default) writes 48 figures per comparison instead of 99, dropping
+  duplicates and rarely used plots; `full` restores all. Report and
+  composites follow the set.
+- Figure polish: top 10 taxa by default; relative-abundance legend in two
+  rows; stats labels clear of the data; metadata columns shown as words
+  ("Sample type"); no chicken-study "treatment" wording; readable
+  prevalence labels; Others in stream legends; gene heatmaps sized to their
+  slot; sankey labels only on strata large enough to read.
+- New projects: lung_microbiome_2026, lung_microbiome_final,
+  hospital_wastewater_eg, wetlands_flyway. Fixes: Abricate `_kraken2ID`
+  stripping, single-group contrast guards.
+
 # MERIDIAN 1.1.0
 
 - Relative abundance (R/05) is now configurable under `relative_abundance:`
