@@ -794,8 +794,18 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
   names(ann_colors)[names(ann_colors) == group]        <- display_group
   names(ann_colors)[names(ann_colors) == category_col] <- display_cat
 
-  hm_width  <- width  %||% max(6, 0.32 * ncol(gene_scaled) + 3)
-  hm_height <- height %||% max(min_height, row_height_factor * nrow(gene_scaled) + 2.5)
+  # Canvas: cap the width (cohorts with ~100 samples drew a 4:1 strip that the
+  # 1x1 composite slot letterboxed, shrinking every label) and keep the height
+  # at least 0.6 x the width; column and row text then sized to the cells.
+  n_col <- ncol(gene_scaled); n_row <- nrow(gene_scaled)
+  hm_width  <- width  %||% min(16, max(6, 0.32 * n_col + 3))
+  hm_height <- height %||% max(min_height, row_height_factor * n_row + 2.5,
+                               0.6 * hm_width)
+  fontsize_col <- max(3, min(8, round(0.8 * 72 * (hm_width - 3) / n_col, 1)))
+  if (is.null(height)) {
+    fontsize_row <- max(fontsize_row,
+                        min(10, round(0.6 * 72 * (hm_height - 3) / n_row, 1)))
+  }
   ph_args <- list(
     mat               = gene_scaled,
     cluster_rows      = FALSE,
@@ -815,7 +825,7 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
     annotation_names_row = FALSE,
     annotation_names_col = FALSE,
     gaps_col          = gaps_col,
-    fontsize_row = fontsize_row, fontsize_col = 8, fontsize = 8
+    fontsize_row = fontsize_row, fontsize_col = fontsize_col, fontsize = 8
   )
   if (isTRUE(legend_top)) {
     ph <- do.call(pheatmap::pheatmap, c(ph_args, list(silent = TRUE)))

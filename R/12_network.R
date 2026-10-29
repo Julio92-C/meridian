@@ -930,6 +930,10 @@ run_network <- function(cleaned, cfg) {
   # sample labels so the IDs remain visible but stop colliding. Other
   # axes keep label_size so taxon / gene / category labels stay readable.
   sample_label_size <- scfg$sample_label_size %||% label_size
+  # Strata thinner than this share of their axis are drawn but not labelled:
+  # with ~100 samples / ~50 taxa their labels overprinted into an unreadable
+  # block. The interactive HTML sankey keeps every label (hover).
+  label_min_prop    <- scfg$png_label_min_prop %||% 0.015
 
   p <- ggplot2::ggplot(
         df_alluv,
@@ -951,7 +955,9 @@ run_network <- function(cleaned, cfg) {
     ggplot2::geom_text(
       stat = ggalluvial::StatStratum,
       ggplot2::aes(
-        label = ggplot2::after_stat(stratum),
+        label = ggplot2::after_stat(
+          ifelse(prop >= label_min_prop, as.character(stratum), "")
+        ),
         size  = ggplot2::after_stat(
           ifelse(x == 1L, sample_label_size, label_size)
         )
