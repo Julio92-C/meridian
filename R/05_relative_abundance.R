@@ -949,7 +949,7 @@ run_relative_abundance <- function(cleaned, cfg) {
         pipeline_log(cfg,
           "Relative abundance: genus heatmap matrix is constant — heatmap skipped")
       } else {
-        pheatmap::pheatmap(
+        if (!figure_skip(file.path(fig_dir, "genus_heatmap_top30.png"))) pheatmap::pheatmap(
           z,
           clustering_distance_rows = d_rows,
           clustering_distance_cols = d_cols,

@@ -284,7 +284,8 @@ ge <- list(
     alpha_violin = list.files(ge_dir("resistome"), pattern = "^alpha_.*_violin\\.png$", full.names = TRUE),
     alpha_bar    = list.files(ge_dir("resistome"), pattern = "^alpha_.*_bar\\.png$",    full.names = TRUE),
     abundance    = file.path(ge_dir("resistome"), "arg_abundance_violin.png"),
-    venn         = file.path(ge_dir("resistome"), "venn_drug_classes.png"),
+    venn         = pick_existing(file.path(ge_dir("resistome"), "venn_drug_classes.png"),
+                               file.path(ge_dir("resistome"), "arg_upset_treatments.png")),
     pheatmap_genes    = file.path(ge_dir("resistome"), "pheatmap_genes.png"),
     pheatmap_category = file.path(ge_dir("resistome"), "pheatmap_drug_classes.png"),
     rel_abundance     = pick_existing(file.path(ge_dir("resistome"), "drug_relative_abundance.png"),
@@ -306,7 +307,8 @@ ge <- list(
     alpha_violin = list.files(ge_dir("virulome"), pattern = "^alpha_.*_violin\\.png$", full.names = TRUE),
     alpha_bar    = list.files(ge_dir("virulome"), pattern = "^alpha_.*_bar\\.png$",    full.names = TRUE),
     abundance    = file.path(ge_dir("virulome"), "vf_abundance_violin.png"),
-    venn         = file.path(ge_dir("virulome"), "venn_vf_functions.png"),
+    venn         = pick_existing(file.path(ge_dir("virulome"), "venn_vf_functions.png"),
+                               file.path(ge_dir("virulome"), "vf_upset_treatments.png")),
     pheatmap_genes    = file.path(ge_dir("virulome"), "pheatmap_genes.png"),
     pheatmap_category = file.path(ge_dir("virulome"), "pheatmap_functions.png"),
     rel_abundance     = pick_existing(file.path(ge_dir("virulome"), "vf_relative_abundance.png"),
@@ -720,11 +722,11 @@ render_daa_level <- function(level_label, bundle, level_short) {
     cat(sprintf("\n#### %s\n\n", cn))
     cat("::: {.panel-tabset}\n\n")
 
-    cat("\n##### Volcano\n\n")
-    print(htmltools::tagList(img_card(
-      file.path(fig_subdir, paste0("volcano_", cn, ".png")),
-      alt = sprintf("%s volcano", cn)
-    )))
+    volcano_png <- file.path(fig_subdir, paste0("volcano_", cn, ".png"))
+    if (file.exists(volcano_png)) {     # gene-level volcano only with `figures: full`
+      cat("\n##### Volcano\n\n")
+      print(htmltools::tagList(img_card(volcano_png, alt = sprintf("%s volcano", cn))))
+    }
 
     cat("\n\n##### Candidates\n\n")
     cf <- file.path(dirname(pf), paste0("candidates_", cn, ".csv"))
@@ -771,8 +773,8 @@ render_ge_domain <- function(g) {
   print(htmltools::tagList(rt(read_csv_safe(g$alpha_csv))))
   cat("\n\n:::\n\n")
 
-  # ---- Venn ----
-  cat("\n\n#### Venn\n\n")
+  # ---- Shared / unique (Venn, or its UpSet twin with `figures: core`) ----
+  cat("\n\n#### Shared / unique\n\n")
   print(htmltools::tagList(img_card(g$venn)))
 
   # ---- Heatmaps ----
@@ -810,7 +812,7 @@ render_ge_domain <- function(g) {
   print(htmltools::tagList(img_card(g$cat_prevalence)))
   # Skip the "Gene prevalence" tab when a domain doesn't have a separate
   # gene-level artifact (mobilome: category == gene == plasmid replicon).
-  if (!is.null(g$gene_prevalence)) {
+  if (!is.null(g$gene_prevalence) && file.exists(g$gene_prevalence)) {   # only with `figures: full`
     cat("\n\n##### Gene prevalence\n\n")
     print(htmltools::tagList(img_card(g$gene_prevalence)))
   }
@@ -840,15 +842,19 @@ render_ge_domain <- function(g) {
     cat("\n##### Relative abundance\n\n")
     family_link <- csv_download_link(g$family_totals_csv,
                                      "Download replicon-family totals CSV")
-    if (file.exists(g$family_total)) {   # only with `figures: full`
-      print(htmltools::tagList(img_card(g$family_rel)))
+    # The family figures are written only with `figures: full`; the CSV always.
+    family_rel <- if (file.exists(g$family_rel)) img_card(g$family_rel)
+    if (file.exists(g$family_total)) {
+      print(htmltools::tagList(family_rel))
       cat("\n\n##### Total count\n\n")
       print(htmltools::tagList(img_card(g$family_total), family_link))
     } else {
-      print(htmltools::tagList(img_card(g$family_rel), family_link))
+      print(htmltools::tagList(family_rel, family_link))
     }
-    cat("\n\n##### Prevalence\n\n")
-    print(htmltools::tagList(img_card(g$family_prevalence)))
+    if (file.exists(g$family_prevalence)) {
+      cat("\n\n##### Prevalence\n\n")
+      print(htmltools::tagList(img_card(g$family_prevalence)))
+    }
     cat("\n\n:::\n\n")
   }
 

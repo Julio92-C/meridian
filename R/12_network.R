@@ -1311,7 +1311,7 @@ run_network <- function(cleaned, cfg) {
                    paste0(sprintf("%.2f", r_mat), stars))
   diag(labels) <- "—"
 
-  pheatmap::pheatmap(
+  if (!figure_skip(file.path(fig_dir, "mantel_correlation_triangle.png"))) pheatmap::pheatmap(
     r_mat,
     cluster_rows = FALSE, cluster_cols = FALSE,
     color  = grDevices::colorRampPalette(

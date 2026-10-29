@@ -16,7 +16,17 @@ core_cut <- c(
   "relative_abundance/relative_abundance_class.png",
   "resistome/drug_relative_abundance.png", "virulome/vf_relative_abundance.png",
   "mobilome/mge_relative_abundance.png", "mobilome/mge_family_abundance.png",
-  "resistome/venn_args.png", "virulome/venn_vfs.png", "mobilome/venn_replicons.png"
+  "resistome/venn_args.png", "virulome/venn_vfs.png", "mobilome/venn_replicons.png",
+  # second cut (lung contact sheet)
+  "alpha_diversity/chao1_violin.png", "beta_diversity/jaccard_pcoa.png",
+  "differential_abundance/gene/volcano_A_vs_B.png",
+  "differential_abundance/taxa/aldex2_maplot_A_vs_B.png",
+  "differential_abundance/taxa/top30_daa_heatmap.png",
+  "mobilome/mge_family_stream_abundance.png", "network/mantel_correlation_triangle.png",
+  "network/sankey_taxon_arg_mge.png", "relative_abundance/relative_abundance_stream_order.png",
+  "relative_abundance/unique_species_relative_abundance.png",
+  "resistome/c_difficile_count_per_treatment.png", "resistome/enterobacteriaceae_gene_map.png",
+  "virulome/gene_count_prevalence.png", "resistome/venn_drug_classes.png"
 )
 core_kept <- c(
   "alpha_diversity/richness_violin.png", "resistome/alpha_shannon_violin.png",
@@ -24,9 +34,14 @@ core_kept <- c(
   "relative_abundance/relative_abundance_stream.png",
   "relative_abundance/relative_abundance_stream_genus.png",
   "relative_abundance/relative_abundance_group.png",
-  "resistome/drug_stream_abundance.png", "mobilome/mge_family_stream_abundance.png",
-  "resistome/arg_upset_treatments.png", "resistome/venn_drug_classes.png",
-  "taxonomy/taxa_venn.png", "network/mobile_arg_fraction_bar.png"
+  "resistome/drug_stream_abundance.png", "mobilome/mge_stream_abundance.png",
+  "resistome/arg_upset_treatments.png",
+  "taxonomy/taxa_venn.png",
+  # composite sources and figures kept after the second cut
+  "resistome/pheatmap_genes.png", "network/sankey_overall.png",
+  "differential_abundance/taxa/volcano_A_vs_B.png", "network/connectivity_venn_taxa.png",
+  "relative_abundance/relative_abundance_stream_class.png", "alpha_diversity/shannon_violin.png",
+  "resistome/drug_count_prevalence.png", "virulome/vf_upset_treatments.png"
 )
 
 test_that("core skips one figure of each duplicate pair and keeps the other", {

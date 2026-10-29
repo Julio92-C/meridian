@@ -25,13 +25,17 @@ stats_headroom <- function(n_lines = 1) {
 # Number of text lines in a label.
 n_text_lines <- function(label) length(strsplit(label, "\n", fixed = TRUE)[[1]])
 
+# TRUE when the run's figure set (utils_figures.R) leaves `path` out. For
+# writers that do not go through save_panel_ggplot (png(), pheatmap(filename=)).
+figure_skip <- function(path) {
+  exists("figure_wanted", mode = "function") && !figure_wanted(path)
+}
+
 save_panel_ggplot <- function(filename, plot, width, height,
                               dpi = 300, bg = "white", ...,
                               emit_rds = TRUE) {
   # figures.set (utils_figures.R): a figure outside the run's set is not written.
-  if (exists("figure_wanted", mode = "function") && !figure_wanted(filename)) {
-    return(invisible(NULL))
-  }
+  if (figure_skip(filename)) return(invisible(NULL))
   ggplot2::ggsave(filename, plot,
                    width = width, height = height,
                    dpi = dpi, bg = bg, limitsize = FALSE, ...)

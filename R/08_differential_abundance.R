@@ -652,6 +652,7 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
   if (level == "taxa") {
     for (cn in names(raw_results)) {
       res_obj <- raw_results[[cn]]
+      if (figure_skip(file.path(fig_dir, paste0("aldex2_maplot_", cn, ".png")))) next
       grDevices::png(file.path(fig_dir, paste0("aldex2_maplot_", cn, ".png")),
                      width = 1800, height = 1400, res = 300, bg = "white")
       tryCatch({
@@ -733,7 +734,7 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
           pipeline_log(cfg, sprintf(
             "DA[%s] top30 heatmap: z-scored matrix is constant — heatmap skipped", level))
         } else {
-          pheatmap::pheatmap(
+          if (!figure_skip(file.path(fig_dir, "top30_daa_heatmap.png"))) pheatmap::pheatmap(
             z,
             cluster_rows = FALSE,
             cluster_cols = FALSE,

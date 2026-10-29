@@ -24,7 +24,20 @@ FIGURES_FULL_ONLY <- c(
   "^relative_abundance/species_count\\.png$",
   "^relative_abundance/relative_abundance(_(phylum|class|order|family|genus|species))?\\.png$",
   "^(resistome|virulome|mobilome)/((drug|vf|mge)_relative_abundance|mge_family_abundance)\\.png$",
-  "^(resistome|virulome|mobilome)/venn_(args|vfs|replicons)\\.png$"
+  "^(resistome|virulome|mobilome)/venn_(args|vfs|replicons)\\.png$",
+  # Second cut (Julio 2026-10-29, lung contact sheet): figures nobody reads
+  # in the standard set. None of them is the source of a composite slot.
+  "^alpha_diversity/(chao1|simpson)_violin\\.png$",
+  "^beta_diversity/jaccard_pcoa\\.png$",
+  "^gene/volcano_.+\\.png$",
+  "^taxa/(aldex2_dotplot_summary|aldex2_maplot_.+|top30_daa_heatmap)\\.png$",
+  "^mobilome/mge_family_(count_prevalence|stream_abundance)\\.png$",
+  "^network/(connectivity_venn_genesets|mantel_correlation_triangle|mobile_arg_fraction_bar|sankey_taxon_arg_mge)\\.png$",
+  "^relative_abundance/(genus_heatmap_top30|relative_abundance_stream_(family|order)|(shared|unique)_species_relative_abundance)\\.png$",
+  "^resistome/[a-z0-9_]+_(count_per_treatment|gene_map)\\.png$",
+  "^(resistome|virulome)/gene_count_prevalence\\.png$",
+  "^resistome/venn_drug_classes\\.png$",
+  "^virulome/venn_vf_functions\\.png$"
 )
 
 set_figure_set <- function(cfg) {
