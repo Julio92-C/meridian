@@ -216,7 +216,7 @@ cluster_kw <- function(values, groups, clusters, units = NULL,
              "Kruskal-Wallis H, cluster permutation")
 }
 
-# Pairwise two-sided Wilcoxon rank-sum statistics with cluster permutation,
+# Pairwise two-sided Wilcoxon rank-sum tests (two-group KW H) with cluster permutation,
 # one row per pair; p adjusted across pairs with `p.adjust.method`.
 # Columns mirror ggpubr::compare_means (group1, group2, p, p.adj, p.signif).
 cluster_wilcox_pairs <- function(values, groups, clusters, units = NULL,
@@ -233,10 +233,14 @@ cluster_wilcox_pairs <- function(values, groups, clusters, units = NULL,
     if (min(table(factor(g, levels = pr))) < 1) return(NULL)
     pl <- cluster_perm_labels(g, cl, un, nperm, seed)
     r  <- rank(x)
+    # Two-group Kruskal-Wallis H = the standardised rank-sum statistic. The
+    # raw |U - n1*n2/2| was used before, but cluster/unit permutations change
+    # the group sizes, so its scale changed from permutation to permutation
+    # and the pairwise p could disagree with the overall KW for two groups.
     wstat <- function(code) {
-      i1 <- code == 1L; n1 <- sum(i1); n2 <- length(code) - n1
-      if (n1 == 0 || n2 == 0) return(NA_real_)
-      abs(sum(r[i1]) - n1 * (n1 + 1) / 2 - n1 * n2 / 2)
+      n1 <- sum(code == 1L)
+      if (n1 == 0 || n1 == length(code)) return(NA_real_)
+      .cp_kw_H(r, code, length(code))
     }
     obs  <- wstat(pl$observed)
     null <- apply(pl$perms, 1, wstat)
