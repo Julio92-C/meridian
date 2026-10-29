@@ -215,6 +215,10 @@ main:
     rows: 1
     cols: 1
     labels: false
+    # Landscape canvas: 4 axes of labels in the default 5.5 x 4.9 in square
+    # were squeezed together.
+    width_in: 12
+    height_in: 8
     # Shrink both legend and axis text further so all 7 categories fit on
     # 2 rows and the "Sample/Taxon/Gene/Category" column heads stay
     # readable at composite scale.

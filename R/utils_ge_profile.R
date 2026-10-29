@@ -714,7 +714,8 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
                                   legend_top          = FALSE,
                                   legend_title        = "value",
                                   fontsize_legend     = 8,
-                                  fontsize_annotation = 8) {
+                                  fontsize_annotation = 8,
+                                  max_col_labels      = 40) {
   # Nothing to draw (e.g. no gene carries a recognised category): skip
   # rather than hand pheatmap an empty matrix.
   if (nrow(df) == 0) return(invisible(NULL))
@@ -817,7 +818,9 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
     breaks            = seq(0, 1, length.out = 101),
     border_color      = NA,
     show_rownames     = TRUE,
-    show_colnames     = TRUE,
+    # Above `max_col_labels` samples the IDs are unreadable at any size; the
+    # group bar on top still shows which samples belong to which group.
+    show_colnames     = n_col <= max_col_labels,
     annotation_row    = cat_per_gene,
     annotation_col    = sample_group,
     annotation_colors = if (length(ann_colors) > 0) ann_colors else NA,
