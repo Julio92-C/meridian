@@ -6,12 +6,22 @@ Automation tool. The pipeline source lives one directory up at `..`.
 
 ## Read these first
 
-1. `brief.md` — full task spec (structure, length, journal style)
-2. `pipeline_facts.md` — pre-extracted facts about the pipeline so you do
+1. `notes/brief.md` — full task spec (structure, length, journal style)
+2. `notes/pipeline_facts.md` — pre-extracted facts about the pipeline so you do
    not need to re-read 12 R modules to write the Methods section
-3. `references.md` — target journal + template papers with DOIs
-4. `memory_snapshot.md` — relevant project memory (alpha state, ground-truth
+3. `notes/references.md` — target journal + template papers with DOIs
+4. `notes/memory_snapshot.md` — relevant project memory (alpha state, ground-truth
    validation context)
+
+## Layout
+
+- `applications_note.docx` / `.md` — the manuscript (see rules below)
+- `figure1_pipeline_schematic.{png,svg}` ← `generate_figure1.py`;
+  `figure2_pipeline_performance.{png,tiff}` ← `generate_figure2.R`
+- `Revisions/` — base draft, co-author revisions (HM, PL) and the merge log
+- `notes/` — drafting notes, review logs, journal guidelines
+- `_backup/` and `_literature/` — local only (gitignored): Word snapshots,
+  and third-party papers used for framing (not redistributed in the repo)
 
 ## Output
 
