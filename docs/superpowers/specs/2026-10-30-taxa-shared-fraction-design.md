@@ -1,6 +1,6 @@
 # Taxa shared fraction, metadata linkage and taxonomic tree — design
 
-**Status:** draft for sign-off · **Branch:** `feat/taxa-shared-fraction` (off `fix/hospital-species-aldex2`, PR #12) · **Date:** 2026-10-30
+**Status:** approved 2026-10-30 (defaults: ≥3 samples and ≥10% in every group; no change to composite panels) · **Branch:** `feat/taxa-shared-fraction` (off `fix/hospital-species-aldex2`, PR #12) · **Date:** 2026-10-30
 
 ## Why
 
@@ -18,12 +18,11 @@ The prototype is Python, in hosMicro `manuscript/scripts/shared_fraction/`. This
 ## Scope
 
 **New files**
-- `R/04b_shared_fraction.R` (stage `shared_fraction`, run after `taxonomy`)
+- `R/04_shared_fraction.R` (stage `shared_fraction`, run after `taxonomy`; file names must match `^\d+_` to be sourced)
 - `R/utils_shared_fraction.R` (pure functions, unit-tested)
-- `R/04c_taxa_tree.R` (stage `taxa_tree`)
+- `R/04_taxa_tree.R` (stage `taxa_tree`)
 
 **Changed files**
-- `R/13_panels.R`: one new composite.
 - `R/14_manifest.R`: new `kind`s.
 - `run_pipeline.R`
 - `config/config_template.yaml`
@@ -87,7 +86,7 @@ Inputs are the same as the taxonomy stage, so the numbers agree with the Venn di
 | Linkage | `shared_fraction_linkage` | One per linkage variable (see below) |
 | Taxonomic tree | `taxa_tree` | See below |
 
-**Composite (`R/13`):** `figNN_taxa_shared_fraction`, an A–F layout like the element overviews: A prevalence–abundance, B pairwise or UpSet, C tiers, D widespread species, E heatmap, F tree.
+**Composite (`R/13`):** not changed for now (decision 2026-10-30). The figures are standalone and registered in the manifest; a composite can be added later.
 
 ## Linkage by metadata variable
 
@@ -113,7 +112,7 @@ Inputs are the same as the taxonomy stage, so the numbers agree with the Venn di
 
 There is no molecular phylogeny for read-level profiles. The tree is built from the NCBI lineage the pipeline already carries (phylum → class → order → family → genus → species), as GraPhlAn and MetaPhlAn cladograms do.
 
-**Built with:** `data.tree` and `ggraph` (circular dendrogram), both already in `renv.lock`, so no new dependencies.
+**Built with:** `igraph` and `ggraph` (circular dendrogram), both already in `renv.lock`, so no new dependencies. The edge list is keyed by full lineage path, so repeated labels such as "unclassified class" under different parents stay separate.
 
 **Tips:** the top-N species (`tree_top_n`, default 60). They are ranked by mean abundance, and the widespread shared species are always included.
 
@@ -169,8 +168,8 @@ taxa_tree:
 
 The new `kind`s need rows in metaomics-scribe `docs/MANIFEST_SCHEMA.md` §`kind` vocabulary. That is a **MINOR** bump in the manifest version. Existing kinds are unchanged, so older agents still read the manifest.
 
-## Open questions
+## Decisions (2026-10-30)
 
-1. **Default tier thresholds** for the template: 3 samples and 10% (proposed), or match the hospital's 5 samples?
-2. **Composite panel F:** the tree, or the linkage map?
-3. Should the "Core / Accessory / Unique" annotation on the existing taxonomy heatmap be renamed to the shared-fraction categories, for consistent terminology?
+1. Template default for widespread: at least 3 samples **and** at least 10% prevalence in every group of the pattern.
+2. No change to the composite figure panels (`R/13`) for now.
+3. The existing taxonomy heatmap annotation (Core / Accessory / Unique) is left unchanged.

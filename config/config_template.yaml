@@ -73,6 +73,8 @@ stages:
   clean_data:             true
   normalisation:          true
   taxonomy:               true
+  shared_fraction:        true      # species shared between groups, tiers, linkage (needs >= 2 groups)
+  taxa_tree:              true      # circular taxonomic tree (NCBI lineage)
   relative_abundance:     true
   alpha_diversity:        true
   beta_diversity:         true
@@ -83,6 +85,26 @@ stages:
   network:                true
   report:                 true
   panels:                 true      # publication panels + supplementary XLSX
+
+# --------------------------------------------------------------------------- #
+# Shared fraction of species between groups (R/04_shared_fraction.R) and the  #
+# taxonomic tree (R/04_taxa_tree.R). Any number of groups.                    #
+# --------------------------------------------------------------------------- #
+shared_fraction:
+  widespread_min_samples: 3     # widespread = in every group of its pattern:
+  widespread_min_prev:    0.10  #   >= this many samples AND >= this prevalence
+  heatmap_top_n:          30
+  elements_min_reads:     2     # gene-species links with fewer reads are flagged low_support
+  linkage_vars:           []    # metadata columns to link, e.g. [ward] or [ward, antibiotic_exposure]
+  linkage_bins:           3     # numeric variables are binned into quantiles (low/mid/high)
+  linkage_min_shared:     1     # minimum widespread species shared to draw an edge
+  linkage_scope:          between   # between | within | all (groups)
+  linkage_keep_na:        false
+  linkage_test:           false # permutation test of edge weights (seed: stats.cluster_seed)
+  linkage_n_perm:         999
+
+taxa_tree:
+  top_n:                  60    # most abundant species shown; widespread shared species always added
 
 # --------------------------------------------------------------------------- #
 # Statistical parameters (matches the chicken_batch1 manuscript).             #
