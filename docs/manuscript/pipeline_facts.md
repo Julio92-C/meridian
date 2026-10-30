@@ -93,7 +93,7 @@ memory is not instrumented.
 
 ## Availability
 
-GitHub repo (license: MIT). Install:
+GitHub repo (licence: GPL-3.0). Install:
 
 ```bash
 git clone <repo>
