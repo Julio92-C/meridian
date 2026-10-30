@@ -953,7 +953,7 @@ write_manifest <- function(cfg,
   n_samples <- if (!is.null(meta)) sum(!meta[[sid_col]] %in% controls) else NA_integer_
 
   manifest <- list(
-    manifest_version = "1.2",
+    manifest_version = "1.3",   # 1.3: shared_fraction + taxa_tree kinds (metaomics-scribe MANIFEST_SCHEMA)
     study = list(
       id                = cfg$study$id,
       name              = cfg$study$name,
