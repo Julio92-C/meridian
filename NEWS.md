@@ -1,3 +1,24 @@
+# MERIDIAN (development)
+
+- New stage `shared_fraction` (R/04_shared_fraction.R, helpers in
+  R/utils_shared_fraction.R) for any number of groups: per-species prevalence and
+  mean abundance per group, membership pattern (unique / shared by some / shared
+  by all), and prevalence tiers for shared species (widespread: at least
+  `widespread_min_samples` samples and `widespread_min_prev` prevalence in every
+  group of its pattern, default 3 and 10%; recurrent; sporadic). Outputs a
+  pairwise view of every pair of groups, the genes (ARG/VF/MGE) on reads of the
+  widespread species with a low-support flag, an UpSet-style membership plot (no
+  5-group limit), a top-N heatmap, and linkage maps between the levels of any
+  metadata variable (`linkage_vars`, numeric variables binned into quantiles,
+  optional permutation test).
+- New stage `taxa_tree` (R/04_taxa_tree.R): circular taxonomic tree (NCBI lineage,
+  not evolutionary distance) of the most abundant and widespread shared species,
+  with group membership, abundance, prevalence rings per group and element
+  carriage. Uses igraph + ggraph (no new dependencies).
+- Both stages are on by default (`stages.shared_fraction`, `stages.taxa_tree`),
+  register new manifest kinds (`shared_fraction_*`, `taxa_tree*`) and leave the
+  composite panels unchanged. Harness: `scripts/shared_fraction_only.R`.
+
 # MERIDIAN 1.1.0
 
 - Relative abundance (R/05) is now configurable under `relative_abundance:`
