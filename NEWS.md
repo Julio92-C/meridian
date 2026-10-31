@@ -23,7 +23,10 @@
   we.eBH where Wilcoxon was dropped, < alpha) ringed in red; outer ring shows
   direction. `daa_tree.balance` (default true) takes top_n/2 per direction so
   both groups appear; widespread shared species (from `shared_fraction`) are
-  marked with a black triangle. Tree layout shared with `taxa_tree` (`sf_tree_layout()`); tip
+  marked with a black triangle. `daa_tree.min_effect` replaces the top-N rule
+  with an effect-size cutoff (all taxa with |effect| >= min_effect, capped at
+  `daa_tree.max_tips`, default 80); short names that cannot be matched to a
+  single full name are logged. Tree layout shared with `taxa_tree` (`sf_tree_layout()`); tip
   labels drop strain / serotype / subspecies qualifiers.
 - Both stages honour `exclude_genera` (`shared_fraction.exclude_genera`,
   `taxa_tree.exclude_genera`), falling back to

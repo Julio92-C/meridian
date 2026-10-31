@@ -39,14 +39,20 @@ run_daa_tree <- function(cleaned, cfg) {
   for (f in files) {
     cn <- sub("[.]tsv$", "", basename(f))
     t <- daa_tree_table(readr::read_tsv(f, show_col_types = FALSE), lin, top_n, alpha,
-                        balance = !isFALSE(cfg$daa_tree$balance))
+                        balance = !isFALSE(cfg$daa_tree$balance),
+                        min_effect = cfg$daa_tree$min_effect, max_tips = cfg$daa_tree$max_tips %||% 80)
+    if (!is.null(t) && !is.na(attr(t, "n_pass") %||% NA) && attr(t, "n_pass") > (cfg$daa_tree$max_tips %||% 80))
+      pipeline_log(cfg, sprintf("DAA tree %s: %d taxa with |effect| >= %s; capped at daa_tree.max_tips = %d",
+                                cn, attr(t, "n_pass"), cfg$daa_tree$min_effect, cfg$daa_tree$max_tips %||% 80))
     if (is.null(t) || nrow(t) < 3) { pipeline_log(cfg, sprintf("DAA tree %s: fewer than 3 taxa with lineage — skipped", cn)); next }
     t$widespread_shared <- t$name %in% ws
     readr::write_csv(t[setdiff(colnames(t), c("x", "y"))], file.path(ds_dir, paste0("daa_tree_", cn, ".csv")))
     p <- daa_tree_plot(t, attr(t, "groups"), pal, alpha, cn)
     sf_save(p, file.path(fig_dir, paste0("daa_tree_", cn, ".png")), width = 9, height = 9.6)
-    pipeline_log(cfg, sprintf("DAA tree %s: %d taxa (%d significant at %.2g), %d unmatched to a lineage",
-                              cn, nrow(t), sum(t$significant), alpha, attr(t, "unmatched")))
+    um <- attr(t, "unmatched_names")
+    pipeline_log(cfg, sprintf("DAA tree %s: %d taxa (%d significant at %.2g), %d unmatched to a lineage%s",
+                              cn, nrow(t), sum(t$significant), alpha, attr(t, "unmatched"),
+                              if (length(um)) sprintf(" (ambiguous short name: %s)", paste(um, collapse = ", ")) else ""))
     out[[cn]] <- t
   }
   invisible(out)
@@ -70,14 +76,22 @@ daa_tree_lineage <- function(cleaned, cfg) {
 # Top taxa of one ALDEx2 pair with lineage, enrichment and significance.
 # balance = TRUE takes the top top_n/2 by |effect| in each direction, so both
 # groups are represented even when one side has all the largest effects.
-daa_tree_table <- function(res, lin, top_n = 30, alpha = 0.05, balance = TRUE) {
+# min_effect (if set) replaces the top-N rule: every taxon with
+# |effect| >= min_effect, capped at max_tips (largest effects kept).
+daa_tree_table <- function(res, lin, top_n = 30, alpha = 0.05, balance = TRUE,
+                           min_effect = NULL, max_tips = 80) {
   feat <- colnames(res)[1]
   rab <- grep("^rab[.]win[.]", colnames(res), value = TRUE)
   if (length(rab) != 2 || !"effect" %in% colnames(res)) return(NULL)
   groups <- sub("^rab[.]win[.]", "", rab)
   pcol <- if ("wi.eBH" %in% colnames(res)) "wi.eBH" else if ("we.eBH" %in% colnames(res)) "we.eBH" else NA
   res <- res[order(-abs(res$effect)), , drop = FALSE]
-  if (balance) {
+  n_pass <- NA_integer_
+  if (!is.null(min_effect)) {
+    res <- res[abs(res$effect) >= min_effect, , drop = FALSE]
+    n_pass <- nrow(res)
+    res <- res[seq_len(min(max_tips, nrow(res))), , drop = FALSE]
+  } else if (balance) {
     side <- ifelse(res[[rab[1]]] >= res[[rab[2]]], 1L, 2L)
     k <- ceiling(top_n / 2)
     res <- res[unlist(lapply(1:2, function(s) utils::head(which(side == s), k))), , drop = FALSE]
@@ -86,7 +100,18 @@ daa_tree_table <- function(res, lin, top_n = 30, alpha = 0.05, balance = TRUE) {
     res <- res[seq_len(min(top_n, nrow(res))), , drop = FALSE]
   }
   m <- match(res[[feat]], lin$name)
+  # Fallback: R/08 abbreviates a genus when the clash is absent from its own
+  # (filtered) taxon set, while the full species list keeps the full genus.
+  # Match such names on the abbreviation only when exactly one full name fits.
+  if (anyNA(m)) {
+    abbr <- sub("^(\\w)\\w+\\s+(\\w+)", "\\1. \\2", lin$full)
+    for (i in which(is.na(m))) {
+      hit <- which(abbr == res[[feat]][i])
+      if (length(hit) == 1) m[i] <- hit
+    }
+  }
   unmatched <- sum(is.na(m))
+  unmatched_names <- res[[feat]][is.na(m)]
   keep <- !is.na(m)
   ranks <- attr(lin, "ranks")
   t <- tibble::tibble(display = res[[feat]][keep], name = lin$full[m[keep]])
@@ -99,7 +124,10 @@ daa_tree_table <- function(res, lin, top_n = 30, alpha = 0.05, balance = TRUE) {
   t$significant <- !is.na(t$p_adj) & t$p_adj < alpha
   attr(t, "groups") <- groups
   attr(t, "unmatched") <- unmatched
+  attr(t, "unmatched_names") <- unmatched_names
   attr(t, "ranks") <- ranks
+  attr(t, "n_pass") <- n_pass
+  attr(t, "min_effect") <- min_effect
   t
 }
 
@@ -131,10 +159,12 @@ daa_tree_plot <- function(t, groups, pal, alpha, cn) {
     ggplot2::scale_fill_manual(values = pal, name = "More abundant in", drop = TRUE) +
     ggplot2::scale_size_area(max_size = 5, name = "|ALDEx2 effect|") +
     ggplot2::coord_equal(xlim = c(-1.75, 1.75), ylim = c(-1.75, 1.75), clip = "off") +
-    ggplot2::labs(title = sprintf("Top differentially abundant taxa: %s vs %s (%s)", groups[1], groups[2],
+    ggplot2::labs(title = sprintf("Differentially abundant taxa: %s vs %s (%s)", groups[1], groups[2],
                                   paste(sprintf("%d more abundant in %s", as.integer(table(factor(t$enriched, groups))), groups), collapse = ", ")),
-                  subtitle = sprintf(paste0("NCBI lineage (not evolutionary distance). Ranked by |ALDEx2 effect|; outer ring: direction, opacity = |effect|.\n",
+                  subtitle = sprintf(paste0("NCBI lineage (not evolutionary distance). %s; outer ring: direction, opacity = |effect|.\n",
                                             "Red ring and label: %s < %.2g (n = %d).%s"),
+                                     if (is.null(attr(t, "min_effect"))) "Top taxa by |ALDEx2 effect|"
+                                     else sprintf("All taxa with |ALDEx2 effect| >= %s", attr(t, "min_effect")),
                                      if (is.na(pcol)) "adjusted p" else pcol, alpha, sum(leaf$significant),
                                      if (any(leaf$widespread_shared)) sprintf(" Black triangle: widespread shared species (n = %d).",
                                                                               sum(leaf$widespread_shared)) else "")) +

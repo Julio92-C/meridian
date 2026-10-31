@@ -108,6 +108,8 @@ shared_fraction:
 daa_tree:
   top_n:                  30    # taxa per group pair, ranked by |ALDEx2 effect|
   balance:                true  # top_n/2 from each direction (false = top_n overall)
+  # min_effect: 0.5         # if set: all taxa with |effect| >= this (replaces top_n / balance)
+  max_tips:               80    # cap on tips when min_effect is set (largest effects kept)
 
 figures:
   # formats: [tiff, pdf]   # extra siblings of each PNG in the shared_fraction / taxa_tree stages
