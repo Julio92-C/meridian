@@ -7,27 +7,28 @@ suppressPackageStartupMessages({
 })
 
 # Per-stage wall time (seconds) and peak R-process heap (MB) across four
-# cohorts. B1/B2 from the manuscript Table 1 run (commit eee122c, 2026-06-23).
-# HW = hospital_wastewater_eg (n=20, run_hww 2026-09-06, 4m 08s).
-# WL = wetlands_flyway (n=24, standard run rerun_wet2 2026-09-09, 7m 37s;
-#      the complete-ABRicate standard analysis, not the covariate exploration).
+# cohorts, all run on MERIDIAN v1.2.0 (tag v1.2.0, 91fb5df) with each
+# project's shipped config, single-thread, sequentially on one machine
+# (2026-10-29/30). Values parsed from each run's pipeline.log.
+# B1 = chicken_batch1 (n=18, 8m 08s); B2 = chicken_batch2 (n=32, 11m 46s);
+# HW = hospital_wastewater_eg (n=20, 3m 23s); WL = wetlands_flyway (n=24, 6m 24s).
 stages <- tibble::tribble(
   ~stage,                  ~order, ~b1_sec, ~b1_mb, ~b2_sec, ~b2_mb, ~hw_sec, ~hw_mb, ~wl_sec, ~wl_mb,
-  "load_inputs",                1,    0.7,   168,    1.3,   205,    0.7,   167,    1.3,   181,
-  "clean_data",                 2,    2.1,   245,    6.4,   522,    2.2,   266,    3.4,   337,
-  "normalisation",              3,    0.4,   160,    0.5,   205,    0.4,   157,    0.5,   203,
-  "taxonomy",                   4,    2.2,   230,    2.3,   308,    2.5,   280,    3.9,   338,
-  "relative_abundance",         5,   27.6,   362,   29.6,   574,   26.2,   391,   32.0,   466,
-  "alpha_diversity",            6,   32.6,   472,   31.4,   587,   21.5,   539,   65.0,   646,
-  "beta_diversity",             7,    5.9,   472,    5.2,   482,    6.4,   479,    9.1,   601,
-  "differential_abundance",     8,  127.0,  1028,  198.0,  1133,   72.0,  1982,  150.0,  3590,
-  "resistome",                  9,   29.3,  1028,   25.9,  1102,   16.9,  1194,   23.1,  1240,
-  "virulome",                  10,   16.0,  1028,   17.3,  1132,   11.8,  1137,   13.8,  1234,
-  "mobilome",                  11,   15.3,  1028,   16.1,  1100,    9.3,  1146,    1.3,   665,
-  "network",                   12,   53.3,  1183,   86.0,  1418,   26.1,  1185,   76.0,  1435,
-  "panels",                    13,   49.0,  1330,   49.0,  1505,   25.4,  1301,   43.0,  1451,
-  "manifest",                  14,    2.8,   922,    3.1,  1040,    2.2,   734,    2.3,   873,
-  "report",                    15,   36.9,   611,   27.4,   647,   24.2,   614,   32.1,   646
+  "load_inputs",                1,    0.9,   168,    1.5,   205,    0.7,   166,    0.7,   181,
+  "clean_data",                 2,    2.6,   247,    7.4,   644,    2.1,   273,    3.1,   377,
+  "normalisation",              3,    0.5,   163,    0.6,   207,    0.3,   160,    0.4,   207,
+  "taxonomy",                   4,    2.5,   226,    2.4,   350,    3.4,   290,    4.1,   375,
+  "relative_abundance",         5,   17.6,   341,   17.2,   492,   18.4,   376,   19.4,   512,
+  "alpha_diversity",            6,   28.9,   479,   31.1,   617,   14.5,   561,   56.6,   633,
+  "beta_diversity",             7,    5.0,   466,    4.8,   522,    5.3,   514,    7.4,   596,
+  "differential_abundance",     8,  276.0,  1078,  437.0,   953,   69.0,  2090,  136.0,  3529,
+  "resistome",                  9,   12.9,  1029,   13.8,   881,    6.1,  1101,    9.4,  1181,
+  "virulome",                  10,    9.3,  1022,   10.0,  1113,    7.7,  1086,    7.6,  1204,
+  "mobilome",                  11,    9.0,  1019,    9.4,  1136,    5.3,  1061,    1.2,   673,
+  "network",                   12,   50.2,  1181,   82.0,  1447,   21.0,  1117,   68.0,  1432,
+  "report",                    13,   28.3,   612,   39.4,   648,   21.1,   616,   24.1,   650,
+  "panels",                    14,   41.7,  1731,   45.6,  1566,   25.9,  1331,   43.7,  1438,
+  "manifest",                  15,    2.8,   920,    3.4,  1041,    2.1,   736,    2.1,   875
 )
 
 cohort_colors <- c(B1 = "#2c7fb8", B2 = "#e6550d",

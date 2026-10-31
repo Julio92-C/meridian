@@ -417,6 +417,7 @@ run_relative_abundance <- function(cleaned, cfg) {
   # R/02 carries each row's kraken2 rank code in `tax_rank`. Keep "S" only so
   # strain / subspecies rows (S1, S2, ...) don't double-count their species.
   raw_nc <- ra_filter_species_rank(cleaned$noncontaminants, cfg)
+  raw_nc <- community_filter(raw_nc, cfg, "Relative abundance")
   df <- clean_taxa_names(raw_nc, cfg)
   if (nrow(df) == 0) {
     pipeline_log(cfg, "Relative abundance: no rows after clean_taxa_names — skipping")
