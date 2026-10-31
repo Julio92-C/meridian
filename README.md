@@ -11,7 +11,7 @@
   <img alt="Quarto" src="https://img.shields.io/badge/Quarto-HTML%20report-74AADB?logo=quarto&logoColor=white">
   <img alt="Platform" src="https://img.shields.io/badge/platform-Windows%20%7C%20macOS%20%7C%20Linux-lightgrey">
   <img alt="License" src="https://img.shields.io/badge/license-GPL--3.0-blue">
-  <img alt="Version" src="https://img.shields.io/badge/version-1.2.0-blue">
+  <img alt="Version" src="https://img.shields.io/badge/version-1.3.0-blue">
   <img alt="Status" src="https://img.shields.io/badge/status-alpha-orange">
 </p>
 
@@ -182,7 +182,7 @@ argument. The override wins over the config's own `project_root:` value, so the
 **Build:**
 
 ```bash
-docker build -t meridian:v1.2.0 .
+docker build -t meridian:v1.3.0 .
 ```
 
 **Reproduce a bundled study** (config baked into the image):
@@ -191,7 +191,7 @@ docker build -t meridian:v1.2.0 .
 docker run --rm \
   -e MERIDIAN_PROJECT_ROOT=/data \
   -v /host/path/to/study_dir:/data \
-  meridian:v1.2.0 projects/chicken_batch1/config.yaml
+  meridian:v1.3.0 projects/chicken_batch1/config.yaml
 ```
 
 **New study** (mount your own config too):
@@ -201,7 +201,7 @@ docker run --rm \
   -e MERIDIAN_PROJECT_ROOT=/data \
   -v /host/study_dir:/data \
   -v /host/my_config.yaml:/project/config.yaml \
-  meridian:v1.2.0 /project/config.yaml
+  meridian:v1.3.0 /project/config.yaml
 ```
 
 Outputs land under the mounted study dir on the host (manifest JSON, panel
@@ -213,19 +213,19 @@ Docker is the single source of truth; convert to a `.sif` on the cluster.
 
 ```bash
 # 1. Build on a machine with Docker (your workstation).
-docker build -t meridian:v1.2.0 .
+docker build -t meridian:v1.3.0 .
 
 # 2. Export to a tar and copy it to the HPC (scp/rsync).
-docker save meridian:v1.2.0 -o meridian_v1.2.0.tar
+docker save meridian:v1.3.0 -o meridian_v1.3.0.tar
 
 # 3. Convert to a .sif on the HPC (rootless; Docker usually unavailable there).
-apptainer build meridian_v1.2.0.sif docker-archive://meridian_v1.2.0.tar
+apptainer build meridian_v1.3.0.sif docker-archive://meridian_v1.3.0.tar
 
 # 4. Run against a real study (SLURM job script example).
 apptainer run \
   --env MERIDIAN_PROJECT_ROOT=/data \
   --bind /scratch/$USER/study_dir:/data \
-  meridian_v1.2.0.sif projects/chicken_batch1/config.yaml
+  meridian_v1.3.0.sif projects/chicken_batch1/config.yaml
 ```
 
 A zero exit code plus the expected artifacts under the bound study dir
