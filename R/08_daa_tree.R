@@ -2,7 +2,8 @@
 # taxa, one per ALDEx2 group pair, from the tables R/08 writes to
 # <datasets_dir>/aldex2/taxa/<g1>_vs_<g2>.tsv. Same lineage tree as
 # R/04_taxa_tree.R (NCBI lineage, not evolutionary distance).
-#   tips   top `daa_tree.top_n` taxa by |effect| (default 30)
+#   tips   top `daa_tree.top_n` taxa by |effect| (default 30); with
+#          daa_tree.balance (default true) top_n/2 from each direction
 #   colour group in which the taxon is more abundant (higher rab.win.<group>)
 #   size   |ALDEx2 effect|
 #   red    significant (wi.eBH, or we.eBH where Wilcoxon was dropped, < alpha)
@@ -27,11 +28,20 @@ run_daa_tree <- function(cleaned, cfg) {
   fig_dir <- file.path(cfg$project_root, cfg$outputs$figures_dir, "daa_tree")
   ds_dir  <- file.path(cfg$project_root, cfg$outputs$datasets_dir, "daa_tree")
   dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE); dir.create(ds_dir, recursive = TRUE, showWarnings = FALSE)
+  # Widespread shared species from the shared_fraction stage (if it ran), so
+  # the DAA tree shows which differentially abundant taxa are also widespread
+  # in every group.
+  sf_csv <- file.path(cfg$project_root, cfg$outputs$datasets_dir, "shared_fraction", "shared_fraction_species.csv")
+  ws <- if (file.exists(sf_csv)) {
+    s <- readr::read_csv(sf_csv, show_col_types = FALSE); s$name[!is.na(s$tier) & s$tier == "widespread"]
+  } else character(0)
   out <- list()
   for (f in files) {
     cn <- sub("[.]tsv$", "", basename(f))
-    t <- daa_tree_table(readr::read_tsv(f, show_col_types = FALSE), lin, top_n, alpha)
+    t <- daa_tree_table(readr::read_tsv(f, show_col_types = FALSE), lin, top_n, alpha,
+                        balance = !isFALSE(cfg$daa_tree$balance))
     if (is.null(t) || nrow(t) < 3) { pipeline_log(cfg, sprintf("DAA tree %s: fewer than 3 taxa with lineage — skipped", cn)); next }
+    t$widespread_shared <- t$name %in% ws
     readr::write_csv(t[setdiff(colnames(t), c("x", "y"))], file.path(ds_dir, paste0("daa_tree_", cn, ".csv")))
     p <- daa_tree_plot(t, attr(t, "groups"), pal, alpha, cn)
     sf_save(p, file.path(fig_dir, paste0("daa_tree_", cn, ".png")), width = 9, height = 9.6)
@@ -58,14 +68,23 @@ daa_tree_lineage <- function(cleaned, cfg) {
 }
 
 # Top taxa of one ALDEx2 pair with lineage, enrichment and significance.
-daa_tree_table <- function(res, lin, top_n = 30, alpha = 0.05) {
+# balance = TRUE takes the top top_n/2 by |effect| in each direction, so both
+# groups are represented even when one side has all the largest effects.
+daa_tree_table <- function(res, lin, top_n = 30, alpha = 0.05, balance = TRUE) {
   feat <- colnames(res)[1]
   rab <- grep("^rab[.]win[.]", colnames(res), value = TRUE)
   if (length(rab) != 2 || !"effect" %in% colnames(res)) return(NULL)
   groups <- sub("^rab[.]win[.]", "", rab)
   pcol <- if ("wi.eBH" %in% colnames(res)) "wi.eBH" else if ("we.eBH" %in% colnames(res)) "we.eBH" else NA
   res <- res[order(-abs(res$effect)), , drop = FALSE]
-  res <- res[seq_len(min(top_n, nrow(res))), , drop = FALSE]
+  if (balance) {
+    side <- ifelse(res[[rab[1]]] >= res[[rab[2]]], 1L, 2L)
+    k <- ceiling(top_n / 2)
+    res <- res[unlist(lapply(1:2, function(s) utils::head(which(side == s), k))), , drop = FALSE]
+    res <- res[order(-abs(res$effect)), , drop = FALSE]
+  } else {
+    res <- res[seq_len(min(top_n, nrow(res))), , drop = FALSE]
+  }
   m <- match(res[[feat]], lin$name)
   unmatched <- sum(is.na(m))
   keep <- !is.na(m)
@@ -101,6 +120,9 @@ daa_tree_plot <- function(t, groups, pal, alpha, cn) {
                         shape = 21, colour = "grey20", stroke = 0.3) +
     ggplot2::geom_point(data = leaf[leaf$significant, ], ggplot2::aes(.data$x, .data$y), shape = 21, fill = NA,
                         colour = SF_TIER_COLOURS[["widespread"]], size = 4.2, stroke = 0.9) +
+    # Black triangle between the ring and the label: widespread shared species.
+    ggplot2::geom_point(data = leaf[leaf$widespread_shared, ],
+                        ggplot2::aes(1.135 * cos(.data$ang), 1.135 * sin(.data$ang)), shape = 17, size = 1.6) +
     ggplot2::geom_text(data = leaf[!leaf$significant, ], ggplot2::aes(.data$lx, .data$ly, label = sf_short(.data$name),
                                                                       angle = .data$angle, hjust = .data$hjust), size = 2.3, fontface = "italic") +
     ggplot2::geom_text(data = leaf[leaf$significant, ], ggplot2::aes(.data$lx, .data$ly, label = sf_short(.data$name),
@@ -109,10 +131,13 @@ daa_tree_plot <- function(t, groups, pal, alpha, cn) {
     ggplot2::scale_fill_manual(values = pal, name = "More abundant in", drop = TRUE) +
     ggplot2::scale_size_area(max_size = 5, name = "|ALDEx2 effect|") +
     ggplot2::coord_equal(xlim = c(-1.75, 1.75), ylim = c(-1.75, 1.75), clip = "off") +
-    ggplot2::labs(title = sprintf("Top %d differentially abundant taxa: %s vs %s", nrow(t), groups[1], groups[2]),
+    ggplot2::labs(title = sprintf("Top differentially abundant taxa: %s vs %s (%s)", groups[1], groups[2],
+                                  paste(sprintf("%d more abundant in %s", as.integer(table(factor(t$enriched, groups))), groups), collapse = ", ")),
                   subtitle = sprintf(paste0("NCBI lineage (not evolutionary distance). Ranked by |ALDEx2 effect|; outer ring: direction, opacity = |effect|.\n",
-                                            "Red ring and label: %s < %.2g (n = %d)."),
-                                     if (is.na(pcol)) "adjusted p" else pcol, alpha, sum(leaf$significant))) +
+                                            "Red ring and label: %s < %.2g (n = %d).%s"),
+                                     if (is.na(pcol)) "adjusted p" else pcol, alpha, sum(leaf$significant),
+                                     if (any(leaf$widespread_shared)) sprintf(" Black triangle: widespread shared species (n = %d).",
+                                                                              sum(leaf$widespread_shared)) else "")) +
     sf_tree_phylum_labels(leaf) +
     ggplot2::theme_void(base_size = 9) +
     ggplot2::theme(plot.title = ggplot2::element_text(face = "bold"), legend.position = "bottom",

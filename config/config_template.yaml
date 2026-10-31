@@ -107,6 +107,7 @@ shared_fraction:
 
 daa_tree:
   top_n:                  30    # taxa per group pair, ranked by |ALDEx2 effect|
+  balance:                true  # top_n/2 from each direction (false = top_n overall)
 
 figures:
   # formats: [tiff, pdf]   # extra siblings of each PNG in the shared_fraction / taxa_tree stages
