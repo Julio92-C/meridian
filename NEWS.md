@@ -16,6 +16,10 @@
   with group membership, abundance, prevalence rings per group and element
   carriage. Tips need at least `taxa_tree.min_samples` detections (default 2).
   Uses igraph + ggraph (no new dependencies).
+- Both stages honour `exclude_genera` (`shared_fraction.exclude_genera`,
+  `taxa_tree.exclude_genera`), falling back to
+  `differential_abundance.exclude_genera`, so one list of likely false-positive
+  genera (e.g. Plasmodium) applies to every taxa stage; `[]` disables it.
 - Both stages are on by default (`stages.shared_fraction`, `stages.taxa_tree`),
   register new manifest kinds (`shared_fraction_*`, `taxa_tree*`) and leave the
   composite panels unchanged. Harness: `scripts/shared_fraction_only.R`.

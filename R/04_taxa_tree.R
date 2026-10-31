@@ -10,7 +10,7 @@
 
 run_taxa_tree <- function(cleaned, cfg) {
   pipeline_log(cfg, "Taxonomic tree")
-  inp <- sf_prepare_inputs(cleaned, cfg, "Taxa tree")
+  inp <- sf_prepare_inputs(cleaned, cfg, "Taxa tree", key = "taxa_tree")
   if (is.null(inp)) { pipeline_log(cfg, "Taxa tree: no species — skipped"); return(invisible(NULL)) }
   if (!all(c("phylum", "genus") %in% colnames(inp$long))) {
     pipeline_log(cfg, "Taxa tree: lineage columns missing — skipped"); return(invisible(NULL))

@@ -227,5 +227,17 @@ sf_tree_tips <- function(tab, groups, top_n = 60, min_samples = 2, widespread = 
   unique(c(widespread, top))
 }
 
+# Genera excluded from a stage: `<key>.exclude_genera` (shared_fraction or
+# taxa_tree), falling back to `differential_abundance.exclude_genera` so one
+# list serves every taxa stage. An explicit empty list (`[]`) disables it.
+sf_exclude_genera <- function(cfg, key) {
+  own <- cfg[[key]]$exclude_genera
+  ex <- if (!is.null(own)) own else cfg$differential_abundance$exclude_genera
+  as.character(unlist(ex %||% character(0)))
+}
+
+# Genus of a full species name: its first word (same rule as da_taxa_prefilter).
+sf_genus_of <- function(name) sub("^\\s*(\\S+).*$", "\\1", as.character(name))
+
 # Short display label: "Genus species" -> "G. species".
 sf_short <- function(x) sub("^(\\w)\\w+\\s+", "\\1. ", x)

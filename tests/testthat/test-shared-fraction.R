@@ -89,6 +89,17 @@ test_that("tree tips need min_samples detections; widespread species always kept
   expect_true(all(ws %in% tips))
 })
 
+test_that("exclude_genera: stage list, else the differential_abundance list; [] disables", {
+  cfg <- list(differential_abundance = list(exclude_genera = list("Plasmodium")))
+  expect_equal(sf_exclude_genera(cfg, "taxa_tree"), "Plasmodium")
+  cfg$taxa_tree <- list(exclude_genera = list("Toxoplasma", "Plasmodium"))
+  expect_equal(sf_exclude_genera(cfg, "taxa_tree"), c("Toxoplasma", "Plasmodium"))
+  cfg$shared_fraction <- list(exclude_genera = list())
+  expect_length(sf_exclude_genera(cfg, "shared_fraction"), 0)
+  expect_length(sf_exclude_genera(list(), "taxa_tree"), 0)
+  expect_equal(sf_genus_of(c("Plasmodium malariae", " Rahnella aceris")), c("Plasmodium", "Rahnella"))
+})
+
 test_that("element classes map from ABRicate databases", {
   expect_equal(sf_element_class(c("card", "vfdb", "plasmidfinder", "other")), c("ARG", "VF", "MGE", NA))
   hits <- tibble::tibble(sample = c("A1", "A1", "A2"), GENE = c("g1", "g1", "v1"),

@@ -40,6 +40,8 @@ Inputs are the same as the taxonomy stage, so the numbers agree with the Venn di
 - the element hits (`abri_kraken2_cleaned`), for genes carried per species;
 - the linkage variables from the metadata (see config).
 
+**Excluded genera:** species whose genus (first word of the name) is in `exclude_genera` are removed after the analysed samples are fixed. Each stage reads its own list (`shared_fraction.exclude_genera`, `taxa_tree.exclude_genera`) and falls back to `differential_abundance.exclude_genera`; `[]` disables it. This keeps likely false-positive assignments, such as *Plasmodium* in the hospital data, out of every taxa stage from one list.
+
 ## Definitions (any number of groups G ≥ 2)
 
 **Per species, per group g:**

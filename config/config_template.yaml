@@ -102,10 +102,12 @@ shared_fraction:
   linkage_keep_na:        false
   linkage_test:           false # permutation test of edge weights (seed: stats.cluster_seed)
   linkage_n_perm:         999
+  # exclude_genera: [Plasmodium]  # genera to leave out; default = differential_abundance.exclude_genera, [] disables
 
 taxa_tree:
   top_n:                  60    # most abundant species shown; widespread shared species always added
   min_samples:            2     # a tip must be detected in at least this many samples (all groups)
+  # exclude_genera: [Plasmodium]  # as for shared_fraction; default = differential_abundance.exclude_genera
 
 # --------------------------------------------------------------------------- #
 # Statistical parameters (matches the chicken_batch1 manuscript).             #

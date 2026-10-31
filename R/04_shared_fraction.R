@@ -13,7 +13,7 @@
 
 # Species x sample table (floored, species rank, NA groups dropped) plus the
 # analysed samples per group. Shared by the shared-fraction and tree stages.
-sf_prepare_inputs <- function(cleaned, cfg, stage = "Shared fraction") {
+sf_prepare_inputs <- function(cleaned, cfg, stage = "Shared fraction", key = "shared_fraction") {
   cfg_full <- cfg
   cfg_full$taxa_display$abbreviate_genus <- FALSE
   cfg_full$taxa_display$max_name_len <- 1000
@@ -31,6 +31,16 @@ sf_prepare_inputs <- function(cleaned, cfg, stage = "Shared fraction") {
   group_n <- vapply(lv, function(g) sum(group_of == g), integer(1))
   min_count <- cfg$taxonomy$min_count_per_sample %||% 5
   long <- df[df$count >= min_count, , drop = FALSE]
+  # Genera to leave out (likely false-positive assignments). Applied after the
+  # analysed samples are fixed, so sample counts per group are unchanged.
+  ex <- sf_exclude_genera(cfg, key)
+  if (length(ex) > 0) {
+    hit <- sf_genus_of(long$name) %in% ex
+    pipeline_log(cfg, sprintf("%s: excluded %d species from genera %s (%s.exclude_genera)", stage,
+                              length(unique(long$name[hit])), paste(ex, collapse = ", "),
+                              if (is.null(cfg[[key]]$exclude_genera)) "differential_abundance" else key))
+    long <- long[!hit, , drop = FALSE]
+  }
   long <- long |>
     dplyr::group_by(.data$sample, .data$name) |>
     dplyr::summarise(count = sum(.data$count),
