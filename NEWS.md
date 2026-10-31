@@ -14,7 +14,8 @@
 - New stage `taxa_tree` (R/04_taxa_tree.R): circular taxonomic tree (NCBI lineage,
   not evolutionary distance) of the most abundant and widespread shared species,
   with group membership, abundance, prevalence rings per group and element
-  carriage. Uses igraph + ggraph (no new dependencies).
+  carriage. Tips need at least `taxa_tree.min_samples` detections (default 2).
+  Uses igraph + ggraph (no new dependencies).
 - Both stages are on by default (`stages.shared_fraction`, `stages.taxa_tree`),
   register new manifest kinds (`shared_fraction_*`, `taxa_tree*`) and leave the
   composite panels unchanged. Harness: `scripts/shared_fraction_only.R`.

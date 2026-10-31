@@ -78,6 +78,17 @@ test_that("linkage joins nodes in different groups by shared widespread species"
   expect_true(all(lt$edges$p_perm > 0 & lt$edges$p_perm <= 1))
 })
 
+test_that("tree tips need min_samples detections; widespread species always kept", {
+  one <- dplyr::bind_rows(long, tibble::tibble(sample = "C5", name = "single", count = 5000L, group = "C",
+                                               phylum = "Pseudomonadota"))
+  t1 <- sf_species_table(one, group_n, 3, 0.10)
+  ws <- t1$name[!is.na(t1$tier) & t1$tier == "widespread"]
+  expect_true("single" %in% sf_tree_tips(t1, names(group_n), top_n = 10, min_samples = 1))
+  tips <- sf_tree_tips(t1, names(group_n), top_n = 10, min_samples = 2, widespread = ws)
+  expect_false("single" %in% tips)
+  expect_true(all(ws %in% tips))
+})
+
 test_that("element classes map from ABRicate databases", {
   expect_equal(sf_element_class(c("card", "vfdb", "plasmidfinder", "other")), c("ARG", "VF", "MGE", NA))
   hits <- tibble::tibble(sample = c("A1", "A1", "A2"), GENE = c("g1", "g1", "v1"),

@@ -114,7 +114,7 @@ There is no molecular phylogeny for read-level profiles. The tree is built from 
 
 **Built with:** `igraph` and `ggraph` (circular dendrogram), both already in `renv.lock`, so no new dependencies. The edge list is keyed by full lineage path, so repeated labels such as "unclassified class" under different parents stay separate.
 
-**Tips:** the top-N species (`tree_top_n`, default 60). They are ranked by mean abundance, and the widespread shared species are always included.
+**Tips:** the top-N species (`taxa_tree.top_n`, default 60), ranked by mean abundance among species detected in at least `taxa_tree.min_samples` samples (default 2), so a species seen once in a low-depth sample cannot enter on its relative abundance alone. The widespread shared species are always included.
 
 **Encoding:**
 - clade background = phylum;
@@ -145,6 +145,7 @@ shared_fraction:
 taxa_tree:
   enabled: true
   top_n: 60
+  min_samples: 2              # tips detected in at least this many samples
 ```
 
 **Hospital config** (to reproduce the note):

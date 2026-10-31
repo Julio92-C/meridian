@@ -216,5 +216,16 @@ sf_linkage_test <- function(long, levels, species, group_of, link, n_perm = 999,
   link
 }
 
+# Tips of the taxonomic tree: the `top_n` species by mean abundance among those
+# detected in at least `min_samples` samples (all groups together), plus every
+# widespread shared species. The sample floor keeps a species seen once, in a
+# low-depth sample, from entering on its relative abundance alone.
+sf_tree_tips <- function(tab, groups, top_n = 60, min_samples = 2, widespread = character(0)) {
+  n_tot <- rowSums(as.matrix(tab[paste0("n_", groups)]))
+  elig <- tab[n_tot >= min_samples, , drop = FALSE]
+  top <- elig$name[order(-elig$abund_all)][seq_len(min(top_n, nrow(elig)))]
+  unique(c(widespread, top))
+}
+
 # Short display label: "Genus species" -> "G. species".
 sf_short <- function(x) sub("^(\\w)\\w+\\s+", "\\1. ", x)

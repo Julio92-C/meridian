@@ -105,6 +105,7 @@ shared_fraction:
 
 taxa_tree:
   top_n:                  60    # most abundant species shown; widespread shared species always added
+  min_samples:            2     # a tip must be detected in at least this many samples (all groups)
 
 # --------------------------------------------------------------------------- #
 # Statistical parameters (matches the chicken_batch1 manuscript).             #

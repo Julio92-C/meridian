@@ -17,9 +17,13 @@ run_taxa_tree <- function(cleaned, cfg) {
   }
   st <- sf_settings(cfg)
   top_n <- cfg$taxa_tree$top_n %||% 60
+  min_samples <- cfg$taxa_tree$min_samples %||% 2
   tab <- sf_species_table(inp$long, inp$group_n, st$min_samples, st$min_prev)
   ws <- tab$name[!is.na(tab$tier) & tab$tier == "widespread"]
-  sel <- unique(c(ws, tab$name[order(-tab$abund_all)][seq_len(min(top_n, nrow(tab)))]))
+  sel <- sf_tree_tips(tab, names(inp$group_n), top_n, min_samples, ws)
+  n_rare <- sum(rowSums(as.matrix(tab[paste0("n_", names(inp$group_n))])) < min_samples)
+  pipeline_log(cfg, sprintf("Taxa tree: %d species in fewer than %d samples not eligible as tips (taxa_tree.min_samples)",
+                            n_rare, min_samples))
   t <- tab[tab$name %in% sel, , drop = FALSE]
   ranks <- intersect(c("phylum", "class", "order", "family", "genus"), colnames(t))
   for (r in ranks) t[[r]] <- ifelse(is.na(t[[r]]) | t[[r]] == "", paste0("unclassified ", r), t[[r]])
