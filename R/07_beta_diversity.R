@@ -77,6 +77,9 @@ run_beta_diversity <- function(cleaned, cfg) {
 
   # ---- 1. Pick source + clean taxa names ---------------------------------
   picked <- beta_source_table(cleaned, cfg)
+  if (picked$source == "noncontaminants") {
+    picked$df <- community_filter(picked$df, cfg, "Beta diversity")
+  }
   df <- clean_taxa_names(picked$df, cfg)
   pipeline_log(cfg, sprintf("Beta diversity: source=%s, %d rows after clean_taxa_names",
                             picked$source, nrow(df)))

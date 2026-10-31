@@ -76,7 +76,7 @@ da_taxa_matrix <- function(cleaned, cfg) {
     df <- dplyr::transmute(df, sample, name, count = as.numeric(sampleCount))
     src_used <- "bracken"
   } else {
-    df <- cleaned$noncontaminants
+    df <- community_filter(cleaned$noncontaminants, cfg, "DA[taxa]")
     src_used <- "noncontaminants"
   }
   df <- clean_taxa_names(df, cfg)
@@ -1062,7 +1062,11 @@ run_aldex <- function(cleaned, cfg) {
   }
   meta[[sid]] <- as.character(meta[[sid]])
 
+  # Reseed per level: ALDEx2's Monte-Carlo draws otherwise depend on how many
+  # random numbers the earlier level consumed, so a change to the taxa input
+  # would shift the gene-level results too.
   if ("taxa" %in% levels) {
+    set.seed(seed)
     picked <- da_taxa_matrix(cleaned, cfg)
     da_run_level("taxa", picked, cleaned, cfg, meta, sid, group,
                  mc, denom, min_prev, effect_thresh, overlap_thresh,
@@ -1074,6 +1078,7 @@ run_aldex <- function(cleaned, cfg) {
     if (is.null(picked)) {
       pipeline_log(cfg, "DA[gene]: cleaned$abri_kraken2 unavailable — skipping")
     } else {
+      set.seed(seed)
       da_run_level("gene", picked, cleaned, cfg, meta, sid, group,
                    mc, denom, min_prev, effect_thresh, overlap_thresh,
                    top_n_plots, make_plots, da_cfg,

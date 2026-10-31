@@ -61,3 +61,4 @@ scripts/_*.log
 scripts/_diag_*
 projects/*/_*.log
 ~$*
+/docs/manuscript/_literature/

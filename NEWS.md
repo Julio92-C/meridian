@@ -1,3 +1,25 @@
+# MERIDIAN (development version)
+
+- New opt-in community filters (all off by default; outputs unchanged
+  unless set):
+  - `taxa_filter.rank` (e.g. `[S]`) keeps rows by the Kraken2 rank code in
+    taxonomy, relative abundance, alpha, beta and taxa DA, so strain rows
+    are not double-counted against their species;
+    `taxa_filter.min_sample_reads` drops near-empty samples.
+  - `filters.microbial_only: true` drops plant, animal and unplaced taxa
+    by Kraken2 lineage (a `lineage_class` column is added to the cleaned
+    tables, and excluded taxa are written to
+    `excluded_non_microbial_taxa.csv`).
+  - `alpha_diversity.species_rank_only` and
+    `alpha_diversity.min_count_per_sample` for richness, Shannon, Chao1 and
+    rarefaction.
+- ALDEx2 is reseeded before each level, so gene-level results no longer
+  depend on the taxa input (gene-level values shift within Monte-Carlo
+  noise).
+- hospital_microbiome project: batch-specific NX decontamination and
+  manuscript polish scripts.
+- Application note updated to the v1.2.0 results.
+
 # MERIDIAN 1.2.0
 
 - Patient-aware statistics for repeated samples (`metadata.random_effect` +

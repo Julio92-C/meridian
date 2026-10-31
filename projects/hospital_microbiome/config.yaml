@@ -18,19 +18,19 @@ project_root: "C:/Users/julio/Desktop/Hospital_microbiome/metaOmics"
 inputs:
   # Produced by prep_inputs.R from Datasets/Summary.csv (A37R -> A37 collapse,
   # A25R dropped) — mirrors abri_kraken2_cleanData.R's sample reconciliation.
-  abricate_summary: "Reports/Abricate/summary_reportClean.csv"
+  abricate_summary: "Reports_v2/Abricate/summary_reportClean.csv"
   # Produced by prep_inputs.R: minimal taxid->name lookup union of H1A + H1S
   # preambles. Only used by R/02 for the taxid->name join.
-  kraken2_report:   "Reports/Kraken2/kraken2_db1_combined_reports.txt"
+  kraken2_report:   "Reports_v2/Kraken2/kraken2_db1_combined_reports.txt"
   # Produced by prep_inputs.R: SYNTHETIC bracken — Kraken2 _all counts pivoted
   # to wide per-sample format. Hospital_microbiome never ran Bracken; we
   # substitute Kraken2 counts so R/03 normalisation has the merged table it
   # hard-requires (see R/03 line 14).
-  bracken_report:   "Reports/Bracken/bracken_arranged.csv"
+  bracken_report:   "Reports_v2/Bracken/bracken_arranged.csv"
   # Produced by prep_inputs.R: SYNTHETIC rcf in R/02's expected 3-header-row
-  # triplet-column shape. Sample counts = Kraken2 _all; NX/N3 control columns
-  # populated from NX_AH4_contam.csv (0 for taxa not in contam).
-  recentrifuge_csv: "Reports/Re-centrifuge/*.rcf.data.csv"
+  # triplet-column shape. Sample counts = Kraken2 _all, with the batch-specific
+  # NX rule already applied (prep_inputs.R section 2b). No control columns.
+  recentrifuge_csv: "Reports_v2/Re-centrifuge/*.rcf.data.csv"
   # No wf-metagenomics diversity CSV exists for this study; R/06 will compute
   # alpha indices from the combined counts as fallback.
   diversity_csv:    ~
@@ -47,9 +47,11 @@ metadata:
   random_effect: ~
   fixed_effects:
     - type
-  # NX and N3 negative controls. R/02 will compute control_max = max(NX, N3)
-  # per taxon and subtract it from each sample count (lines 106-117 in
-  # R/02_clean_data.R), then strip these columns from the analysis set.
+  # NX and N3 negative controls. NX belongs to one batch of 11 Air samples and
+  # is applied upstream in prep_inputs.R (taxon removed from a batch sample when
+  # its count <= NX); N3 is unused. The rcf therefore has no control columns,
+  # so R/02 takes its "upstream subtraction" path and only keeps this list to
+  # identify the Control rows in the metadata.
   controls:
     - NX
     - N3
@@ -68,9 +70,33 @@ colors:
     Surface: "#ed8cb6"   # pink
 
 filters:
-  min_count_per_sample:   17
+  # Read floor: a taxon counts in a sample only with > 10 reads. Same rule as
+  # the network stage (network.min_sample_count default 10). Was 17.
+  min_count_per_sample:   10
   min_count_for_species:  500
   min_prevalence_aldex:   2
+  # Drop plant (e.g. Cryptomeria pollen), animal (incl. human) and unplaced
+  # taxa by Kraken2 lineage in R/02, so every stage sees microbes only.
+  microbial_only:         true
+
+# Alpha diversity on species-rank rows only (no double counting at genus /
+# family clade rows) with the same > 10-read floor. Not rarefied: richness is
+# reported alongside rarefaction curves.
+alpha_diversity:
+  species_rank_only:      true
+  min_count_per_sample:   10
+
+# Community taxa stages (R/04-R/08 + polish_relative_abundance.R): species rank
+# only via the real Kraken2 rank code (no strain double counting, no two-word
+# higher ranks), and drop samples with < 100 species-level reads above the
+# floor (A25, A31, S8 at the time of writing). Gene stages keep all samples.
+taxa_filter:
+  rank:                   ["S"]
+  min_sample_reads:       100
+
+# Taxonomy stage (Venn / heatmap) uses >=, so 11 == "> 10", matching the floor.
+taxonomy:
+  min_count_per_sample:   11
 
 stages:
   clean_data:             true
@@ -102,6 +128,11 @@ report:
 
 # Per-VFDB sankey filter (R/12). Cap genes shown so the diagram stays legible.
 network:
+  # Network = read-level taxon-element links; sample-taxon edges need > 10
+  # reads (matches the legacy Figure 4 metrics). Per-taxon sample lists in the
+  # text are reported from all gene-carrying reads. Decided with Julio 2026-10-27
+  # (floor 0 tried and reverted: 1017 nodes, max k 201).
+  min_sample_count: 10
   sankey:
     top_genes:   30
     rank_by:     prevalence_x_abundance
@@ -156,7 +187,7 @@ panels:
 # Sandboxed outputs (mirrors chicken_batch1 / lung_microbiome). All pipeline
 # writes go under metaOmics/test_run/ so the curated inputs tree is read-only.
 outputs:
-  datasets_dir: "test_run/Datasets"
-  figures_dir:  "test_run/Figures"
-  report_html:  "test_run/Reports/pipeline_report.html"
-  log_file:     "test_run/Reports/pipeline.log"
+  datasets_dir: "test_run_v2/Datasets"
+  figures_dir:  "test_run_v2/Figures"
+  report_html:  "test_run_v2/Reports/pipeline_report.html"
+  log_file:     "test_run_v2/Reports/pipeline.log"
