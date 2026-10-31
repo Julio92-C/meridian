@@ -80,7 +80,7 @@ sf_theme <- function() {
 }
 
 run_shared_fraction <- function(cleaned, cfg) {
-  sf_set_vector_formats(cfg)
+  sf_set_figure_formats(cfg)
   pipeline_log(cfg, "Shared fraction (overlap tiers, elements, linkage)")
   st <- sf_settings(cfg)
   inp <- sf_prepare_inputs(cleaned, cfg)

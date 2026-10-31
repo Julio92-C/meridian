@@ -9,7 +9,7 @@
 # Output: <figures_dir>/taxa_tree/taxa_tree.png, <datasets_dir>/taxa_tree/taxa_tree_nodes.csv
 
 run_taxa_tree <- function(cleaned, cfg) {
-  sf_set_vector_formats(cfg)
+  sf_set_figure_formats(cfg)
   pipeline_log(cfg, "Taxonomic tree")
   inp <- sf_prepare_inputs(cleaned, cfg, "Taxa tree", key = "taxa_tree")
   if (is.null(inp)) { pipeline_log(cfg, "Taxa tree: no species — skipped"); return(invisible(NULL)) }

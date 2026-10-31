@@ -105,7 +105,8 @@ shared_fraction:
   # exclude_genera: [Plasmodium]  # genera to leave out; default = differential_abundance.exclude_genera, [] disables
 
 figures:
-  vector_formats:         [pdf] # vector copies next to each PNG of the shared_fraction / taxa_tree stages (pdf, svg; [] = PNG only)
+  # formats: [tiff, pdf]   # extra siblings of each PNG in the shared_fraction / taxa_tree stages
+                          # (tiff, pdf, svg). Unset = follow panels.tiff / panels.pdf below.
 
 taxa_tree:
   top_n:                  60    # most abundant species shown; widespread shared species always added
