@@ -16,6 +16,9 @@ Automation tool. The pipeline source lives one directory up at `..`.
 ## Layout
 
 - `applications_note.docx` / `.md` — the manuscript (see rules below)
+- `applications_note_v1.2.0.docx` — frozen copy submitted as the preprint
+  (describes MERIDIAN v1.2.0); do not edit, keep working in
+  `applications_note.docx`
 - `figure1_pipeline_schematic.{png,svg}` ← `generate_figure1.py`;
   `figure2_pipeline_performance.{png,tiff}` ← `generate_figure2.R`
 - `Revisions/` — base draft, co-author revisions (HM, PL) and the merge log
