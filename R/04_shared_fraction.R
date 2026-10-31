@@ -80,6 +80,7 @@ sf_theme <- function() {
 }
 
 run_shared_fraction <- function(cleaned, cfg) {
+  sf_set_vector_formats(cfg)
   pipeline_log(cfg, "Shared fraction (overlap tiers, elements, linkage)")
   st <- sf_settings(cfg)
   inp <- sf_prepare_inputs(cleaned, cfg)
@@ -156,7 +157,7 @@ sf_plot_prevalence_abundance <- function(tab, groups, pal, ws, file) {
                   title = "Prevalence and abundance of all species",
                   subtitle = sprintf("Red circles: widespread shared species (n = %d)", length(ws))) +
     sf_theme() + ggplot2::theme(legend.position = "bottom")
-  ggplot2::ggsave(file, p, width = 6.5, height = 5, dpi = 300)
+  sf_save(p, file, width = 6.5, height = 5, dpi = 300)
 }
 
 sf_plot_pairwise <- function(pw, groups, file) {
@@ -171,7 +172,7 @@ sf_plot_pairwise <- function(pw, groups, file) {
     ggplot2::labs(x = "Prevalence in first group (%)", y = "Prevalence in second group (%)",
                   title = "Shared species: prevalence in each pair of groups") +
     sf_theme()
-  ggplot2::ggsave(file, p, width = 3.6 * min(3, np) + 1.6, height = 3.4 * ceiling(np / 3) + 0.8, dpi = 300)
+  sf_save(p, file, width = 3.6 * min(3, np) + 1.6, height = 3.4 * ceiling(np / 3) + 0.8, dpi = 300)
 }
 
 sf_plot_upset <- function(tab, groups, pal, file, top = 20) {
@@ -201,7 +202,7 @@ sf_plot_upset <- function(tab, groups, pal, file, top = 20) {
     ggplot2::theme(axis.text.x = ggplot2::element_blank(), axis.ticks = ggplot2::element_blank(),
                    axis.line = ggplot2::element_blank())
   p <- patchwork::wrap_plots(bars, dots, ncol = 1, heights = c(3, 0.35 + 0.25 * length(groups)))
-  ggplot2::ggsave(file, p, width = max(4.5, 0.35 * nlevels(d$pattern) + 2), height = 4 + 0.25 * length(groups), dpi = 300)
+  sf_save(p, file, width = max(4.5, 0.35 * nlevels(d$pattern) + 2), height = 4 + 0.25 * length(groups), dpi = 300)
 }
 
 sf_plot_tiers <- function(tab, file) {
@@ -219,7 +220,7 @@ sf_plot_tiers <- function(tab, file) {
     ggplot2::scale_fill_manual(values = stats::setNames(tol[seq_along(levels(d$phy))], levels(d$phy)), name = "Phylum") +
     ggplot2::scale_x_continuous(expand = ggplot2::expansion(mult = c(0, 0.12))) +
     ggplot2::labs(x = "Shared species", y = NULL, title = "Shared species by tier and phylum") + sf_theme()
-  ggplot2::ggsave(file, p, width = 6.5, height = 3, dpi = 300)
+  sf_save(p, file, width = 6.5, height = 3, dpi = 300)
 }
 
 sf_plot_widespread <- function(wt, groups, pal, el, file, min_reads = 2) {
@@ -244,7 +245,7 @@ sf_plot_widespread <- function(wt, groups, pal, el, file, min_reads = 2) {
     ggplot2::labs(x = "Prevalence (% of samples)", y = NULL, title = "Widespread shared species",
                   subtitle = sprintf("ARG/VF/MGE: distinct genes on the species' reads, each supported by at least %d reads", min_reads)) +
     sf_theme() + ggplot2::theme(axis.text.y = ggplot2::element_text(face = "italic"), legend.position = "bottom")
-  ggplot2::ggsave(file, p, width = 6, height = 1.5 + 0.28 * length(ord) * max(1, length(groups) / 2), dpi = 300)
+  sf_save(p, file, width = 6, height = 1.5 + 0.28 * length(ord) * max(1, length(groups) / 2), dpi = 300)
 }
 
 sf_plot_heatmap <- function(inp, tab, st, file) {
@@ -277,7 +278,7 @@ sf_plot_heatmap <- function(inp, tab, st, file) {
                                 axis.text.y = ggplot2::element_text(face = "italic", colour = ycol),
                                 panel.spacing.x = ggplot2::unit(1, "pt"),
                                 strip.text = ggplot2::element_text(size = 6.5, angle = 90, hjust = 0))
-  ggplot2::ggsave(file, p, width = min(16, 3 + 0.12 * length(smp)), height = 1.8 + 0.17 * nrow(top), dpi = 300)
+  sf_save(p, file, width = min(16, 3 + 0.12 * length(smp)), height = 1.8 + 0.17 * nrow(top), dpi = 300)
 }
 
 sf_plot_linkage <- function(link, v, groups, pal, ws, file) {
@@ -314,5 +315,5 @@ sf_plot_linkage <- function(link, v, groups, pal, ws, file) {
                   subtitle = sprintf("%d widespread species; schematic layout, not to scale", length(ws))) +
     sf_theme() + ggplot2::theme(axis.line = ggplot2::element_blank(), axis.ticks = ggplot2::element_blank(),
                                 axis.text.y = ggplot2::element_blank(), axis.text.x = ggplot2::element_text(face = "bold"))
-  ggplot2::ggsave(file, p, width = 3 + 2.6 * length(groups), height = max(4, 0.35 * max(table(nd$group)) + 2), dpi = 300)
+  sf_save(p, file, width = 3 + 2.6 * length(groups), height = max(4, 0.35 * max(table(nd$group)) + 2), dpi = 300)
 }

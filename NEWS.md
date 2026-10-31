@@ -20,6 +20,10 @@
   `taxa_tree.exclude_genera`), falling back to
   `differential_abundance.exclude_genera`, so one list of likely false-positive
   genera (e.g. Plasmodium) applies to every taxa stage; `[]` disables it.
+- Both stages also write vector copies of every figure (`figures.vector_formats`,
+  default `[pdf]`; `svg` also accepted) for editing in Illustrator / Inkscape:
+  PDF via cairo_pdf (fonts embedded, text kept as text), SVG via the base cairo
+  device. A PNG locked by an image viewer is skipped with a message.
 - Both stages are on by default (`stages.shared_fraction`, `stages.taxa_tree`),
   register new manifest kinds (`shared_fraction_*`, `taxa_tree*`) and leave the
   composite panels unchanged. Harness: `scripts/shared_fraction_only.R`.

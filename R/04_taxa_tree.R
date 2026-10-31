@@ -9,6 +9,7 @@
 # Output: <figures_dir>/taxa_tree/taxa_tree.png, <datasets_dir>/taxa_tree/taxa_tree_nodes.csv
 
 run_taxa_tree <- function(cleaned, cfg) {
+  sf_set_vector_formats(cfg)
   pipeline_log(cfg, "Taxonomic tree")
   inp <- sf_prepare_inputs(cleaned, cfg, "Taxa tree", key = "taxa_tree")
   if (is.null(inp)) { pipeline_log(cfg, "Taxa tree: no species — skipped"); return(invisible(NULL)) }
@@ -95,12 +96,12 @@ run_taxa_tree <- function(cleaned, cfg) {
     dplyr::filter(.data$n >= 3)
   pl$x <- 0.6 * cos(pl$a); pl$y <- 0.6 * sin(pl$a)
   p <- p + ggplot2::geom_label(data = pl, ggplot2::aes(.data$x, .data$y, label = .data$phylum), size = 2.3,
-                               label.size = 0, fill = grDevices::adjustcolor("white", 0.7), inherit.aes = FALSE)
+                               linewidth = 0, fill = grDevices::adjustcolor("white", 0.7), inherit.aes = FALSE)
 
   fig_dir <- file.path(cfg$project_root, cfg$outputs$figures_dir, "taxa_tree")
   ds_dir  <- file.path(cfg$project_root, cfg$outputs$datasets_dir, "taxa_tree")
   dir.create(fig_dir, recursive = TRUE, showWarnings = FALSE); dir.create(ds_dir, recursive = TRUE, showWarnings = FALSE)
-  ggplot2::ggsave(file.path(fig_dir, "taxa_tree.png"), p, width = 9, height = 9.6, dpi = 300)
+  sf_save(p, file.path(fig_dir, "taxa_tree.png"), width = 9, height = 9.6, dpi = 300)
   readr::write_csv(t[c("name", ranks, "category", "tier", "abund_all", paste0("prev_", groups), "carrier")],
                    file.path(ds_dir, "taxa_tree_nodes.csv"))
   pipeline_log(cfg, sprintf("Taxa tree: %d species (%d widespread shared), %d phyla", nrow(t), length(ws), length(phy_names)))

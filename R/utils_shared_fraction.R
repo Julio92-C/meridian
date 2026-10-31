@@ -239,5 +239,30 @@ sf_exclude_genera <- function(cfg, key) {
 # Genus of a full species name: its first word (same rule as da_taxa_prefilter).
 sf_genus_of <- function(name) sub("^\\s*(\\S+).*$", "\\1", as.character(name))
 
+# Vector copies of the figures for editing in Illustrator / Inkscape. The
+# formats come from `figures.vector_formats` (default ["pdf"]; "svg" also
+# accepted; [] = PNG only). PDF uses cairo_pdf so fonts are embedded and text
+# stays text; SVG uses the cairo svg device (base R, no extra package).
+sf_set_vector_formats <- function(cfg) {
+  f <- cfg$figures$vector_formats
+  options(meridian.vector_formats = if (is.null(f)) "pdf" else tolower(as.character(unlist(f))))
+}
+
+sf_save <- function(p, file, width, height, dpi = 300) {
+  # A PNG held open by an image viewer cannot be overwritten on Windows; warn
+  # and still write the vector copies rather than failing the stage.
+  tryCatch(ggplot2::ggsave(file, p, width = width, height = height, dpi = dpi),
+           error = function(e) message(sprintf("PNG export failed for %s (file open elsewhere?): %s",
+                                               basename(file), conditionMessage(e))))
+  stem <- sub("[.]png$", "", file)
+  for (fmt in getOption("meridian.vector_formats", "pdf")) {
+    dev <- switch(fmt, pdf = grDevices::cairo_pdf, svg = grDevices::svg, NULL)
+    if (is.null(dev)) next
+    tryCatch(ggplot2::ggsave(paste0(stem, ".", fmt), p, width = width, height = height, device = dev),
+             error = function(e) message(sprintf("vector export (%s) failed for %s: %s", fmt, basename(file), conditionMessage(e))))
+  }
+  invisible(file)
+}
+
 # Short display label: "Genus species" -> "G. species".
 sf_short <- function(x) sub("^(\\w)\\w+\\s+", "\\1. ", x)
