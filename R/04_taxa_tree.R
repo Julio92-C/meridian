@@ -46,6 +46,7 @@ run_taxa_tree <- function(cleaned, cfg) {
   groups <- inp$groups; pal <- group_palette(groups, cfg)
   cats <- unique(leaf$category); cc <- sf_category_colours(cats, pal); names(cc) <- sf_category_label(cats, groups)
   leaf$cat <- sf_category_label(leaf$category, groups)
+  leaf$ws  <- leaf$name %in% ws
   ang <- atan2(leaf$y, leaf$x)
   rings <- dplyr::bind_rows(lapply(seq_along(groups), function(i) {
     r <- 1.08 + 0.07 * (i - 1)
@@ -66,16 +67,24 @@ run_taxa_tree <- function(cleaned, cfg) {
     ggplot2::scale_colour_manual(values = pal) +
     ggplot2::geom_point(data = leaf, ggplot2::aes(.data$x, .data$y, fill = .data$cat, size = .data$abund_all),
                         shape = 21, colour = "grey20", stroke = 0.3) +
+    # Widespread shared species: fixed-size red ring (visible however small the
+    # tip) and a red bold label, as in the prevalence-abundance figure.
+    ggplot2::geom_point(data = leaf[leaf$ws, ], ggplot2::aes(.data$x, .data$y), shape = 21, fill = NA,
+                        colour = SF_TIER_COLOURS[["widespread"]], size = 4, stroke = 0.9) +
     ggplot2::geom_point(data = leaf[leaf$carrier, ], ggplot2::aes(.data$x * 0.96, .data$y * 0.96), size = 0.7) +
-    ggplot2::geom_text(data = leaf, ggplot2::aes(.data$lx, .data$ly, label = sf_short(.data$name), angle = .data$angle,
-                                                 hjust = .data$hjust), size = 2.1, fontface = "italic") +
+    ggplot2::geom_text(data = leaf[!leaf$ws, ], ggplot2::aes(.data$lx, .data$ly, label = sf_short(.data$name), angle = .data$angle,
+                                                             hjust = .data$hjust), size = 2.1, fontface = "italic") +
+    ggplot2::geom_text(data = leaf[leaf$ws, ], ggplot2::aes(.data$lx, .data$ly, label = sf_short(.data$name), angle = .data$angle,
+                                                            hjust = .data$hjust), size = 2.2, fontface = "bold.italic",
+                       colour = SF_TIER_COLOURS[["widespread"]]) +
     ggplot2::scale_fill_manual(values = cc, name = NULL) +
     ggplot2::scale_size_area(max_size = 5, name = "Mean abundance (%)") +
     # Room for the rotated tip labels outside the rings, so they do not run into the title.
     ggplot2::coord_equal(xlim = c(-1.75, 1.75), ylim = c(-1.75, 1.75), clip = "off") +
     ggplot2::labs(title = "Taxonomic tree of the most abundant and widespread shared species",
-                  subtitle = sprintf("NCBI lineage (not evolutionary distance). Outer rings, inside out: prevalence in %s. Black dot: carries ARG/VF/MGE.",
-                                     paste(groups, collapse = ", "))) +
+                  subtitle = sprintf(paste0("NCBI lineage (not evolutionary distance). Outer rings, inside out: prevalence in %s.\n",
+                                            "Red ring and label: widespread shared species (n = %d). Black dot: carries ARG/VF/MGE."),
+                                     paste(groups, collapse = ", "), sum(leaf$ws))) +
     ggplot2::theme_void(base_size = 9) +
     ggplot2::theme(plot.title = ggplot2::element_text(face = "bold"), legend.position = "bottom",
                    plot.margin = ggplot2::margin(10, 10, 10, 10))
