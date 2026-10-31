@@ -1,5 +1,46 @@
 # MERIDIAN (development version)
 
+- New stage `shared_fraction` (R/04_shared_fraction.R, helpers in
+  R/utils_shared_fraction.R) for any number of groups: per-species prevalence and
+  mean abundance per group, membership pattern (unique / shared by some / shared
+  by all), and prevalence tiers for shared species (widespread: at least
+  `widespread_min_samples` samples and `widespread_min_prev` prevalence in every
+  group of its pattern, default 3 and 10%; recurrent; sporadic). Outputs a
+  pairwise view of every pair of groups, the genes (ARG/VF/MGE) on reads of the
+  widespread species with a low-support flag, an UpSet-style membership plot (no
+  5-group limit), a top-N heatmap, and linkage maps between the levels of any
+  metadata variable (`linkage_vars`, numeric variables binned into quantiles,
+  optional permutation test).
+- New stage `taxa_tree` (R/04_taxa_tree.R): circular taxonomic tree (NCBI lineage,
+  not evolutionary distance) of the most abundant and widespread shared species,
+  with group membership, abundance, prevalence rings per group and element
+  carriage. Tips need at least `taxa_tree.min_samples` detections (default 2).
+  Uses igraph + ggraph (no new dependencies).
+- New stage `daa_tree` (R/08_daa_tree.R, runs after `differential_abundance`):
+  the same lineage tree for the top `daa_tree.top_n` ALDEx2 taxa per group pair
+  (default 30, ranked by |effect|): tips coloured by the group in which the
+  taxon is more abundant, sized by |effect|, significant taxa (wi.eBH, or
+  we.eBH where Wilcoxon was dropped, < alpha) ringed in red; outer ring shows
+  direction. `daa_tree.balance` (default true) takes top_n/2 per direction so
+  both groups appear; widespread shared species (from `shared_fraction`) are
+  marked with a black triangle. `daa_tree.min_effect` replaces the top-N rule
+  with an effect-size cutoff (all taxa with |effect| >= min_effect, capped at
+  `daa_tree.max_tips`, default 80); short names that cannot be matched to a
+  single full name are logged. Tree layout shared with `taxa_tree` (`sf_tree_layout()`); tip
+  labels drop strain / serotype / subspecies qualifiers.
+- Both stages honour `exclude_genera` (`shared_fraction.exclude_genera`,
+  `taxa_tree.exclude_genera`), falling back to
+  `differential_abundance.exclude_genera`, so one list of likely false-positive
+  genera (e.g. Plasmodium) applies to every taxa stage; `[]` disables it.
+- Figure output follows the pipeline conventions: PNG plus a sibling `.rds`
+  (`save_panel_ggplot`), so any of the new figures can later be placed in a
+  composite panel by R/13; extra siblings from `figures.formats` (tiff, pdf,
+  svg), which by default follow `panels.tiff` / `panels.pdf`. TIFF is LZW at
+  300 dpi as in R/13; PDF uses cairo_pdf (fonts embedded, text editable in
+  Illustrator). A PNG locked by an image viewer is skipped with a message.
+- Both stages are on by default (`stages.shared_fraction`, `stages.taxa_tree`),
+  register new manifest kinds (`shared_fraction_*`, `taxa_tree*`) and leave the
+  composite panels unchanged. Harness: `scripts/shared_fraction_only.R`.
 - New opt-in community filters (all off by default; outputs unchanged
   unless set):
   - `taxa_filter.rank` (e.g. `[S]`) keeps rows by the Kraken2 rank code in

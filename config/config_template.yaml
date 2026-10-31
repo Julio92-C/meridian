@@ -79,16 +79,48 @@ stages:
   clean_data:             true
   normalisation:          true
   taxonomy:               true
+  shared_fraction:        true      # species shared between groups, tiers, linkage (needs >= 2 groups)
+  taxa_tree:              true      # circular taxonomic tree (NCBI lineage)
   relative_abundance:     true
   alpha_diversity:        true
   beta_diversity:         true
   differential_abundance: true
+  daa_tree:               true      # taxonomic tree of the top ALDEx2 taxa per group pair
   resistome:              true
   virulome:               true
   mobilome:               true
   network:                true
   report:                 true
   panels:                 true      # publication panels + supplementary XLSX
+
+# --------------------------------------------------------------------------- #
+# Shared fraction of species between groups (R/04_shared_fraction.R) and the  #
+# taxonomic tree (R/04_taxa_tree.R). Any number of groups.                    #
+# --------------------------------------------------------------------------- #
+shared_fraction:
+  widespread_min_samples: 3     # widespread = in every group of its pattern:
+  widespread_min_prev:    0.10  #   >= this many samples AND >= this prevalence
+  heatmap_top_n:          30
+  elements_min_reads:     2     # gene-species links with fewer reads are flagged low_support
+  linkage_vars:           []    # metadata columns to link, e.g. [ward] or [ward, antibiotic_exposure]
+  linkage_bins:           3     # numeric variables are binned into quantiles (low/mid/high)
+  linkage_min_shared:     1     # minimum widespread species shared to draw an edge
+  linkage_scope:          between   # between | within | all (groups)
+  linkage_keep_na:        false
+  linkage_test:           false # permutation test of edge weights (seed: stats.cluster_seed)
+  linkage_n_perm:         999
+  # exclude_genera: [Plasmodium]  # genera to leave out; default = differential_abundance.exclude_genera, [] disables
+
+daa_tree:
+  top_n:                  30    # taxa per group pair, ranked by |ALDEx2 effect|
+  balance:                true  # top_n/2 from each direction (false = top_n overall)
+  # min_effect: 0.5         # if set: all taxa with |effect| >= this (replaces top_n / balance)
+  max_tips:               80    # cap on tips when min_effect is set (largest effects kept)
+
+taxa_tree:
+  top_n:                  60    # most abundant species shown; widespread shared species always added
+  min_samples:            2     # a tip must be detected in at least this many samples (all groups)
+  # exclude_genera: [Plasmodium]  # as for shared_fraction; default = differential_abundance.exclude_genera
 
 # --------------------------------------------------------------------------- #
 # Statistical parameters (matches the chicken_batch1 manuscript).             #
@@ -181,6 +213,8 @@ figures:
   set: core                         # core | full
   include: []                       # file stems to write anyway, e.g. [venn_args]
   exclude: []                       # file stems to skip, e.g. [jaccard_pcoa]
+  # formats: [tiff, pdf]           # extra siblings of each PNG in the shared_fraction / taxa_tree /
+                                    # daa_tree stages (tiff, pdf, svg); unset = follow panels.tiff / panels.pdf
 
 # --------------------------------------------------------------------------- #
 # Output paths (relative to project_root). When evaluating a new dataset for  #

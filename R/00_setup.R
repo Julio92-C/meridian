@@ -53,7 +53,8 @@ read_stage_errors <- function(cfg) {
   resistome = "normalisation",
   virulome  = "normalisation",
   mobilome  = "normalisation",
-  network   = "normalisation"
+  network   = "normalisation",
+  daa_tree  = "differential_abundance"
 )
 
 #' Names of the upstream stages of `name` that are in `failed` (character vector

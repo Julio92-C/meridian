@@ -41,6 +41,9 @@
 # enough to mark `complete`.
 .STAGE_PRIMARY <- list(
   taxonomy               = c("figures_dir", "taxonomy/taxa_heatmap.png"),
+  shared_fraction        = c("datasets_dir", "shared_fraction/shared_fraction_species.csv"),
+  taxa_tree              = c("figures_dir", "taxa_tree/taxa_tree.png"),
+  daa_tree               = c("figures_dir", "daa_tree"),
   relative_abundance     = c("datasets_dir", "relative_abundance/composition_long.csv"),
   alpha_diversity        = c("datasets_dir", "alpha_diversity.csv"),
   beta_diversity         = c("datasets_dir", "beta_diversity_pcoa.csv"),
@@ -177,7 +180,7 @@ git_short_sha <- function(repo_root) {
 # cfg key is absent (the runner uses `%||% TRUE` for it). Without this, a
 # config that omits `stages: panels` runs the panels stage to disk but the
 # manifest silently records zero panel_composite entries.
-.STAGE_DEFAULT_ENABLED <- list(panels = TRUE)
+.STAGE_DEFAULT_ENABLED <- list(panels = TRUE, shared_fraction = TRUE, taxa_tree = TRUE, daa_tree = TRUE)
 
 stage_status <- function(cfg, name, stage_times) {
   default <- isTRUE(.STAGE_DEFAULT_ENABLED[[name]])
@@ -219,6 +222,84 @@ build_stage_taxonomy <- function(cfg, stage_times) {
                    kind = "taxa_heatmap", groups = as.list(groups),
                    caption_seed = "Heatmap of top taxa by mean relative abundance across the primary grouping.")
     ))
+  )
+}
+
+build_stage_shared_fraction <- function(cfg, stage_times) {
+  status <- stage_status(cfg, "shared_fraction", stage_times)
+  if (status == "skipped") return(NULL)
+  groups <- cfg_group_levels(cfg)
+  sf <- function(f) ds_path(cfg, "shared_fraction", f)
+  ff <- function(f) fig_path(cfg, "shared_fraction", f)
+  link_figs <- list.files(file.path(cfg$project_root, cfg$outputs$figures_dir, "shared_fraction"),
+                          pattern = "^shared_fraction_linkage_.*[.]png$")
+  list(
+    status     = status,
+    duration_s = stage_times[["shared_fraction"]],
+    tables     = Filter(Negate(is.null), list(
+      table_entry(cfg, sf("shared_fraction_species.csv"), kind = "shared_fraction_species",
+                  description = "Per species: samples, prevalence and mean relative abundance per group; membership pattern, category and prevalence tier."),
+      table_entry(cfg, sf("shared_fraction_pairwise.csv"), kind = "shared_fraction_pairwise",
+                  description = "Species shared by each pair of groups, with prevalence per group and the tier on that pair."),
+      table_entry(cfg, sf("shared_fraction_widespread_elements.csv"), kind = "shared_fraction_elements",
+                  description = "Genes (ARG, VF, MGE) on reads of the widespread shared species, with read and sample counts and a low-support flag."),
+      table_entry(cfg, sf("shared_fraction_linkage_edges.csv"), kind = "shared_fraction_linkage_edges",
+                  description = "Pairs of metadata-variable levels linked by widespread shared species, with the number shared.")
+    )),
+    figures    = Filter(Negate(is.null), c(list(
+      figure_entry(cfg, ff("shared_fraction_prevalence_abundance.png"), kind = "shared_fraction_prevalence_abundance",
+                   groups = as.list(groups), caption_seed = "Prevalence against mean relative abundance of every species, coloured by group membership; widespread shared species circled."),
+      figure_entry(cfg, ff("shared_fraction_pairwise.png"), kind = "shared_fraction_pairwise",
+                   groups = as.list(groups), caption_seed = "Prevalence of shared species in each pair of groups, coloured by prevalence tier."),
+      figure_entry(cfg, ff("shared_fraction_upset.png"), kind = "shared_fraction_upset",
+                   groups = as.list(groups), caption_seed = "Number of species per group-membership pattern, stacked by prevalence tier."),
+      figure_entry(cfg, ff("shared_fraction_tiers.png"), kind = "shared_fraction_tiers",
+                   groups = as.list(groups), caption_seed = "Shared species per prevalence tier, by phylum."),
+      figure_entry(cfg, ff("shared_fraction_widespread.png"), kind = "shared_fraction_widespread",
+                   groups = as.list(groups), caption_seed = "Prevalence of the widespread shared species in each group, with the number of ARGs, VFs and MGEs on their reads."),
+      figure_entry(cfg, ff("shared_fraction_heatmap.png"), kind = "shared_fraction_heatmap",
+                   groups = as.list(groups), caption_seed = "Relative abundance of the most prevalent shared species in each sample.")
+    ), lapply(link_figs, function(f) figure_entry(cfg, ff(f), kind = "shared_fraction_linkage", groups = as.list(groups),
+                   caption_seed = sprintf("Levels of '%s' linked by the widespread shared species they share.",
+                                          sub("^shared_fraction_linkage_(.*)[.]png$", "\\1", f))))))
+  )
+}
+
+build_stage_taxa_tree <- function(cfg, stage_times) {
+  status <- stage_status(cfg, "taxa_tree", stage_times)
+  if (status == "skipped") return(NULL)
+  groups <- cfg_group_levels(cfg)
+  list(
+    status     = status,
+    duration_s = stage_times[["taxa_tree"]],
+    tables     = Filter(Negate(is.null), list(
+      table_entry(cfg, ds_path(cfg, "taxa_tree", "taxa_tree_nodes.csv"), kind = "taxa_tree_nodes",
+                  description = "Species on the taxonomic tree with lineage, membership category, tier, abundance, prevalence per group and element carriage."))),
+    figures    = Filter(Negate(is.null), list(
+      figure_entry(cfg, fig_path(cfg, "taxa_tree", "taxa_tree.png"), kind = "taxa_tree", groups = as.list(groups),
+                   caption_seed = "Taxonomic tree (NCBI lineage) of the most abundant and widespread shared species; tips coloured by group membership, outer rings show prevalence per group.")))
+  )
+}
+
+build_stage_daa_tree <- function(cfg, stage_times) {
+  status <- stage_status(cfg, "daa_tree", stage_times)
+  if (status == "skipped") return(NULL)
+  groups <- cfg_group_levels(cfg)
+  fd <- file.path(cfg$project_root, cfg$outputs$figures_dir, "daa_tree")
+  dd <- file.path(cfg$project_root, cfg$outputs$datasets_dir, "daa_tree")
+  pngs <- list.files(fd, pattern = "^daa_tree_.*[.]png$")
+  csvs <- list.files(dd, pattern = "^daa_tree_.*[.]csv$")
+  pair_of <- function(f) sub("^daa_tree_(.*)[.](png|csv)$", "\\1", f)
+  list(
+    status     = status,
+    duration_s = stage_times[["daa_tree"]],
+    tables     = Filter(Negate(is.null), lapply(csvs, function(f) table_entry(cfg, ds_path(cfg, "daa_tree", f),
+                   kind = "daa_tree_nodes",
+                   description = sprintf("Top differentially abundant taxa (%s) on the taxonomic tree: lineage, ALDEx2 effect, enriched group, adjusted p and significance.", pair_of(f))))),
+    figures    = Filter(Negate(is.null), lapply(pngs, function(f) figure_entry(cfg, fig_path(cfg, "daa_tree", f),
+                   kind = "daa_tree", groups = as.list(groups), pair = pair_of(f),
+                   caption_seed = sprintf("Taxonomic tree (NCBI lineage) of the top differentially abundant taxa for %s; tips coloured by the group in which they are more abundant, sized by ALDEx2 effect, significant taxa highlighted.",
+                                          gsub("_", " ", pair_of(f))))))
   )
 }
 
@@ -821,10 +902,13 @@ build_stage_panels <- function(cfg, stage_times) {
 build_stages_index <- function(cfg, stage_times = list()) {
   Filter(Negate(is.null), list(
     taxonomy               = build_stage_taxonomy(cfg, stage_times),
+    shared_fraction        = build_stage_shared_fraction(cfg, stage_times),
+    taxa_tree              = build_stage_taxa_tree(cfg, stage_times),
     relative_abundance     = build_stage_relative_abundance(cfg, stage_times),
     alpha_diversity        = build_stage_alpha_diversity(cfg, stage_times),
     beta_diversity         = build_stage_beta_diversity(cfg, stage_times),
     differential_abundance = build_stage_differential_abundance(cfg, stage_times),
+    daa_tree               = build_stage_daa_tree(cfg, stage_times),
     resistome              = build_stage_ge_domain(cfg, "resistome", stage_times),
     virulome               = build_stage_ge_domain(cfg, "virulome",  stage_times),
     mobilome               = build_stage_ge_domain(cfg, "mobilome",  stage_times),
@@ -893,7 +977,7 @@ write_manifest <- function(cfg,
   n_samples <- if (!is.null(meta)) sum(!meta[[sid_col]] %in% controls) else NA_integer_
 
   manifest <- list(
-    manifest_version = "1.2",
+    manifest_version = "1.3",   # 1.3: shared_fraction + taxa_tree kinds (metaomics-scribe MANIFEST_SCHEMA)
     study = list(
       id                = cfg$study$id,
       name              = cfg$study$name,

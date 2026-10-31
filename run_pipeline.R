@@ -63,10 +63,13 @@ enabled_names <- c(
   if (isTRUE(cfg$stages$clean_data))             "clean_data",
   if (isTRUE(cfg$stages$normalisation))          "normalisation",
   if (isTRUE(cfg$stages$taxonomy))               "taxonomy",
+  if (isTRUE(cfg$stages$shared_fraction %||% TRUE)) "shared_fraction",
+  if (isTRUE(cfg$stages$taxa_tree %||% TRUE))       "taxa_tree",
   if (isTRUE(cfg$stages$relative_abundance))     "relative_abundance",
   if (isTRUE(cfg$stages$alpha_diversity))        "alpha_diversity",
   if (isTRUE(cfg$stages$beta_diversity))         "beta_diversity",
   if (isTRUE(cfg$stages$differential_abundance)) "differential_abundance",
+  if (isTRUE(cfg$stages$daa_tree %||% TRUE) && isTRUE(cfg$stages$differential_abundance)) "daa_tree",
   if (isTRUE(cfg$stages$resistome))              "resistome",
   if (isTRUE(cfg$stages$virulome))               "virulome",
   if (isTRUE(cfg$stages$mobilome))               "mobilome",
@@ -163,10 +166,13 @@ cleaned <- run_stage("clean_data",  function() clean_data(inputs, cfg))
 if (!is.null(cleaned)) {
   run_stage("normalisation",          function() normalise_data(cleaned, cfg))
   run_stage("taxonomy",               function() run_taxonomy(cleaned, cfg))
+  run_stage("shared_fraction",        function() run_shared_fraction(cleaned, cfg))
+  run_stage("taxa_tree",              function() run_taxa_tree(cleaned, cfg))
   run_stage("relative_abundance",     function() run_relative_abundance(cleaned, cfg))
   run_stage("alpha_diversity",        function() run_alpha_diversity(cleaned, cfg))
   run_stage("beta_diversity",         function() run_beta_diversity(cleaned, cfg))
   run_stage("differential_abundance", function() run_aldex(cleaned, cfg))
+  run_stage("daa_tree",               function() run_daa_tree(cleaned, cfg))
   run_stage("resistome",              function() run_resistome(cleaned, cfg))
   run_stage("virulome",               function() run_virulome(cleaned, cfg))
   run_stage("mobilome",               function() run_mobilome(cleaned, cfg))
