@@ -16,6 +16,13 @@
   with group membership, abundance, prevalence rings per group and element
   carriage. Tips need at least `taxa_tree.min_samples` detections (default 2).
   Uses igraph + ggraph (no new dependencies).
+- New stage `daa_tree` (R/08_daa_tree.R, runs after `differential_abundance`):
+  the same lineage tree for the top `daa_tree.top_n` ALDEx2 taxa per group pair
+  (default 30, ranked by |effect|): tips coloured by the group in which the
+  taxon is more abundant, sized by |effect|, significant taxa (wi.eBH, or
+  we.eBH where Wilcoxon was dropped, < alpha) ringed in red; outer ring shows
+  direction. Tree layout shared with `taxa_tree` (`sf_tree_layout()`); tip
+  labels drop strain / serotype / subspecies qualifiers.
 - Both stages honour `exclude_genera` (`shared_fraction.exclude_genera`,
   `taxa_tree.exclude_genera`), falling back to
   `differential_abundance.exclude_genera`, so one list of likely false-positive

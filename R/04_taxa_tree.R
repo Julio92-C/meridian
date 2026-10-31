@@ -27,36 +27,19 @@ run_taxa_tree <- function(cleaned, cfg) {
                             n_rare, min_samples))
   t <- tab[tab$name %in% sel, , drop = FALSE]
   ranks <- intersect(c("phylum", "class", "order", "family", "genus"), colnames(t))
-  for (r in ranks) t[[r]] <- ifelse(is.na(t[[r]]) | t[[r]] == "", paste0("unclassified ", r), t[[r]])
   hits <- cleaned$abri_kraken2
-  carriers <- if (!is.null(hits)) unique(gsub("\\[|\\]", "", hits$name[!is.na(sf_element_class(hits$DATABASE))])) else character(0)
+  carriers <- if (!is.null(hits)) unique(gsub("[][]", "", hits$name[!is.na(sf_element_class(hits$DATABASE))])) else character(0)
   t$carrier <- t$name %in% carriers
-
-  # Edge list keyed by full lineage path, so repeated labels under different
-  # parents ("unclassified class") stay separate nodes.
-  comp <- c(list(rep("Life", nrow(t))), lapply(ranks, function(r) t[[r]]), list(t$name))
-  paths <- Reduce(function(a, b) paste(a, b, sep = "/"), comp, accumulate = TRUE)
-  edges <- unique(do.call(rbind, lapply(seq_len(length(paths) - 1), function(i)
-    data.frame(from = paths[[i]], to = paths[[i + 1]], stringsAsFactors = FALSE))))
-  g <- igraph::graph_from_data_frame(edges, directed = TRUE)
-  lay <- ggraph::create_layout(g, layout = "dendrogram", circular = TRUE)
-  leaf <- lay[lay$leaf, , drop = FALSE]
-  m <- match(leaf$name, paths[[length(paths)]])
-  leaf$path <- leaf$name; leaf$name <- NULL
-  leaf <- cbind(as.data.frame(leaf), as.data.frame(t)[m, c("name", "category", "abund_all", "phylum", "carrier", paste0("prev_", inp$groups))])
   groups <- inp$groups; pal <- group_palette(groups, cfg)
+  tl <- sf_tree_layout(t, ranks, n_rings = length(groups))
+  lay <- tl$layout; leaf <- tl$leaf; t <- tl$table
   cats <- unique(leaf$category); cc <- sf_category_colours(cats, pal); names(cc) <- sf_category_label(cats, groups)
   leaf$cat <- sf_category_label(leaf$category, groups)
   leaf$ws  <- leaf$name %in% ws
-  ang <- atan2(leaf$y, leaf$x)
   rings <- dplyr::bind_rows(lapply(seq_along(groups), function(i) {
     r <- 1.08 + 0.07 * (i - 1)
-    data.frame(x = r * cos(ang), y = r * sin(ang), prev = leaf[[paste0("prev_", groups[i])]], group = groups[i])
+    data.frame(x = r * cos(leaf$ang), y = r * sin(leaf$ang), prev = leaf[[paste0("prev_", groups[i])]], group = groups[i])
   }))
-  r_lab <- 1.12 + 0.07 * length(groups)
-  leaf$lx <- r_lab * cos(ang); leaf$ly <- r_lab * sin(ang)
-  leaf$angle <- ang * 180 / pi; leaf$hjust <- ifelse(cos(ang) < 0, 1, 0)
-  leaf$angle <- ifelse(cos(ang) < 0, leaf$angle + 180, leaf$angle)
 
   phy_names <- unique(t$phylum)
 
@@ -89,14 +72,7 @@ run_taxa_tree <- function(cleaned, cfg) {
     ggplot2::theme_void(base_size = 9) +
     ggplot2::theme(plot.title = ggplot2::element_text(face = "bold"), legend.position = "bottom",
                    plot.margin = ggplot2::margin(10, 10, 10, 10))
-  # Phylum labels at the clade centroid, for phyla with at least 3 tips (small
-  # clades share the centre and their labels would overlap).
-  pl <- leaf |> dplyr::group_by(.data$phylum) |>
-    dplyr::summarise(a = atan2(mean(sin(atan2(.data$y, .data$x))), mean(cos(atan2(.data$y, .data$x)))), n = dplyr::n(), .groups = "drop") |>
-    dplyr::filter(.data$n >= 3)
-  pl$x <- 0.6 * cos(pl$a); pl$y <- 0.6 * sin(pl$a)
-  p <- p + ggplot2::geom_label(data = pl, ggplot2::aes(.data$x, .data$y, label = .data$phylum), size = 2.3,
-                               linewidth = 0, fill = grDevices::adjustcolor("white", 0.7), inherit.aes = FALSE)
+  p <- p + sf_tree_phylum_labels(leaf)
 
   fig_dir <- file.path(cfg$project_root, cfg$outputs$figures_dir, "taxa_tree")
   ds_dir  <- file.path(cfg$project_root, cfg$outputs$datasets_dir, "taxa_tree")

@@ -69,6 +69,7 @@ enabled_names <- c(
   if (isTRUE(cfg$stages$alpha_diversity))        "alpha_diversity",
   if (isTRUE(cfg$stages$beta_diversity))         "beta_diversity",
   if (isTRUE(cfg$stages$differential_abundance)) "differential_abundance",
+  if (isTRUE(cfg$stages$daa_tree %||% TRUE) && isTRUE(cfg$stages$differential_abundance)) "daa_tree",
   if (isTRUE(cfg$stages$resistome))              "resistome",
   if (isTRUE(cfg$stages$virulome))               "virulome",
   if (isTRUE(cfg$stages$mobilome))               "mobilome",
@@ -171,6 +172,7 @@ if (!is.null(cleaned)) {
   run_stage("alpha_diversity",        function() run_alpha_diversity(cleaned, cfg))
   run_stage("beta_diversity",         function() run_beta_diversity(cleaned, cfg))
   run_stage("differential_abundance", function() run_aldex(cleaned, cfg))
+  run_stage("daa_tree",               function() run_daa_tree(cleaned, cfg))
   run_stage("resistome",              function() run_resistome(cleaned, cfg))
   run_stage("virulome",               function() run_virulome(cleaned, cfg))
   run_stage("mobilome",               function() run_mobilome(cleaned, cfg))

@@ -79,6 +79,7 @@ stages:
   alpha_diversity:        true
   beta_diversity:         true
   differential_abundance: true
+  daa_tree:               true      # taxonomic tree of the top ALDEx2 taxa per group pair
   resistome:              true
   virulome:               true
   mobilome:               true
@@ -103,6 +104,9 @@ shared_fraction:
   linkage_test:           false # permutation test of edge weights (seed: stats.cluster_seed)
   linkage_n_perm:         999
   # exclude_genera: [Plasmodium]  # genera to leave out; default = differential_abundance.exclude_genera, [] disables
+
+daa_tree:
+  top_n:                  30    # taxa per group pair, ranked by |ALDEx2 effect|
 
 figures:
   # formats: [tiff, pdf]   # extra siblings of each PNG in the shared_fraction / taxa_tree stages

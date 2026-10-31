@@ -129,6 +129,10 @@ There is no molecular phylogeny for read-level profiles. The tree is built from 
 
 **Later option:** a genome phylogeny of MAGs from the GTDB-Tk tree. That would need `ape`/`ggtree` added to renv and is outside v1.
 
+## DAA tree (added 2026-10-31)
+
+Stage `daa_tree` (`R/08_daa_tree.R`, after `differential_abundance`) draws the same lineage tree for the top `daa_tree.top_n` (default 30) ALDEx2 taxa of each group pair, ranked by |effect|, from `aldex2/taxa/<g1>_vs_<g2>.tsv`. Tip colour = group with the higher `rab.win.<group>`; size = |effect|; red ring and label = adjusted p (wi.eBH, else we.eBH) < alpha. Display names are mapped back to full names and lineage by cleaning the species list with the same `clean_taxa_names()` settings. Kinds: figure `daa_tree` (with `pair`), table `daa_tree_nodes`.
+
 ## Config (template defaults)
 
 ```yaml

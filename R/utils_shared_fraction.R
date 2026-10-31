@@ -275,5 +275,47 @@ sf_save <- function(p, file, width, height, dpi = 300) {
   invisible(file)
 }
 
+# Circular dendrogram layout of a lineage table (shared by the taxonomic and
+# DAA trees). `t` has a `name` column plus the rank columns in `ranks`; missing
+# ranks become "unclassified <rank>". The edge list is keyed by full lineage
+# path so repeated labels under different parents stay separate nodes.
+# Returns the ggraph layout and one row per tip with its angle, label position
+# (outside `n_rings` rings) and every column of `t`.
+sf_tree_layout <- function(t, ranks, n_rings = 0) {
+  for (r in ranks) t[[r]] <- ifelse(is.na(t[[r]]) | t[[r]] == "", paste0("unclassified ", r), t[[r]])
+  comp <- c(list(rep("Life", nrow(t))), lapply(ranks, function(r) t[[r]]), list(t$name))
+  paths <- Reduce(function(a, b) paste(a, b, sep = "/"), comp, accumulate = TRUE)
+  edges <- unique(do.call(rbind, lapply(seq_len(length(paths) - 1), function(i)
+    data.frame(from = paths[[i]], to = paths[[i + 1]], stringsAsFactors = FALSE))))
+  g <- igraph::graph_from_data_frame(edges, directed = TRUE)
+  lay <- ggraph::create_layout(g, layout = "dendrogram", circular = TRUE)
+  leaf <- lay[lay$leaf, , drop = FALSE]
+  m <- match(leaf$name, paths[[length(paths)]])
+  leaf$path <- leaf$name; leaf$name <- NULL
+  leaf <- cbind(as.data.frame(leaf)[c("x", "y", "path")], as.data.frame(t)[m, , drop = FALSE])
+  leaf$ang <- atan2(leaf$y, leaf$x)
+  r_lab <- 1.12 + 0.07 * n_rings
+  leaf$lx <- r_lab * cos(leaf$ang); leaf$ly <- r_lab * sin(leaf$ang)
+  leaf$hjust <- ifelse(cos(leaf$ang) < 0, 1, 0)
+  leaf$angle <- leaf$ang * 180 / pi + ifelse(cos(leaf$ang) < 0, 180, 0)
+  list(layout = lay, leaf = leaf, table = t)
+}
+
+# Phylum labels at the clade centroid, for phyla with at least `min_tips` tips
+# (small clades share the centre and their labels would overlap).
+sf_tree_phylum_labels <- function(leaf, min_tips = 3, radius = 0.6) {
+  pl <- leaf |> dplyr::group_by(.data$phylum) |>
+    dplyr::summarise(a = atan2(mean(sin(.data$ang)), mean(cos(.data$ang))), n = dplyr::n(), .groups = "drop") |>
+    dplyr::filter(.data$n >= min_tips)
+  pl$x <- radius * cos(pl$a); pl$y <- radius * sin(pl$a)
+  ggplot2::geom_label(data = pl, ggplot2::aes(.data$x, .data$y, label = .data$phylum), size = 2.3,
+                      linewidth = 0, fill = grDevices::adjustcolor("white", 0.7), inherit.aes = FALSE)
+}
+
 # Short display label: "Genus species" -> "G. species".
-sf_short <- function(x) sub("^(\\w)\\w+\\s+", "\\1. ", x)
+# Strain / serotype / subspecies qualifiers are dropped so tree labels stay
+# short: "Yersinia enterocolitica (type O:5) str. YE53/03" -> "Y. enterocolitica".
+sf_short <- function(x) {
+  x <- sub("\\s+(\\(|str\\.|subsp\\.|serovar|pv\\.|biovar).*$", "", x)
+  sub("^(\\w)\\w+\\s+", "\\1. ", x)
+}
