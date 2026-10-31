@@ -486,6 +486,7 @@ run_panels <- function(cfg) {
 #   legend_position : "right" | "left" | "top" | "bottom" | "none"
 #   legend_ncol     : integer  (forces guide_legend ncol)
 #   legend_nrow     : integer  (forces guide_legend nrow)
+#   legend_title    : false    (drops the legend title, e.g. a wide top legend)
 #   axis_text_size  : numeric  pt size override for axis.text
 #   strip_axis_text : "x" | "y" | "both" | "none"   (drop labels entirely)
 #
@@ -512,6 +513,9 @@ run_panels <- function(cfg) {
     th$legend.title <- ggplot2::element_text(
       size = as.numeric(overrides$legend_text_size) + 1
     )
+  }
+  if (isFALSE(overrides$legend_title)) {
+    th$legend.title <- ggplot2::element_blank()
   }
   if (!is.null(overrides$legend_key_size_cm)) {
     th$legend.key.size <- grid::unit(

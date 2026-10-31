@@ -351,7 +351,8 @@ ge_plot_alpha_violin <- function(alpha, group, metric, kw, pal_group, file,
     ggplot2::geom_boxplot(width = 0.55, outlier.shape = NA, alpha = 0.55) +
     ggplot2::geom_jitter(width = 0.12, size = 1.7, alpha = 0.85) +
     ggplot2::scale_fill_manual(values = pal_group) +
-    ggplot2::labs(x = group, y = stringr::str_to_title(metric)) +
+    ggplot2::scale_y_continuous(expand = stats_headroom(if (is.null(kw)) 0 else 1)) +
+    ggplot2::labs(x = pretty_var(group), y = stringr::str_to_title(metric)) +
     ggplot2::theme_classic() +
     ggplot2::theme(legend.position = "none",
                    text = ggplot2::element_text(size = 13))
@@ -466,8 +467,9 @@ ge_plot_abundance_violin <- function(df, group, pal_group, file,
                      fill = .data[[group]])) +
     ggplot2::geom_boxplot(width = 0.55, outlier.shape = NA, alpha = 0.55) +
     ggplot2::geom_jitter(width = 0.12, size = 0.6, alpha = 0.3) +
+    ggplot2::scale_y_continuous(expand = stats_headroom(if (is.null(kw)) 0 else 1)) +
     ggplot2::scale_fill_manual(values = pal_group) +
-    ggplot2::labs(x = group, y = y_label, title = title) +
+    ggplot2::labs(x = pretty_var(group), y = y_label, title = title) +
     ggplot2::theme_classic() +
     ggplot2::theme(legend.position = "none",
                    plot.title = ggplot2::element_text(hjust = 0.5,
@@ -625,6 +627,7 @@ ge_plot_category_upset <- function(df, category_col, group, file,
 ge_plot_category_venn <- function(df, category_col, group, pal_group,
                                    file, main_title, log_label, cfg,
                                    value_col = "TPM") {
+  if (!figure_wanted(file)) return(invisible(NULL))   # figures.set: core keeps the UpSet twin
   if (!requireNamespace("VennDiagram", quietly = TRUE)) {
     pipeline_log(cfg, sprintf("%s: VennDiagram not available — Venn skipped",
                               log_label))
@@ -711,7 +714,8 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
                                   legend_top          = FALSE,
                                   legend_title        = "value",
                                   fontsize_legend     = 8,
-                                  fontsize_annotation = 8) {
+                                  fontsize_annotation = 8,
+                                  max_col_labels      = 40) {
   # Nothing to draw (e.g. no gene carries a recognised category): skip
   # rather than hand pheatmap an empty matrix.
   if (nrow(df) == 0) return(invisible(NULL))
@@ -791,8 +795,18 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
   names(ann_colors)[names(ann_colors) == group]        <- display_group
   names(ann_colors)[names(ann_colors) == category_col] <- display_cat
 
-  hm_width  <- width  %||% max(6, 0.32 * ncol(gene_scaled) + 3)
-  hm_height <- height %||% max(min_height, row_height_factor * nrow(gene_scaled) + 2.5)
+  # Canvas: cap the width (cohorts with ~100 samples drew a 4:1 strip that the
+  # 1x1 composite slot letterboxed, shrinking every label) and keep the height
+  # at least 0.6 x the width; column and row text then sized to the cells.
+  n_col <- ncol(gene_scaled); n_row <- nrow(gene_scaled)
+  hm_width  <- width  %||% min(16, max(6, 0.32 * n_col + 3))
+  hm_height <- height %||% max(min_height, row_height_factor * n_row + 2.5,
+                               0.6 * hm_width)
+  fontsize_col <- max(3, min(8, round(0.8 * 72 * (hm_width - 3) / n_col, 1)))
+  if (is.null(height)) {
+    fontsize_row <- max(fontsize_row,
+                        min(10, round(0.6 * 72 * (hm_height - 3) / n_row, 1)))
+  }
   ph_args <- list(
     mat               = gene_scaled,
     cluster_rows      = FALSE,
@@ -804,7 +818,9 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
     breaks            = seq(0, 1, length.out = 101),
     border_color      = NA,
     show_rownames     = TRUE,
-    show_colnames     = TRUE,
+    # Above `max_col_labels` samples the IDs are unreadable at any size; the
+    # group bar on top still shows which samples belong to which group.
+    show_colnames     = n_col <= max_col_labels,
     annotation_row    = cat_per_gene,
     annotation_col    = sample_group,
     annotation_colors = if (length(ann_colors) > 0) ann_colors else NA,
@@ -812,7 +828,7 @@ ge_plot_gene_heatmap <- function(df, group, pal_group, pal_category,
     annotation_names_row = FALSE,
     annotation_names_col = FALSE,
     gaps_col          = gaps_col,
-    fontsize_row = fontsize_row, fontsize_col = 8, fontsize = 8
+    fontsize_row = fontsize_row, fontsize_col = fontsize_col, fontsize = 8
   )
   if (isTRUE(legend_top)) {
     ph <- do.call(pheatmap::pheatmap, c(ph_args, list(silent = TRUE)))
@@ -1162,11 +1178,12 @@ ge_plot_beta <- function(df, group, pal_group, opts, fig_file,
     ggplot2::scale_color_manual(values = pal_group) +
     ggplot2::labs(
       title = sprintf("%s PCoA (%s, %s-transformed) — by %s",
-                      title_prefix, distance, transform, group),
-      colour = group,
+                      title_prefix, distance, transform, tolower(pretty_var(group))),
+      colour = pretty_var(group),
       x = sprintf("PC1 (%.1f%%)", var_expl[1]),
       y = sprintf("PC2 (%.1f%%)", var_expl[2])
     ) +
+    ggplot2::scale_y_continuous(expand = stats_headroom(n_text_lines(annot))) +
     ggplot2::annotate("text", x = Inf, y = Inf, label = annot,
                       hjust = 1.05, vjust = 1.5,
                       size = 4, colour = "black") +

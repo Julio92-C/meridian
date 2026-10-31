@@ -27,7 +27,7 @@ build_stream_composition <- function(df,
                                       value_col      = "count",
                                       sample_col     = "sample",
                                       palette        = NULL,
-                                      top_n          = 12,
+                                      top_n          = 10,
                                       others_label   = "Others",
                                       title          = NULL,
                                       fill_label     = NULL,
@@ -149,7 +149,7 @@ build_stream_composition <- function(df,
                                  labels = group_levels,
                                  expand = ggplot2::expansion(mult = 0.02)) +
     ggplot2::labs(
-      x     = group_col,
+      x     = pretty_var(group_col),
       y     = "Relative abundance (%)",
       fill  = fill_label %||% category_col,
       title = title
@@ -162,6 +162,12 @@ build_stream_composition <- function(df,
     )
 
   if (!is.null(palette)) {
+    # Gene palettes have no Others entry: without one ggplot fills it with
+    # na.value and leaves it out of the legend. Light grey, so it is not
+    # mistaken for a palette grey (e.g. Lincosamide).
+    if (others_label %in% cat_levels && !others_label %in% names(palette)) {
+      palette <- c(palette, stats::setNames("grey85", others_label))
+    }
     p <- p + ggplot2::scale_fill_manual(values = palette,
                                           na.value = "grey60")
   }

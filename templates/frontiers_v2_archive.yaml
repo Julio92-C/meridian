@@ -352,3 +352,88 @@ supplementary:
     panels:
       - tag: A
         kind: vf_arg_corr_heatmap
+
+  # Moved from frontiers_v2_slots.yaml on 2026-10-27. Needs `figures: full` (or include:
+  # [drug_total_count, venn_args, ...]) for panels B and D.
+  # =============================================================
+  # Diet effects on gene elements (GEs) across treatments
+  # =============================================================
+  # Three per-domain supplementary composites (ARG / VF / MGE),
+  # each 2x2 (A-D) layout:
+  #   A relative abundance per sample (stacked bar)
+  #   B TPM x prevalence dot plot (per category)
+  #   C abundance log(TPM) box+jitter w/ pairwise asterisks
+  #   D treatment-overlap gene-level Venn
+  #
+  # 2026-06-22: panel D switched from category/gene pheatmaps to
+  # gene-level Venns (ge_venn_args / ge_venn_vfs / ge_venn_replicons).
+  # The displaced gene-level pheatmaps were promoted to main as
+  # fig11/fig12/fig13 (full-detail standalone heatmaps).
+
+  figS_diet_effects_arg:
+    title: "Diet effects on antibiotic resistance genes (ARGs) across treatments"
+    subsection: resistome
+    rows: 2
+    cols: 2
+    labels: true
+    panels:
+      - tag: A
+        kind: ge_drug_relative_abundance
+        domain: resistome
+        # Panel B (right) labels every drug class on its y-axis with its
+        # Total TPM, so it already serves as a legend for panel A's bars.
+        composite:
+          legend_position: none
+      - tag: B
+        kind: ge_drug_total_count
+        domain: resistome
+      - tag: C
+        kind: ge_arg_abundance_violin
+        domain: resistome
+      - tag: D
+        kind: ge_venn_args
+        domain: resistome
+
+  figS_diet_effects_vf:
+    title: "Diet effects on virulence factors (VFs) across treatments"
+    subsection: virulome
+    rows: 2
+    cols: 2
+    labels: true
+    panels:
+      - tag: A
+        kind: ge_vf_relative_abundance
+        domain: virulome
+        composite:
+          legend_position: none
+      - tag: B
+        kind: ge_vf_total_count
+        domain: virulome
+      - tag: C
+        kind: ge_vf_abundance_violin
+        domain: virulome
+      - tag: D
+        kind: ge_venn_vfs
+        domain: virulome
+
+  figS_diet_effects_mge:
+    title: "Diet effects on plasmid replicons (MGEs) across treatments"
+    subsection: mobilome
+    rows: 2
+    cols: 2
+    labels: true
+    panels:
+      - tag: A
+        kind: ge_mge_relative_abundance
+        domain: mobilome
+        composite:
+          legend_position: none
+      - tag: B
+        kind: ge_mge_total_count
+        domain: mobilome
+      - tag: C
+        kind: ge_mge_abundance_violin
+        domain: mobilome
+      - tag: D
+        kind: ge_venn_replicons
+        domain: mobilome

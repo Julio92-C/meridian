@@ -364,23 +364,23 @@ build_stage_relative_abundance <- function(cfg, stage_times) {
       figure_entry(cfg, fig_path(cfg, "relative_abundance/relative_abundance_stream.png"),
                    kind = "composition_stream", groups = as.list(groups),
                    rank = "species",
-                   caption_seed = "Smoothed stacked-area composition by treatment group (per-group mean %), species level."),
+                   caption_seed = "Smoothed stacked-area composition by group (per-group mean %), species level."),
       figure_entry(cfg, fig_path(cfg, "relative_abundance/relative_abundance_stream_class.png"),
                    kind = "composition_stream", groups = as.list(groups),
                    rank = "class",
-                   caption_seed = "Smoothed stacked-area composition by treatment group, class level."),
+                   caption_seed = "Smoothed stacked-area composition by group, class level."),
       figure_entry(cfg, fig_path(cfg, "relative_abundance/relative_abundance_stream_order.png"),
                    kind = "composition_stream", groups = as.list(groups),
                    rank = "order",
-                   caption_seed = "Smoothed stacked-area composition by treatment group, order level."),
+                   caption_seed = "Smoothed stacked-area composition by group, order level."),
       figure_entry(cfg, fig_path(cfg, "relative_abundance/relative_abundance_stream_family.png"),
                    kind = "composition_stream", groups = as.list(groups),
                    rank = "family",
-                   caption_seed = "Smoothed stacked-area composition by treatment group, family level."),
+                   caption_seed = "Smoothed stacked-area composition by group, family level."),
       figure_entry(cfg, fig_path(cfg, "relative_abundance/relative_abundance_stream_genus.png"),
                    kind = "composition_stream", groups = as.list(groups),
                    rank = "genus",
-                   caption_seed = "Smoothed stacked-area composition by treatment group, genus level."),
+                   caption_seed = "Smoothed stacked-area composition by group, genus level."),
       figure_entry(cfg, fig_path(cfg, "relative_abundance/species_count.png"),
                    kind = "species_count",
                    caption_seed = "Distinct species observed per sample, grouped by primary grouping."),
@@ -389,10 +389,10 @@ build_stage_relative_abundance <- function(cfg, stage_times) {
                    caption_seed = "Per-sample distinct-species counts paired with feature prevalence."),
       figure_entry(cfg, fig_path(cfg, "relative_abundance/unique_species_relative_abundance.png"),
                    kind = "composition_unique_species", groups = as.list(groups),
-                   caption_seed = "Relative abundance of species unique to each treatment group."),
+                   caption_seed = "Relative abundance of species unique to each group."),
       figure_entry(cfg, fig_path(cfg, "relative_abundance/shared_species_relative_abundance.png"),
                    kind = "composition_shared_species", groups = as.list(groups),
-                   caption_seed = "Relative abundance of species shared across all treatment groups."),
+                   caption_seed = "Relative abundance of species shared across all groups."),
       figure_entry(cfg, fig_path(cfg, "relative_abundance/genus_heatmap_top30.png"),
                    kind = "genus_heatmap", groups = as.list(groups),
                    caption_seed = "Heatmap of the top 30 genera by mean relative abundance, hierarchically clustered on both axes (Bray-Curtis, complete linkage).")
@@ -558,7 +558,7 @@ build_stage_differential_abundance <- function(cfg, stage_times) {
       figures[[length(figures) + 1]] <- figure_entry(
         cfg, fig_path(cfg, "differential_abundance/taxa/top30_daa_heatmap.png"),
         kind = "taxa_daa_heatmap", domain = "taxa",
-        caption_seed = "Sample-level heatmap of the top 30 differentially-abundant taxa across treatment groups.")
+        caption_seed = "Sample-level heatmap of the top 30 differentially-abundant taxa across groups.")
       # ALDEx2 cross-comparison dotplot summary (PIPELINE_V2_GAPS C6;
       # taxa only). Figure_entry returns NULL if the PNG isn't on disk
       # (e.g. no features significant in any pair).
@@ -611,7 +611,7 @@ build_stage_ge_domain <- function(cfg, domain, stage_times) {
             kind   = "arg_upset",
             domain = "resistome",
             groups = as.list(cfg_group_levels(cfg)),
-            caption_seed = "UpSet plot of ARG gene families shared and unique across dietary treatment groups."
+            caption_seed = "UpSet plot of ARG gene families shared and unique across groups."
           ))
         }
         if (domain == "virulome" && base == "vf_upset_treatments") {
@@ -620,7 +620,7 @@ build_stage_ge_domain <- function(cfg, domain, stage_times) {
             kind   = "vf_upset",
             domain = "virulome",
             groups = as.list(cfg_group_levels(cfg)),
-            caption_seed = "UpSet plot of virulence-factor genes shared and unique across dietary treatment groups."
+            caption_seed = "UpSet plot of virulence-factor genes shared and unique across groups."
           ))
         }
         if (domain == "mobilome" && base == "mge_upset_treatments") {
@@ -629,7 +629,7 @@ build_stage_ge_domain <- function(cfg, domain, stage_times) {
             kind   = "mge_upset",
             domain = "mobilome",
             groups = as.list(cfg_group_levels(cfg)),
-            caption_seed = "UpSet plot of plasmid-replicon genes shared and unique across dietary treatment groups."
+            caption_seed = "UpSet plot of plasmid-replicon genes shared and unique across groups."
           ))
         }
         if (domain == "resistome" && base == "arg_circos_drugclass") {
@@ -637,7 +637,7 @@ build_stage_ge_domain <- function(cfg, domain, stage_times) {
             cfg, rel,
             kind   = "arg_circos",
             domain = "resistome",
-            caption_seed = "Circos plot showing proportional contribution of antibiotic drug classes to total ARG TPM across dietary treatment groups."
+            caption_seed = "Circos plot showing proportional contribution of antibiotic drug classes to total ARG TPM across groups."
           ))
         }
         # Per-organism deep-dive (B6, Frontiers Figs S6/S11). Hardcoded
@@ -653,7 +653,7 @@ build_stage_ge_domain <- function(cfg, domain, stage_times) {
             domain   = "resistome",
             organism = "Clostridioides difficile",
             caption_seed = if (grepl("count_per_treatment", base))
-              "Per-sample Clostridioides difficile count grouped by treatment with Kruskal-Wallis p-value."
+              "Per-sample Clostridioides difficile count grouped by group with Kruskal-Wallis p-value."
             else
               "Per-sample ARG neighbourhood map for Clostridioides difficile."
           ))
@@ -667,7 +667,7 @@ build_stage_ge_domain <- function(cfg, domain, stage_times) {
             domain   = "resistome",
             organism = "Enterobacteriaceae",
             caption_seed = if (grepl("count_per_treatment", base))
-              "Per-sample Enterobacteriaceae count grouped by treatment with Kruskal-Wallis p-value."
+              "Per-sample Enterobacteriaceae count grouped by group with Kruskal-Wallis p-value."
             else
               "Per-sample ARG neighbourhood map for Enterobacteriaceae."
           ))
@@ -761,7 +761,7 @@ build_stage_network <- function(cfg, stage_times) {
         figure_entry(cfg, fig_path(cfg, "network/connectivity_venn_taxa.png"),
                      kind = "connectivity_venn_taxa",
                      groups = as.list(cfg_group_levels(cfg)),
-                     caption_seed = "Network-connected taxa shared and unique across treatment groups."),
+                     caption_seed = "Network-connected taxa shared and unique across groups."),
         figure_entry(cfg, fig_path(cfg, "network/connectivity_venn_genesets.png"),
                      kind = "connectivity_venn_genesets",
                      groups = list("ARGs", "VFs", "MGEs"),
@@ -772,7 +772,7 @@ build_stage_network <- function(cfg, stage_times) {
         figure_entry(cfg, fig_path(cfg, "network/mobile_arg_fraction_bar.png"),
                      kind = "mobile_fraction_bar",
                      groups = as.list(cfg_group_levels(cfg)),
-                     caption_seed = "Proportion of ARG TPM carried on predicted mobile contigs (co-harbouring a PlasmidFinder hit) by treatment group; Kruskal-Wallis annotated."),
+                     caption_seed = "Proportion of ARG TPM carried on predicted mobile contigs (co-harbouring a PlasmidFinder hit) by group; Kruskal-Wallis annotated."),
         figure_entry(cfg, fig_path(cfg, "network/sankey_taxon_arg_mge.png"),
                      kind = "sankey_taxon_arg_mge",
                      caption_seed = "Sankey of mobile-ARG flow from bacterial phylum to ARG drug class to MGE replicon family; ribbons weighted by CARD TPM summed over mobile contigs (CARD + PlasmidFinder co-occurrence).")

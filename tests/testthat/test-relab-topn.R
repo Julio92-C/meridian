@@ -33,10 +33,10 @@ test_that("top-N is ranked by mean per-sample %, not total raw counts", {
   expect_equal(tail(prep$taxa_levels, 1), "Others")
 })
 
-test_that("default top_n is 15 and ra_cfg$top_n overrides it", {
+test_that("default top_n is 10 and ra_cfg$top_n overrides it", {
   d <- data.frame(sample = "s1", group = "A",
                   name = sprintf("T%02d", 1:30), count = 30:1)
-  expect_equal(length(ra_prepare_composition(d, "group", list())$top_taxa), 15)
+  expect_equal(length(ra_prepare_composition(d, "group", list())$top_taxa), 10)
   expect_equal(length(ra_prepare_composition(d, "group", list(top_n = 5))$top_taxa), 5)
 })
 

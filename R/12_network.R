@@ -930,6 +930,10 @@ run_network <- function(cleaned, cfg) {
   # sample labels so the IDs remain visible but stop colliding. Other
   # axes keep label_size so taxon / gene / category labels stay readable.
   sample_label_size <- scfg$sample_label_size %||% label_size
+  # Strata thinner than this share of their axis are drawn but not labelled:
+  # with ~100 samples / ~50 taxa their labels overprinted into an unreadable
+  # block. The interactive HTML sankey keeps every label (hover).
+  label_min_prop    <- scfg$png_label_min_prop %||% 0.015
 
   p <- ggplot2::ggplot(
         df_alluv,
@@ -951,7 +955,9 @@ run_network <- function(cleaned, cfg) {
     ggplot2::geom_text(
       stat = ggalluvial::StatStratum,
       ggplot2::aes(
-        label = ggplot2::after_stat(stratum),
+        label = ggplot2::after_stat(
+          ifelse(prop >= label_min_prop, as.character(stratum), "")
+        ),
         size  = ggplot2::after_stat(
           ifelse(x == 1L, sample_label_size, label_size)
         )
@@ -1311,7 +1317,7 @@ run_network <- function(cleaned, cfg) {
                    paste0(sprintf("%.2f", r_mat), stars))
   diag(labels) <- "—"
 
-  pheatmap::pheatmap(
+  if (!figure_skip(file.path(fig_dir, "mantel_correlation_triangle.png"))) pheatmap::pheatmap(
     r_mat,
     cluster_rows = FALSE, cluster_cols = FALSE,
     color  = grDevices::colorRampPalette(
@@ -1476,9 +1482,9 @@ run_network <- function(cleaned, cfg) {
     ggplot2::scale_fill_manual(values = c(`Non-mobile` = "#4575b4",
                                            Mobile      = "#d73027")) +
     ggplot2::labs(
-      x = group, y = "% of total ARG TPM",
+      x = pretty_var(group), y = "% of total ARG TPM",
       fill = NULL,
-      title = sprintf("ARG mobile fraction by treatment (%s)", kw_label)
+      title = sprintf("ARG mobile fraction by %s (%s)", tolower(pretty_var(group)), kw_label)
     ) +
     ggplot2::theme_classic() +
     ggplot2::theme(

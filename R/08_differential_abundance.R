@@ -680,6 +680,7 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
   if (level == "taxa") {
     for (cn in names(raw_results)) {
       res_obj <- raw_results[[cn]]
+      if (figure_skip(file.path(fig_dir, paste0("aldex2_maplot_", cn, ".png")))) next
       grDevices::png(file.path(fig_dir, paste0("aldex2_maplot_", cn, ".png")),
                      width = 1800, height = 1400, res = 300, bg = "white")
       tryCatch({
@@ -761,7 +762,7 @@ da_run_level <- function(level, picked, cleaned, cfg, meta, sid, group,
           pipeline_log(cfg, sprintf(
             "DA[%s] top30 heatmap: z-scored matrix is constant — heatmap skipped", level))
         } else {
-          pheatmap::pheatmap(
+          if (!figure_skip(file.path(fig_dir, "top30_daa_heatmap.png"))) pheatmap::pheatmap(
             z,
             cluster_rows = FALSE,
             cluster_cols = FALSE,
@@ -1022,7 +1023,7 @@ da_feature_panel <- function(feat, mat, meta_use, sid, group, feature_col,
     ggplot2::geom_boxplot(width = 0.12, outlier.shape = NA,
                           position = ggplot2::position_dodge(0.9)) +
     ggplot2::scale_fill_manual(values = pal) +
-    ggplot2::labs(x = group, y = "log10(count + 1)", title = viol_title) +
+    ggplot2::labs(x = pretty_var(group), y = "log10(count + 1)", title = viol_title) +
     ggplot2::theme_classic() +
     ggplot2::theme(legend.position = "none",
                    plot.title = ggplot2::element_text(hjust = 0.5))

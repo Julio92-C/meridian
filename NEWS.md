@@ -1,4 +1,4 @@
-# MERIDIAN (development)
+# MERIDIAN (development version)
 
 - New stage `shared_fraction` (R/04_shared_fraction.R, helpers in
   R/utils_shared_fraction.R) for any number of groups: per-species prevalence and
@@ -41,6 +41,49 @@
 - Both stages are on by default (`stages.shared_fraction`, `stages.taxa_tree`),
   register new manifest kinds (`shared_fraction_*`, `taxa_tree*`) and leave the
   composite panels unchanged. Harness: `scripts/shared_fraction_only.R`.
+- New opt-in community filters (all off by default; outputs unchanged
+  unless set):
+  - `taxa_filter.rank` (e.g. `[S]`) keeps rows by the Kraken2 rank code in
+    taxonomy, relative abundance, alpha, beta and taxa DA, so strain rows
+    are not double-counted against their species;
+    `taxa_filter.min_sample_reads` drops near-empty samples.
+  - `filters.microbial_only: true` drops plant, animal and unplaced taxa
+    by Kraken2 lineage (a `lineage_class` column is added to the cleaned
+    tables, and excluded taxa are written to
+    `excluded_non_microbial_taxa.csv`).
+  - `alpha_diversity.species_rank_only` and
+    `alpha_diversity.min_count_per_sample` for richness, Shannon, Chao1 and
+    rarefaction.
+- ALDEx2 is reseeded before each level, so gene-level results no longer
+  depend on the taxa input (gene-level values shift within Monte-Carlo
+  noise).
+- hospital_microbiome project: batch-specific NX decontamination and
+  manuscript polish scripts.
+- Application note updated to the v1.2.0 results.
+
+# MERIDIAN 1.2.0
+
+- Patient-aware statistics for repeated samples (`metadata.random_effect` +
+  `random_effect_tests`): Kruskal-Wallis, pairwise Wilcoxon, PERMANOVA and
+  PERMDISP use cluster-respecting permutations. Pairwise tests use the
+  two-group KW H, so with two groups they agree with the overall KW.
+- Negative controls matched per sample (`metadata.control_match_cols`, e.g.
+  `[seq_run, batch]`): each sample is compared with its own run's controls,
+  else its batch's. Without the key every control is used, as before.
+- Beta diversity ordinates the community taxa table (not the gene-hit
+  subset) and accepts `beta_diversity.min_sample_reads`.
+- Figure set (`figures.set: core | full`, plus `include` / `exclude`): `core`
+  (default) writes 48 figures per comparison instead of 99, dropping
+  duplicates and rarely used plots; `full` restores all. Report and
+  composites follow the set.
+- Figure polish: top 10 taxa by default; relative-abundance legend in two
+  rows; stats labels clear of the data; metadata columns shown as words
+  ("Sample type"); no chicken-study "treatment" wording; readable
+  prevalence labels; Others in stream legends; gene heatmaps sized to their
+  slot; sankey labels only on strata large enough to read.
+- New projects: lung_microbiome_2026, lung_microbiome_final,
+  hospital_wastewater_eg, wetlands_flyway. Fixes: Abricate `_kraken2ID`
+  stripping, single-group contrast guards.
 
 # MERIDIAN 1.1.0
 

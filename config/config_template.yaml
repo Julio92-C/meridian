@@ -50,6 +50,12 @@ metadata:
   controls: []
   #   - CTRL1
   #   - CTRL2
+  # Optional: compare each sample only with the controls that share its value
+  # in these metadata columns, tried in order (controls need metadata rows).
+  # E.g. [seq_run, batch]: a sample's own run's controls, else its batch's;
+  # a sample with no matching control is not subtracted (listed in the log).
+  # Unset = every control is the baseline for every sample.
+  # control_match_cols: [seq_run, batch]
 
 # --------------------------------------------------------------------------- #
 # Manual taxid / name fixes. Optional CSV with columns: taxid,name             #
@@ -111,10 +117,6 @@ daa_tree:
   # min_effect: 0.5         # if set: all taxa with |effect| >= this (replaces top_n / balance)
   max_tips:               80    # cap on tips when min_effect is set (largest effects kept)
 
-figures:
-  # formats: [tiff, pdf]   # extra siblings of each PNG in the shared_fraction / taxa_tree stages
-                          # (tiff, pdf, svg). Unset = follow panels.tiff / panels.pdf below.
-
 taxa_tree:
   top_n:                  60    # most abundant species shown; widespread shared species always added
   min_samples:            2     # a tip must be detected in at least this many samples (all groups)
@@ -143,7 +145,7 @@ stats:
 # are the defaults. Override per project in projects/<slug>/config.yaml.       #
 # --------------------------------------------------------------------------- #
 # relative_abundance:
-#   top_n: 15                # taxa shown (by mean per-sample %); rest -> "Others"
+#   top_n: 10                # taxa shown (by mean per-sample %); rest -> "Others"
 #   main_panel: group        # group | stream | sample - figure used by the fig05 panel
 #                            #   (falls back group -> stream -> sample if it was not made)
 #   group_order: null        # e.g. [Control, Low, High]; x order of the group bars
@@ -200,6 +202,19 @@ panels:
   png:                   true
   tiff:                  false      # LZW-compressed 300-dpi TIFF for journal submission
   pdf:                   false      # cairo_pdf vector sibling
+
+# --------------------------------------------------------------------------- #
+# Figure set (R/utils_figures.R). `core` writes one figure of each duplicate  #
+# pair: violins (not per-sample bars), count + prevalence (not total-count    #
+# bars), stream plots (not stacked composition bars, taxa or genes), UpSet  #
+# (not the Venn of the same gene sets). `full` writes them all.              #
+# --------------------------------------------------------------------------- #
+figures:
+  set: core                         # core | full
+  include: []                       # file stems to write anyway, e.g. [venn_args]
+  exclude: []                       # file stems to skip, e.g. [jaccard_pcoa]
+  # formats: [tiff, pdf]           # extra siblings of each PNG in the shared_fraction / taxa_tree /
+                                    # daa_tree stages (tiff, pdf, svg); unset = follow panels.tiff / panels.pdf
 
 # --------------------------------------------------------------------------- #
 # Output paths (relative to project_root). When evaluating a new dataset for  #

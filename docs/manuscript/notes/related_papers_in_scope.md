@@ -11,7 +11,7 @@ Compiled 2026-05-29 via PubMed (legal notice: information from PubMed; all DOIs 
 - **Journal:** *Briefings in Bioinformatics* 2025;26(5):bbaf535.
 - **DOI:** [10.1093/bib/bbaf535](https://doi.org/10.1093/bib/bbaf535)
 - **PMID:** 41066697, **PMC:** PMC12510455
-- **Full text saved:** `templates/L-ARRAP_Li_2025_BriefBioinform.md`
+- **Full text saved:** `_literature/L-ARRAP_Li_2025_BriefBioinform.md` (local only, not tracked)
 - **Why useful:** same input modality (long-read), same scope (ARGs + MGEs + pathogens), narrative arc: "fragmented existing tools → integrated long-read pipeline → multi-niche validation → availability". This is the closest peer paper.
 
 ### 2. rANOMALY — R-workflow + auto-report angle
@@ -21,7 +21,7 @@ Compiled 2026-05-29 via PubMed (legal notice: information from PubMed; all DOIs 
 - **Journal:** *F1000Research* 2021;10:7.
 - **DOI:** [10.12688/f1000research.27268.1](https://doi.org/10.12688/f1000research.27268.1)
 - **PMID:** 33537122, **PMC:** PMC7836088
-- **Full text saved:** `templates/rANOMALY_Theil_Rifa_2021_F1000Research.md`
+- **Full text saved:** `_literature/rANOMALY_Theil_Rifa_2021_F1000Research.md` (local only, not tracked)
 - **Why useful:** same form factor (R package + Rmarkdown auto-report); structural template for "config-driven, reproducible, auto-reported" framing. Different domain (amplicon vs shotgun) — do not copy phrasing, use as structural template only.
 
 ### 3. microeco — R protocol reference

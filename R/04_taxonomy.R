@@ -163,7 +163,7 @@ run_taxonomy <- function(cleaned, cfg) {
       cat.cex = 1.5,
       cat.fontface = "bold",
       cex = 1.4,
-      main = "Shared species across treatment groups",
+      main = sprintf("Shared species by %s", tolower(pretty_var(group))),
       main.cex = 1.6,
       main.pos = c(0.5, 0.98),
       margin = 0.08,

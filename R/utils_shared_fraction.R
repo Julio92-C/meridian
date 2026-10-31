@@ -256,6 +256,9 @@ sf_set_figure_formats <- function(cfg) {
 }
 
 sf_save <- function(p, file, width, height, dpi = 300) {
+  # figures.set / include / exclude (utils_figures.R): a figure left out of the
+  # run's set gets no sibling formats either.
+  if (exists("figure_skip", mode = "function") && figure_skip(file)) return(invisible(NULL))
   # A PNG held open by an image viewer cannot be overwritten on Windows; warn
   # and still write the other formats rather than failing the stage.
   tryCatch(save_panel_ggplot(file, p, width = width, height = height, dpi = dpi),
