@@ -1,4 +1,4 @@
-# MERIDIAN (development version)
+# MERIDIAN 1.3.0
 
 - New stage `shared_fraction` (R/04_shared_fraction.R, helpers in
   R/utils_shared_fraction.R) for any number of groups: per-species prevalence and
