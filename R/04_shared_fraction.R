@@ -17,7 +17,10 @@ sf_prepare_inputs <- function(cleaned, cfg, stage = "Shared fraction", key = "sh
   cfg_full <- cfg
   cfg_full$taxa_display$abbreviate_genus <- FALSE
   cfg_full$taxa_display$max_name_len <- 1000
-  df <- clean_taxa_names(community_filter(cleaned$noncontaminants, cfg, stage), cfg_full)
+  # Species rank only (as R/05), so strain / subspecies rows are not counted as
+  # extra species next to their own species when taxa_filter.rank is unset.
+  nc <- ra_filter_species_rank(cleaned$noncontaminants, cfg)
+  df <- clean_taxa_names(community_filter(nc, cfg, stage), cfg_full)
   if (nrow(df) == 0) return(NULL)
   group <- cfg$metadata$group_cols[[1]]
   sid   <- cfg$metadata$sample_id_col
