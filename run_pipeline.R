@@ -3,7 +3,7 @@
 # Usage:
 #   Rscript run_pipeline.R projects/chicken_batch1/config.yaml
 
-MERIDIAN_VERSION <- "1.3.0"
+MERIDIAN_VERSION <- "1.3.1"
 
 `%||%` <- function(a, b) if (is.null(a)) b else a
 

@@ -1,3 +1,17 @@
+# MERIDIAN 1.3.1
+
+- Fix (`shared_fraction`): the stage keeps species-rank rows only (as R/05), so
+  strain / subspecies rows (kraken2 S1, S2, ...) are no longer counted as extra
+  species next to their own species. Their display labels collapsed onto the
+  species name and the widespread figure failed with "factor level is
+  duplicated" (seen on a 137-sample lung cohort). Test:
+  tests/testthat/test-shared-fraction-rank.R.
+- Fix (`network`): the chord diagram's gap between sectors shrinks with the
+  number of sectors (2 degrees up to 60 sectors, at most a third of the circle
+  in total). A fixed 2 degrees failed in circlize ("gap.degree is too large")
+  above ~180 sectors, e.g. 55 samples + 89 taxa + 97 genes + 16 classes. Test:
+  tests/testthat/test-network-chord-gap.R.
+
 # MERIDIAN 1.3.0
 
 - New stage `shared_fraction` (R/04_shared_fraction.R, helpers in

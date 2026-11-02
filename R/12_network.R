@@ -674,7 +674,8 @@ run_network <- function(cleaned, cfg) {
   # the canvas symmetrically (here ~45 % on each side) so even the long
   # taxon / drug-class strings fit. 2026-06-16.
   circlize::circos.par(
-    track.height = 0.1, start.degree = start_degree, gap.degree = 2,
+    track.height = 0.1, start.degree = start_degree,
+    gap.degree = .chord_gap_degree(length(cats)),
     circle.margin = c(0.30, 0.30, 0.30, 0.30),
     unit.circle.segments = 500
   )
@@ -697,6 +698,14 @@ run_network <- function(cleaned, cfg) {
     }, bg.border = NA
   )
   circlize::circos.clear()
+}
+
+# Gap between sectors: 2 degrees, shrunk when there are many sectors so the
+# gaps take at most a third of the circle (a fixed 2 degrees fails with
+# "gap.degree is too large" above ~180 sectors, e.g. 137 samples + taxa + genes).
+.chord_gap_degree <- function(n_sectors) {
+  if (n_sectors <= 0) return(2)
+  min(2, 120 / n_sectors)
 }
 
 .chord_colors <- function(n, palette_name) {
